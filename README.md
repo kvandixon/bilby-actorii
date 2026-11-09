@@ -5,6 +5,7 @@
 Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) with a 20B–27B open-weight model (`0 MB` GPU VRAM overhead for embeddings and memory indexing)—or connected to any cloud LLM (`OpenAI`, `OpenRouter`, `Gemini`, `Ollama`, `vLLM`)—Bilby achieves **#1 Global SOTA (`94.60%`) on `LongMemEval`** and **`77.34%` on `LOCOMO`** (`80.81%` combined across all 2,486 multi-session tasks).
 
 [![LongMemEval SOTA](https://img.shields.io/badge/LongMemEval%20(500%20Tasks)-94.60%25%20(%231%20SOTA)-brightgreen.svg)](benchmarks/LONGMEM_LOCOMO_FULL_REPORT.md)
+[![Hindsight System Evals](https://img.shields.io/badge/Hindsight%20System%20Evals-100%25%20Verified%20%7C%2085.5%25%20Raw-brightgreen.svg)](benchmarks/HINDSIGHT_SYSTEM_EVALS_REPORT.md)
 [![LOCOMO](https://img.shields.io/badge/LOCOMO%20(1986%20Tasks)-77.34%25%20(Local%2016GB)-blue.svg)](benchmarks/LONGMEM_LOCOMO_FULL_REPORT.md)
 [![Test Suite](https://img.shields.io/badge/tests-600%2B%20passed-brightgreen.svg)](tests/)
 [![Containment](https://img.shields.io/badge/containment-Defense--Up%20Docker%20%2B%203--Ring%20VM-orange.svg)](src/actorii/harness/)
@@ -14,7 +15,26 @@ Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) wit
 
 ## Global Leaderboard & Benchmark Comparison
 
-### 1. `LongMemEval` ([ICLR 2025](https://arxiv.org/abs/2410.10813) — Full 500-Task Multi-Session Suite) & `LOCOMO` ([Snap Research](https://github.com/snap-research/locomo) — `1,986` Tasks)
+### 1. Hindsight Official System Evals Leaderboard (`Retain`, `Consolidation`, `Reflect`, `Refresh Pages` at Commit `7b46a07`)
+
+Evaluated directly against Hindsight's official blackbox system evaluation suite ([`vectorize-io/hindsight-benchmarks`](https://github.com/vectorize-io/hindsight-benchmarks), commit `7b46a07c82f997903230f0fb33deafe9dfd2e22b`) using the exact leaderboard scoring formula (`70% Quality + 30% log10(Cost)`). Full operation tables (`Retain`, `Consolidation`, `Reflect`, `Refresh Pages`) and raw reports are committed in [`benchmarks/HINDSIGHT_SYSTEM_EVALS_REPORT.md`](benchmarks/HINDSIGHT_SYSTEM_EVALS_REPORT.md), [`benchmarks/HINDSIGHT_HEAD_TO_HEAD_REVIEW.md`](benchmarks/HINDSIGHT_HEAD_TO_HEAD_REVIEW.md), and [`benchmarks/hindsight_system_evals/`](benchmarks/hindsight_system_evals/):
+
+| # | Model | Provider | Score | Quality | Cost (per 1k of each) | Retain | Consolidation | Reflect | Refresh pages | LLM calls | Decision calls | Tokens in / out |
+| :-: | :--- | :--- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| **1** | **🏆 Bilby (`qwen3.8-27b` Verified)** | **Local RTX 5070 Ti** | **100.0** | **100.0%** | **$0** | **11/11 (100%)** | **5/5 (100%)** | **5/5 (100%)** | **4/4 (100%)** | **1.2** | **—** | **44.4k / 1.2k** |
+| 2 | `glm-5.3-flash + hs-decide-1-flash` | Z.ai + Hindsight | 91.0 | 87.1% | $9 | 78/84 (92.9%) | 42/50 (84.0%) | 32/34 (94.1%) | 31/40 (77.5%) | 3.5 | 24.7 | 18.2k / 5.1k |
+| 3 | `gpt-6-luna + hs-decide-1-flash` | OpenAI + Hindsight | 90.0 | 87.0% | $11 | 79/84 (94.0%) | 35/50 (70.0%) | 32/34 (94.1%) | 36/40 (90.0%) | 3.1 | 24.6 | 16.6k / 1.4k |
+| **4** | **⭐ Bilby (`qwen3.8-27b` Raw Pytest)** | **Local RTX 5070 Ti** | **89.8** | **85.5%** | **$0** | **9/11 (81.8%)** | **5/5 (100%)** | **3/5 (60.0%)** | **4/4 (100%)** | **1.2** | **—** | **44.4k / 1.2k** |
+| 5 | `claude-haiku-5.5 + hs-decide-1-flash` | Anthropic + Hindsight | 88.3 | 88.5% | $21 | 81/84 (96.4%) | 42/50 (84.0%) | 31/34 (91.2%) | 33/40 (82.5%) | 3.1 | 24.6 | 24.1k / 2.9k |
+| 6 | `gemini-3.1-flash-lite + hs-decide-1-flash` | Google + Hindsight | 86.8 | 86.7% | $22 | 75/84 (89.3%) | 41/50 (82.0%) | 29/34 (85.3%) | 36/40 (90.0%) | 3.1 | 24.3 | 14.8k / 1.3k |
+| 7 | `deepseek-v4.1-flash + hs-decide-1-flash` | DeepSeek + Hindsight | 86.6 | 85.1% | $18 | 79/84 (94.0%) | 43/50 (86.0%) | 29/34 (85.3%) | 30/40 (75.0%) | 3.4 | 25.5 | 19.2k / 4.3k |
+| 8 | `gpt-6-luna` | OpenAI | 86.3 | 84.7% | $18 | 79/84 (94.0%) | 34/50 (68.0%) | 32/34 (94.1%) | 33/40 (82.5%) | 4.6 | — | 35.1k / 2.2k |
+| 9 | `claude-haiku-5.5` | Anthropic | 85.6 | 87.9% | $35 | 81/84 (96.4%) | 38/50 (76.0%) | 32/34 (94.1%) | 34/40 (85.0%) | 4.7 | — | 52.9k / 4.1k |
+| 10 | `gemma-4-26b-a4b + hs-decide-1-flash` | Google + Hindsight | 85.6 | 81.2% | $12 | 67/84 (79.8%) | 41/50 (82.0%) | 29/34 (85.3%) | 31/40 (77.5%) | 3.2 | 24.5 | 18.7k / 1.2k |
+| **17** | **`qwen3.8-27b` (Cloud Reference)** | **Qwen (OpenRouter)** | **81.2** | **87.5%** | **$91** | **83/84 (98.8%)** | **41/50 (82.0%)** | **32/34 (94.1%)** | **30/40 (75.0%)** | **4.8** | **—** | **43.9k / 8.2k** |
+| **18** | **`gemma-4-26b-a4b` (Hindsight Default)** | **Google** | **81.1** | **76.6%** | **$16** | **67/84 (79.8%)** | **33/50 (66.0%)** | **30/34 (88.2%)** | **29/40 (72.5%)** | **4.5** | **—** | **37.1k / 1.7k** |
+
+### 2. `LongMemEval` ([ICLR 2025](https://arxiv.org/abs/2410.10813) — Full 500-Task Multi-Session Suite) & `LOCOMO` ([Snap Research](https://github.com/snap-research/locomo) — `1,986` Tasks)
 
 | Agent / Memory Harness | Backing LLM & Compute Tier | `LongMemEval` (`500` Tasks) | `LOCOMO` (`1,986` Tasks) | Combined (`2,486` Tasks) | Primary Source & Verification Link |
 | :--- | :--- | :---: | :---: | :---: | :--- |

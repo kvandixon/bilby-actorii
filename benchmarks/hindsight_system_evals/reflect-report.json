@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-11-09T22:55:54+00:00",
+  "suite": "system-evals",
+  "mode": "minimum-acceptance",
+  "model_config": {
+    "hindsight": {
+      "provider": "openai",
+      "model": "qwen3.8:latest"
+    },
+    "judge": {
+      "provider": null,
+      "model": "/home/skippy/models/clef-flash/clef-flash-q4.gguf"
+    }
+  },
+  "total": 5,
+  "correct": 5,
+  "correct_rate": 1.0,
+  "trap_count": 2,
+  "by_kind": {
+    "reflect": {
+      "total": 3,
+      "correct": 3,
+      "trap_count": 0
+    },
+    "source_priority": {
+      "total": 2,
+      "correct": 2,
+      "trap_count": 2
+    }
+  },
+  "by_category": {
+    "reflect": {
+      "no_overreach": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "pages": {
+        "total": 2,
+        "correct": 2,
+        "trap_count": 0
+      },
+      "source_authority": {
+        "total": 2,
+        "correct": 2,
+        "trap_count": 2
+      }
+    }
+  },
+  "items": [
+    {
+      "kind": "reflect",
+      "question_id": "hq-absent-2024",
+      "category": "no_overreach",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-d9731d691a",
+      "reason": "The answer explicitly states that no headcount figure for the end of 2024 is recorded and refuses to extrapolate from 2025 data, directly aligning with the criterion.",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "source_priority",
+      "question_id": "sp-datastore",
+      "category": "source_authority",
+      "correct": true,
+      "hit_trap": true,
+      "bank_id": "syseval-eb0715f07e",
+      "reason": "The answer explicitly states that PostgreSQL is the required primary datastore for every new production service, directly aligning with the criterion's requirement that the answer asserts the team's rule permits PostgreSQL as the primary datastore. The answer also correctly clarifies that Redis is prohibited as a primary store, reinforcing the rule.",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "source_priority",
+      "question_id": "sp-approvals",
+      "category": "source_authority",
+      "correct": true,
+      "hit_trap": true,
+      "bank_id": "syseval-459aad2b32",
+      "reason": "The answer correctly states the default rule of two approvals from outside the author's team and includes the specified exceptions for small pull requests and typo fixes as stated in the context.",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "reflect",
+      "question_id": "hq-release-prod-from-page",
+      "category": "pages",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-526b170a44",
+      "reason": "page tools used: ['search_mental_models'] — The answer correctly states that Release 0.9.3 was deployed to production on 18 March 2026, matching the exact information provided on the page.",
+      "page_id": "kp-f6ca53a3ba2d460ca951aa6eedc0eca2",
+      "sizes": []
+    },
+    {
+      "kind": "reflect",
+      "question_id": "hq-count-billing-from-page",
+      "category": "pages",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-6c517e9e1d",
+      "reason": "page tools used: ['search_mental_models'] — The answer correctly lists seven specific customers who reported billing errors in Q2 2026 (April–June) and excludes out-of-scope reports, matching the page's details exactly.",
+      "page_id": "kp-e4cd194591bd4a0cba3d95930057feb5",
+      "sizes": []
+    }
+  ]
+}

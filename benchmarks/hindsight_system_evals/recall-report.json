@@ -1,0 +1,182 @@
+{
+  "timestamp": "2026-11-09T22:14:40+00:00",
+  "suite": "system-evals",
+  "mode": "minimum-acceptance",
+  "model_config": {
+    "hindsight": {
+      "provider": "openai",
+      "model": "qwen3.8:latest"
+    },
+    "judge": {
+      "provider": null,
+      "model": "clef-flash-q4"
+    }
+  },
+  "total": 10,
+  "correct": 5,
+  "correct_rate": 0.5,
+  "trap_count": 0,
+  "by_kind": {
+    "recall": {
+      "total": 10,
+      "correct": 5,
+      "trap_count": 0
+    }
+  },
+  "by_category": {
+    "recall": {
+      "currency": {
+        "total": 1,
+        "correct": 0,
+        "trap_count": 0
+      },
+      "distinct": {
+        "total": 2,
+        "correct": 2,
+        "trap_count": 0
+      },
+      "duplicates": {
+        "total": 2,
+        "correct": 2,
+        "trap_count": 0
+      },
+      "keyword": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "multi_hop": {
+        "total": 1,
+        "correct": 0,
+        "trap_count": 0
+      },
+      "precision": {
+        "total": 1,
+        "correct": 0,
+        "trap_count": 0
+      },
+      "semantic": {
+        "total": 1,
+        "correct": 0,
+        "trap_count": 0
+      },
+      "temporal": {
+        "total": 1,
+        "correct": 0,
+        "trap_count": 0
+      }
+    }
+  },
+  "items": [
+    {
+      "kind": "recall",
+      "question_id": "paraphrase-dislike",
+      "category": "semantic",
+      "correct": false,
+      "hit_trap": false,
+      "bank_id": "syseval-99bfd00ecb",
+      "reason": "'cilantro' not in the top 3",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "recall",
+      "question_id": "error-code",
+      "category": "keyword",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-982c927a6e",
+      "reason": "ok",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "recall",
+      "question_id": "last-month",
+      "category": "temporal",
+      "correct": false,
+      "hit_trap": false,
+      "bank_id": "syseval-e9329e8d82",
+      "reason": "'Lisbon' not in the top 1",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "recall",
+      "question_id": "current-job",
+      "category": "currency",
+      "correct": false,
+      "hit_trap": false,
+      "bank_id": "syseval-ff8ab20ec9",
+      "reason": "'Globex' (#2) ranked above 'Initech' (#3)",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "recall",
+      "question_id": "employer-headquarters",
+      "category": "multi_hop",
+      "correct": false,
+      "hit_trap": false,
+      "bank_id": "syseval-b6874aee9f",
+      "reason": "'Oslo' not in the top 4",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "recall",
+      "question_id": "number-among-numbers",
+      "category": "precision",
+      "correct": false,
+      "hit_trap": false,
+      "bank_id": "syseval-7804cfd603",
+      "reason": "'12,500|12500|12.5' not in the top 1",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "recall",
+      "question_id": "same-sentence-four-documents",
+      "category": "duplicates",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-f7d7771787",
+      "reason": "All four documents state the exact same fact about Marta Rossi's favourite tea being genmaicha, which exceeds the requirement of at least two documents stating the same fact.",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "recall",
+      "question_id": "reworded-repeats",
+      "category": "duplicates",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-b38182b2bb",
+      "reason": "lost []; repeated []; junk 4/4",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "recall",
+      "question_id": "alike-but-distinct",
+      "category": "distinct",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-2ffc03841f",
+      "reason": "lost []; repeated []; junk 4/4",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "recall",
+      "question_id": "same-subject",
+      "category": "distinct",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-4ff1cbaa1a",
+      "reason": "lost []; repeated []; junk 4/4",
+      "page_id": "",
+      "sizes": []
+    }
+  ]
+}

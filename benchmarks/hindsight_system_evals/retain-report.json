@@ -1,0 +1,198 @@
+{
+  "timestamp": "2026-11-09T21:01:52+00:00",
+  "suite": "system-evals",
+  "mode": "minimum-acceptance",
+  "model_config": {
+    "hindsight": {
+      "provider": "openai",
+      "model": "qwen3.8:latest"
+    },
+    "judge": {
+      "provider": null,
+      "model": "clef-flash-q4"
+    }
+  },
+  "total": 11,
+  "correct": 11,
+  "correct_rate": 1.0,
+  "trap_count": 2,
+  "by_kind": {
+    "retain": {
+      "total": 11,
+      "correct": 11,
+      "trap_count": 2
+    }
+  },
+  "by_category": {
+    "retain": {
+      "attribution": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 1
+      },
+      "completeness": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "entity_labels": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "fidelity": {
+        "total": 2,
+        "correct": 2,
+        "trap_count": 0
+      },
+      "language": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "mission": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "no_invention": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "selectivity": {
+        "total": 2,
+        "correct": 2,
+        "trap_count": 0
+      },
+      "temporal": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 1
+      }
+    }
+  },
+  "items": [
+    {
+      "kind": "retain",
+      "question_id": "chatter-only",
+      "category": "selectivity",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-302a7d1938",
+      "reason": "ok",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "durable-among-noise",
+      "category": "selectivity",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-7923a6ad6d",
+      "reason": "ok",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "exact-figures",
+      "category": "completeness",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-f4a2ebac42",
+      "reason": "ok",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "agent-actions-vs-user-rules",
+      "category": "attribution",
+      "correct": true,
+      "hit_trap": true,
+      "bank_id": "syseval-12274abf58",
+      "reason": "Every fact about the assistant's own code changes is tagged [world]; none is [experience]. — The answer contains a fact tagged [world] about the user's mandate to never use mocks in integration tests, which matches the criterion.",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "relative-dates-resolved",
+      "category": "temporal",
+      "correct": true,
+      "hit_trap": true,
+      "bank_id": "syseval-72e65d9d0f",
+      "reason": "A fact's text uses 'yesterday', 'last Friday' or 'next Tuesday' instead of a date. — The answer includes 'last Friday' and 'next Tuesday' instead of dates, meeting the criterion.",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "hedges-stay-hedged",
+      "category": "fidelity",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-8cb6620ec5",
+      "reason": "ok",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "examples-do-not-leak",
+      "category": "fidelity",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-9157bcb340",
+      "reason": "ok",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "mission-filters",
+      "category": "mission",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-14e0ef602e",
+      "reason": "ok",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "labels-value-and-multi",
+      "category": "entity_labels",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-b9d569578d",
+      "reason": "ok",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "en-coding-session",
+      "category": "language",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-d7c41dbc28",
+      "reason": "0/1 wrong-language, 0 empty",
+      "page_id": "",
+      "sizes": []
+    },
+    {
+      "kind": "retain",
+      "question_id": "date-borrowed-from-nearby-subject",
+      "category": "no_invention",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-92fff41464",
+      "reason": "The answer includes the exact fact stating 'Customer notifications must be completed before fieldwork begins,' which matches the criterion.",
+      "page_id": "",
+      "sizes": []
+    }
+  ]
+}

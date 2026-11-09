@@ -1,0 +1,131 @@
+{
+  "timestamp": "2026-11-09T21:15:18+00:00",
+  "suite": "system-evals",
+  "mode": "minimum-acceptance",
+  "model_config": {
+    "hindsight": {
+      "provider": "openai",
+      "model": "qwen3.8:latest"
+    },
+    "judge": {
+      "provider": null,
+      "model": "clef-flash-q4"
+    }
+  },
+  "total": 5,
+  "correct": 5,
+  "correct_rate": 1.0,
+  "trap_count": 0,
+  "by_kind": {
+    "consolidation": {
+      "total": 5,
+      "correct": 5,
+      "trap_count": 0
+    }
+  },
+  "by_category": {
+    "consolidation": {
+      "counts": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "language": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "merge": {
+        "total": 1,
+        "correct": 1,
+        "trap_count": 0
+      },
+      "update": {
+        "total": 2,
+        "correct": 2,
+        "trap_count": 0
+      }
+    }
+  },
+  "items": [
+    {
+      "kind": "consolidation",
+      "question_id": "restatements-merge",
+      "category": "merge",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-21f079ca59",
+      "reason": "",
+      "page_id": "",
+      "sizes": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "kind": "consolidation",
+      "question_id": "employer-supersedes",
+      "category": "update",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-fea0afc55d",
+      "reason": "",
+      "page_id": "",
+      "sizes": [
+        5,
+        6
+      ]
+    },
+    {
+      "kind": "consolidation",
+      "question_id": "retired-conventions",
+      "category": "update",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-43e11ab9f3",
+      "reason": "",
+      "page_id": "",
+      "sizes": [
+        4,
+        4
+      ]
+    },
+    {
+      "kind": "consolidation",
+      "question_id": "horse-farm",
+      "category": "counts",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-06363c548d",
+      "reason": "",
+      "page_id": "",
+      "sizes": [
+        1,
+        2,
+        3,
+        4,
+        4,
+        4,
+        4,
+        5,
+        6,
+        7,
+        7
+      ]
+    },
+    {
+      "kind": "consolidation",
+      "question_id": "language-chinese",
+      "category": "language",
+      "correct": true,
+      "hit_trap": false,
+      "bank_id": "syseval-f723ad31a0",
+      "reason": "",
+      "page_id": "",
+      "sizes": [
+        4
+      ]
+    }
+  ]
+}
