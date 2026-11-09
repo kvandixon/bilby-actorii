@@ -2,82 +2,20 @@
 
 **Bilby (`ActorII v4.1`)** is a self-evolving, metacircular AI agent harness executing inside a clean-room 1993 Whitewater Actor 4.1 Smalltalk/Actor bytecode virtual machine, backed by **lossless Neo4j `:ActorEpisode` + `:ActorEngram` hybrid graph memory**.
 
-Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) with a 20B–27B open-weight model (`0 MB` GPU VRAM overhead for embeddings and memory indexing)—or connected to any cloud LLM (`OpenAI`, `OpenRouter`, `Gemini`, `Ollama`, `vLLM`)—Bilby achieves **#1 Global SOTA (`94.60%`) on `LongMemEval`** and **`77.34%` on `LOCOMO`** (`80.81%` combined across all 2,486 multi-session tasks).
+Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) with a 20B–27B open-weight model (`0 MB` GPU VRAM overhead for embeddings and memory indexing)—or connected to any cloud LLM (`OpenAI`, `OpenRouter`, `Gemini`, `Ollama`, `vLLM`)—Bilby provides a hardened, container-first neuro-symbolic agent runtime.
 
-[![LongMemEval SOTA](https://img.shields.io/badge/LongMemEval%20(500%20Tasks)-94.60%25%20(%231%20SOTA)-brightgreen.svg)](benchmarks/LONGMEM_LOCOMO_FULL_REPORT.md)
-[![Hindsight System Evals](https://img.shields.io/badge/Hindsight%20System%20Evals-100%25%20Verified%20%7C%2085.5%25%20Raw-brightgreen.svg)](benchmarks/HINDSIGHT_SYSTEM_EVALS_REPORT.md)
-[![LOCOMO](https://img.shields.io/badge/LOCOMO%20(1986%20Tasks)-77.34%25%20(Local%2016GB)-blue.svg)](benchmarks/LONGMEM_LOCOMO_FULL_REPORT.md)
+[![Master Benchmark Grid](https://img.shields.io/badge/Benchmarks-Master%20Results%20Grid-brightgreen.svg)](benchmarks/BENCHMARK_RESULTS.md)
 [![Test Suite](https://img.shields.io/badge/tests-600%2B%20passed-brightgreen.svg)](tests/)
 [![Containment](https://img.shields.io/badge/containment-Defense--Up%20Docker%20%2B%203--Ring%20VM-orange.svg)](src/actorii/harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## Global Leaderboard & Benchmark Comparison
+## Benchmark Results
 
-### 1. Hindsight Official System Evals Leaderboard (`Retain`, `Consolidation`, `Reflect`, `Refresh Pages` at Commit `7b46a07`)
+All benchmark results are maintained in a single, up-to-date Master Head-to-Head Grid (comparing harnesses only on identical question sets, identical question counts, and identical instructions):
 
-Evaluated directly against Hindsight's official blackbox system evaluation suite ([`vectorize-io/hindsight-benchmarks`](https://github.com/vectorize-io/hindsight-benchmarks), commit `7b46a07c82f997903230f0fb33deafe9dfd2e22b`) using the exact leaderboard scoring formula (`70% Quality + 30% log10(Cost)`). Full operation tables (`Retain`, `Consolidation`, `Reflect`, `Refresh Pages`) and raw reports are committed in [`benchmarks/HINDSIGHT_SYSTEM_EVALS_REPORT.md`](benchmarks/HINDSIGHT_SYSTEM_EVALS_REPORT.md), [`benchmarks/HINDSIGHT_HEAD_TO_HEAD_REVIEW.md`](benchmarks/HINDSIGHT_HEAD_TO_HEAD_REVIEW.md), and [`benchmarks/hindsight_system_evals/`](benchmarks/hindsight_system_evals/):
-
-| # | Model | Provider | Score | Quality | Cost (per 1k of each) | Retain | Consolidation | Reflect | Refresh pages | LLM calls | Decision calls | Tokens in / out |
-| :-: | :--- | :--- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| **1** | **🏆 Bilby (`qwen3.8-27b` Verified)** | **Local RTX 5070 Ti** | **100.0** | **100.0%** | **$0** | **11/11 (100%)** | **5/5 (100%)** | **5/5 (100%)** | **4/4 (100%)** | **1.2** | **—** | **44.4k / 1.2k** |
-| 2 | `glm-5.3-flash + hs-decide-1-flash` | Z.ai + Hindsight | 91.0 | 87.1% | $9 | 78/84 (92.9%) | 42/50 (84.0%) | 32/34 (94.1%) | 31/40 (77.5%) | 3.5 | 24.7 | 18.2k / 5.1k |
-| 3 | `gpt-6-luna + hs-decide-1-flash` | OpenAI + Hindsight | 90.0 | 87.0% | $11 | 79/84 (94.0%) | 35/50 (70.0%) | 32/34 (94.1%) | 36/40 (90.0%) | 3.1 | 24.6 | 16.6k / 1.4k |
-| **4** | **⭐ Bilby (`qwen3.8-27b` Raw Pytest)** | **Local RTX 5070 Ti** | **89.8** | **85.5%** | **$0** | **9/11 (81.8%)** | **5/5 (100%)** | **3/5 (60.0%)** | **4/4 (100%)** | **1.2** | **—** | **44.4k / 1.2k** |
-| 5 | `claude-haiku-5.5 + hs-decide-1-flash` | Anthropic + Hindsight | 88.3 | 88.5% | $21 | 81/84 (96.4%) | 42/50 (84.0%) | 31/34 (91.2%) | 33/40 (82.5%) | 3.1 | 24.6 | 24.1k / 2.9k |
-| 6 | `gemini-3.1-flash-lite + hs-decide-1-flash` | Google + Hindsight | 86.8 | 86.7% | $22 | 75/84 (89.3%) | 41/50 (82.0%) | 29/34 (85.3%) | 36/40 (90.0%) | 3.1 | 24.3 | 14.8k / 1.3k |
-| 7 | `deepseek-v4.1-flash + hs-decide-1-flash` | DeepSeek + Hindsight | 86.6 | 85.1% | $18 | 79/84 (94.0%) | 43/50 (86.0%) | 29/34 (85.3%) | 30/40 (75.0%) | 3.4 | 25.5 | 19.2k / 4.3k |
-| 8 | `gpt-6-luna` | OpenAI | 86.3 | 84.7% | $18 | 79/84 (94.0%) | 34/50 (68.0%) | 32/34 (94.1%) | 33/40 (82.5%) | 4.6 | — | 35.1k / 2.2k |
-| 9 | `claude-haiku-5.5` | Anthropic | 85.6 | 87.9% | $35 | 81/84 (96.4%) | 38/50 (76.0%) | 32/34 (94.1%) | 34/40 (85.0%) | 4.7 | — | 52.9k / 4.1k |
-| 10 | `gemma-4-26b-a4b + hs-decide-1-flash` | Google + Hindsight | 85.6 | 81.2% | $12 | 67/84 (79.8%) | 41/50 (82.0%) | 29/34 (85.3%) | 31/40 (77.5%) | 3.2 | 24.5 | 18.7k / 1.2k |
-| **17** | **`qwen3.8-27b` (Cloud Reference)** | **Qwen (OpenRouter)** | **81.2** | **87.5%** | **$91** | **83/84 (98.8%)** | **41/50 (82.0%)** | **32/34 (94.1%)** | **30/40 (75.0%)** | **4.8** | **—** | **43.9k / 8.2k** |
-| **18** | **`gemma-4-26b-a4b` (Hindsight Default)** | **Google** | **81.1** | **76.6%** | **$16** | **67/84 (79.8%)** | **33/50 (66.0%)** | **30/34 (88.2%)** | **29/40 (72.5%)** | **4.5** | **—** | **37.1k / 1.7k** |
-
-### 2. `LongMemEval` ([ICLR 2025](https://arxiv.org/abs/2410.10813) — Full 500-Task Multi-Session Suite) & `LOCOMO` ([Snap Research](https://github.com/snap-research/locomo) — `1,986` Tasks)
-
-| Agent / Memory Harness | Backing LLM & Compute Tier | `LongMemEval` (`500` Tasks) | `LOCOMO` (`1,986` Tasks) | Combined (`2,486` Tasks) | Primary Source & Verification Link |
-| :--- | :--- | :---: | :---: | :---: | :--- |
-| **Bilby (`ActorII v4.1`)** | **Local 20B–27B (`16 GB Consumer GPU`)** | **94.60% (`473/500`)** | **77.34% (`1,536/1,986`)** | **80.81% (`2,009/2,486`)** | [Full Report](benchmarks/LONGMEM_LOCOMO_FULL_REPORT.md) · [Raw JSON (`2,486` tasks)](benchmarks/LONGMEM_LOCOMO_FULL_RESULTS.json) · [Offline Re-Scorer](benchmarks/rejudge_saved_results.py) |
-| **[Hindsight](https://github.com/vectorize-io/hindsight)** *(Prior Published SOTA)* | **Gemini-3 Pro** *(Frontier Cloud)* | 91.40% | — | — | [Vectorize Hindsight `LongMemEval` Benchmark Report](https://vectorize.io/blog/hindsight-90-percent-longmemeval) · [Repo](https://github.com/vectorize-io/hindsight) |
-| **[Hindsight](https://github.com/vectorize-io/hindsight)** | **OSS-120B / o4-mini** *(Cloud)* | 89.00% | — | — | [Vectorize Hindsight `LongMemEval` Benchmark Report](https://vectorize.io/blog/hindsight-90-percent-longmemeval) · [Repo](https://github.com/vectorize-io/hindsight) |
-| **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** *(SQLite + FTS5)* | **Local 20B–27B (`16 GB GPU`)** | 83.33% *(`10/12` Smoke)* | 80.00% *(`4/5` Smoke)* | 82.35% *(`14/17` Smoke)* | [3-Harness Report](benchmarks/LONGMEM_LOCOMO_3HARNESS_REPORT.md) · [Raw JSON](benchmarks/LONGMEM_LOCOMO_3HARNESS_RESULTS.json) · [Full Report §1](benchmarks/LONGMEM_LOCOMO_FULL_REPORT.md) |
-| **[Pi Coding Agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** *(Rolling Summary)* | **Local 20B–27B (`16 GB GPU`)** | 75.00% *(`9/12` Det. / `8/12` Hybrid)* | 100.00% *(`5/5` Smoke)* | 76.47% *(`13/17` Smoke)* | [3-Harness Report](benchmarks/LONGMEM_LOCOMO_3HARNESS_REPORT.md) · [Raw JSON](benchmarks/LONGMEM_LOCOMO_3HARNESS_RESULTS.json) · [Offline Re-Scorer](benchmarks/rejudge_saved_results.py) |
-| **[Zep / Graphiti](https://github.com/getzep/graphiti)** *(Temporal KG)* | **GPT-4o** *(Frontier Cloud)* | 71.20% | — | — | [Zep Paper (`arXiv:2501.13956`)](https://arxiv.org/abs/2501.13956) · [Graphiti Repo](https://github.com/getzep/graphiti) |
-| **Raw Compaction Baseline** | **Local 20B–27B (`16 GB GPU`)** | 41.67% *(`5/12` Smoke)* | 60.00% *(`3/5` Smoke)* | 47.06% *(`8/17` Smoke)* | [3-Harness Report](benchmarks/LONGMEM_LOCOMO_3HARNESS_REPORT.md) · [Raw JSON](benchmarks/LONGMEM_LOCOMO_3HARNESS_RESULTS.json) |
-
-> **Academic Transparency & Offline Re-Scoring ([`benchmarks/rejudge_saved_results.py`](benchmarks/rejudge_saved_results.py))**:
-> Every question, gold answer, and raw model response across all 2,486 tasks is committed in [`benchmarks/LONGMEM_LOCOMO_FULL_RESULTS.json`](benchmarks/LONGMEM_LOCOMO_FULL_RESULTS.json). You can audit and re-score the entire saved run offline with **zero LLM judge calls** in `<3 seconds`:
-> ```bash
-> python3 benchmarks/rejudge_saved_results.py
-> ```
-
-### 2. Controlled Multi-Harness Head-to-Head (`ActorII v4.1` vs. [`Hermes Agent`](https://github.com/NousResearch/hermes-agent) vs. [`Pi Coding Agent`](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) on Identical Local GPU)
-
-All three harnesses were evaluated inside isolated Docker containers (`actorii-sandbox:latest`, `hermes-bench:latest`, `pi-bench:latest`) against the exact same local GPU model (`qwen3.8:latest` on `:8080`, 16 GB RTX 5070 Ti). Every row below links directly to the committed per-task Markdown report and raw JSON ledger in [`benchmarks/`](benchmarks/):
-
-| Benchmark Suite | **Bilby (`ActorII v4.1`)** | **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** (`SQLite+FTS5`) | **[Pi Coding Agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent)** (`LLM Summary`) | Committed Report & Raw Per-Task JSON Source |
-| :--- | :---: | :---: | :---: | :--- |
-| **1. `LongMemEval + LOCOMO` (17-Task Stratified 3-Harness)** | **100.0% (`17/17`)** *(`12/12` LME, `5/5` LOCOMO)* | 82.4% (`14/17`) *(`10/12` LME, `4/5` LOCOMO)* | 76.5% (`13/17`) *(`8/12` LME, `5/5` LOCOMO)* | [Report](benchmarks/LONGMEM_LOCOMO_3HARNESS_REPORT.md) · [Raw JSON](benchmarks/LONGMEM_LOCOMO_3HARNESS_RESULTS.json) · [Runner](benchmarks/run_longmem_locomo_suite.py) |
-| **2. Industry 8-Track Container Suite (`22` Tasks $\times$ `3` Harnesses)** | **86.4% (`19/22`)** | 45.5% (`10/22`) | 45.5% (`10/22`) | [Report](benchmarks/INDUSTRY_SUITE_3HARNESS_REPORT.md) · [Raw JSON](benchmarks/INDUSTRY_SUITE_3HARNESS_RESULTS.json) · [Runner](benchmarks/run_industry_harness_suite.py) |
-| **3. Next-Gen Post-Cutoff Suite (`TB2.1`, `SWE-Live`, `Polyglot`, `LCB-v6`)** | **77.8% (`7/9`)** | 55.6% (`5/9`) | 55.6% (`5/9`) | [Report](benchmarks/NEXTGEN_REPORT_QWEN38_BASELINE_7_OF_9.md) · [Raw JSON](benchmarks/NEXTGEN_RESULTS_QWEN38_BASELINE_7_OF_9.json) · [Runner](benchmarks/run_nextgen_suite.py) |
-| **4. `Terminal-Bench 2.1` (5-Task Container Suite)** | **80.0% (`4/5`)** | 60.0% (`3/5`) | **80.0% (`4/5`)** | [Report](benchmarks/TB21_5TASK_REPORT_V1_4_OF_5.md) · [Raw JSON](benchmarks/TB21_5TASK_RESULTS_V1_4_OF_5.json) · [Runner](benchmarks/run_tb21_5task_suite.py) |
-| **5. 5-Track Blind Container Rematch (`SWE-Lite`, `QuixBugs`, `OS`, `CRUX`, `BCB`)** | **100.0% (`5/5`)** | 60.0% (`3/5`) | 80.0% (`4/5`) | [Report](benchmarks/BLIND_REMATCH_REPORT.md) · [Raw JSON](benchmarks/BLIND_REMATCH_RESULTS.json) |
-| **6. 30-Task `ActorII` vs. `Hermes` Suite (`HumanEval`, `GSM8K`, `MemGraph`)** | **93.3% (`28/30`)** | 46.7% (`14/30`) | — | [Report](benchmarks/ACTOR_VS_HERMES_REPORT.md) · [Raw JSON](benchmarks/ACTOR_VS_HERMES_RESULTS.json) · [Runner](benchmarks/run_actor_vs_hermes.py) |
-
-### 3. Clean-Room Unattended Baseline (`v4.1.0` Fresh Git Clone — Zero Cached State, Zero Intervention)
-
-All 6 benchmark suites below were executed consecutively in a single unattended run (`1h 47m` on a single 16 GB consumer GPU, `qwen3.8:latest`) from a brand-new `git clone` with all prior results deleted and Neo4j benchmark namespaces wiped:
-
-| Suite | Runner Script | Clean-Room Score | Pass Rate | Breakdown & Saved Report |
-| :--- | :--- | :---: | :---: | :--- |
-| **1. Red-Team Adversarial Containment** | `benchmarks/run_redteam_containment_audit.py` | **`6 / 6`** | **`100.0%`** | All 6 live prompt-injection & privilege-escalation attacks blocked ([JSON](benchmarks/REDTEAM_CONTAINMENT_RESULTS.json)) |
-| **2. Standard Coding & Math** | `benchmarks/run_standard_benchmarks.py` | **`18 / 20`** | **`90.0%`** | `HumanEval`: **`11/12` (`91.7%`)** + `100%` Engram Cold-Boot; `GSM8K`: **`7/8` (`87.5%`)** ([Report](benchmarks/BENCHMARK_REPORT.md)) |
-| **3. `LongMemEval + LOCOMO` (17-Task Stratified)** | `benchmarks/run_longmem_locomo_suite.py` | **`15 / 17`** | **`88.2%`** | `LongMemEval`: **`10/12` (`83.3%`)**; `LOCOMO`: **`5/5` (`100.0%`)** vs `76.5%` Raw Compaction ([Report](benchmarks/LONGMEM_LOCOMO_REPORT.md)) |
-| **4. `Terminal-Bench 2.1` (5-Task Suite)** | `benchmarks/run_tb21_5task_suite.py` | **`4 / 5`** | **`80.0%`** | Passed `git-leak-recovery`, `log-summary-date-ranges`, `cancel-async-tasks`, `fix-git` ([Report](benchmarks/TB21_5TASK_REPORT.md)) |
-| **5. Next-Gen Post-Cutoff (9-Task Suite)** | `benchmarks/run_nextgen_suite.py` | **`5 / 9`** | **`55.6%`** | `TB2.1`: **`3/3` (`100%`)**, `Aider Polyglot`: **`1/2`** (`grep` 25/25), `LiveCodeBench v6`: **`1/2`** ([Report](benchmarks/NEXTGEN_REPORT.md)) |
-| **6. Industry 8-Track Container Suite** | `benchmarks/run_industry_harness_suite.py` | **`16 / 22`** | **`72.7%`** | `HumanEval` `3/3`, `MBPP` `3/3`, `QuixBugs` `3/3`, `AgentBench-OS` `2/2`, `GSM8K` `2/3`, `BigCodeBench` `2/3`, `CRUXEval` `1/2` ([Report](benchmarks/INDUSTRY_SUITE_REPORT.md)) |
-| **Total Clean-Room Baseline** | **All 6 Suites Combined** | **`64 / 79`** | **`81.01%`** | Unattended, single-pass containerized baseline on 16 GB consumer GPU |
+👉 **[View the Master Benchmark Results Grid (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)** *(Historical raw reports and JSON ledgers are archived in [`benchmarks/archive/`](benchmarks/archive/).)*
 
 ---
 
