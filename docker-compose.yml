@@ -1,0 +1,60 @@
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: bilby-neo4j
+    restart: unless-stopped
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=${NEO4J_AUTH:-none}
+      - NEO4J_server_memory_heap_initial__size=512m
+      - NEO4J_server_memory_heap_max__size=1G
+    volumes:
+      - bilby_neo4j_data:/data
+
+  bilby:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: actorii-sandbox:latest
+    container_name: bilby-actorii
+    restart: unless-stopped
+    depends_on:
+      - neo4j
+    ports:
+      - "8090:8090"
+      - "8765:8765"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - label:disable
+    environment:
+      - ACTORII_IN_DOCKER=1
+      - ACTORII_HOST_LOCKDOWN=${ACTORII_HOST_LOCKDOWN:-1}
+      - ACTORII_DISABLE_SELF_EVOLVE=${ACTORII_DISABLE_SELF_EVOLVE:-0}
+      - ACTORII_LLM_PROVIDER=${ACTORII_LLM_PROVIDER:-llamacpp}
+      - ACTORII_LLM_ENDPOINT=${ACTORII_LLM_ENDPOINT:-http://127.0.0.1:8080/v1/chat/completions}
+      - ACTORII_LLM_MODEL=${ACTORII_LLM_MODEL:-qwen3.8:latest}
+      - ACTORII_LLM_API_KEY=${ACTORII_LLM_API_KEY:-}
+      - ACTORII_NEO4J_HTTP_URL=${ACTORII_NEO4J_HTTP_URL:-http://neo4j:7474/db/neo4j/tx/commit}
+      - ACTORII_NEO4J_USER=${ACTORII_NEO4J_USER:-}
+      - ACTORII_NEO4J_PASSWORD=${ACTORII_NEO4J_PASSWORD:-}
+      - ACTORII_MEMORY_NAMESPACE=${ACTORII_MEMORY_NAMESPACE:-default}
+      - ACTORII_EMBED_ENDPOINT=${ACTORII_EMBED_ENDPOINT:-http://127.0.0.1:8084/v1/embeddings}
+      - ACTORII_EMBED_MODEL=${ACTORII_EMBED_MODEL:-bge-small-en-v1.5}
+      - ACTORII_EMBED_API_KEY=${ACTORII_EMBED_API_KEY:-}
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY:-}
+      - BILBY_TELEGRAM_BOT_TOKEN=${BILBY_TELEGRAM_BOT_TOKEN:-}
+      - BILBY_TELEGRAM_ALLOWED_CHATS=${BILBY_TELEGRAM_ALLOWED_CHATS:-}
+    volumes:
+      - ./workspace:/workspace
+      - /tmp/actorii-llm-bridge:/llm-bridge
+      - bilby_state_data:/home/bilby/.actorii
+
+volumes:
+  bilby_neo4j_data:
+  bilby_state_data:

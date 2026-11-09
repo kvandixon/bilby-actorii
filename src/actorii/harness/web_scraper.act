@@ -1,0 +1,239 @@
+/* =========================================================================
+ * WEB_SCRAPER.ACT
+ * Metacircular Firecrawl & Multi-Backend Web Scraper written in
+ * authentic 1993 Whitewater Actor 4.1 (`Actor[#Web]`).
+ *
+ * All provider routing, caching (`pageCache` & `searchCache` Dictionaries),
+ * Firecrawl REST orchestration (`/v2/scrape` & `/v2/search`), failover
+ * ladder (Firecrawl -> Trafilatura -> Playwright / Keyless MCP -> DDGS),
+ * and result formatting execute in compiled 1993 Actor 4.1 bytecode.
+ * ========================================================================= */
+
+inherit(Object, #WebScraper, #(
+    #net
+    #firecrawlUrl
+    #maxChars
+    #pageCache
+    #searchCache
+    #lastProvider
+    #lastStatus
+    #scrapeCount
+    #searchCount
+    #cacheHits
+), 10, nil)!!
+
+now(WebScraper)!!
+
+Def initWeb(self, netObj, fcUrl, maxCharsLimit) {
+    self.net := netObj;
+    self.firecrawlUrl := fcUrl;
+    self.maxChars := maxCharsLimit;
+    self.pageCache := new(Dictionary, 64);
+    self.searchCache := new(Dictionary, 64);
+    self.lastProvider := #none;
+    self.lastStatus := #ready;
+    self.scrapeCount := 0;
+    self.searchCount := 0;
+    self.cacheHits := 0;
+    ^self;
+}!!
+
+Def summary(self) {
+    ^"WebScraper(firecrawl=" + asString(self.firecrawlUrl)
+        + " | scrapes=" + asString(self.scrapeCount)
+        + " | searches=" + asString(self.searchCount)
+        + " | cacheHits=" + asString(self.cacheHits)
+        + " | lastProvider=" + asString(self.lastProvider)
+        + " | maxChars=" + asString(self.maxChars) + ")";
+}!!
+
+Def clearCache(self) {
+    self.pageCache := new(Dictionary, 64);
+    self.searchCache := new(Dictionary, 64);
+    self.lastStatus := #cleared;
+    ^"WebScraper cache cleared";
+}!!
+
+Def setFirecrawlUrl(self, newUrl) {
+    self.firecrawlUrl := newUrl;
+    ^self.firecrawlUrl;
+}!!
+
+Def setMaxChars(self, limit) {
+    self.maxChars := limit;
+    ^self.maxChars;
+}!!
+
+/* -------------------------------------------------------------------------
+ * Direct Firecrawl REST Calls (`/v2/scrape` & `/v2/search`) in Actor 4.1
+ * ------------------------------------------------------------------------- */
+
+Def firecrawlScrape(self, targetUrl | resp) {
+    resp := firecrawlPostScrape(self.net, self.firecrawlUrl, targetUrl, self.maxChars);
+    if at(resp, #ok) == true then
+        self.lastProvider := #firecrawl;
+        self.lastStatus := #ok;
+    else
+        self.lastStatus := #firecrawl_error;
+    endif;
+    ^resp;
+}!!
+
+Def firecrawlSearch(self, queryText, limit | resp) {
+    resp := firecrawlPostSearch(self.net, self.firecrawlUrl, queryText, limit, self.maxChars);
+    if at(resp, #ok) == true then
+        self.lastProvider := #firecrawl;
+        self.lastStatus := #ok;
+    else
+        self.lastStatus := #firecrawl_error;
+    endif;
+    ^resp;
+}!!
+
+/* -------------------------------------------------------------------------
+ * Multi-Tier Scrape Failover Ladder in 1993 Actor 4.1 Bytecode:
+ *   1. Check `self.pageCache` Dictionary
+ *   2. Try Firecrawl `/v2/scrape` (`firecrawlScrape`)
+ *   3. Fallback to local `trafilatura` (`trafilaturaExtract`)
+ *   4. Fallback to Keyless MCP Ring (Parallel / Exa / Keenable)
+ *   5. Fallback to Headless Chromium Playwright (`playwrightExtract`)
+ * ------------------------------------------------------------------------- */
+
+Def scrape(self, targetUrl | cached resp txt) {
+    cached := at(self.pageCache, targetUrl);
+    if cached <> nil then
+        self.cacheHits := self.cacheHits + 1;
+        self.lastProvider := #cache;
+        self.lastStatus := #cached;
+        ^cached;
+    endif;
+
+    self.scrapeCount := self.scrapeCount + 1;
+
+    /* Rung 1: Firecrawl REST `/v2/scrape` */
+    resp := firecrawlScrape(self, targetUrl);
+    if at(resp, #ok) == true then
+        txt := formatScrapeEntry(self.net, resp, #firecrawl, self.maxChars);
+        atPut(self.pageCache, targetUrl, txt);
+        ^txt;
+    endif;
+
+    /* Rung 2: Fast zero-VRAM Trafilatura (`web-clean`) */
+    resp := trafilaturaExtract(self.net, targetUrl, self.maxChars);
+    if at(resp, #ok) == true then
+        self.lastProvider := #trafilatura;
+        self.lastStatus := #ok;
+        txt := formatScrapeEntry(self.net, resp, #trafilatura, self.maxChars);
+        atPut(self.pageCache, targetUrl, txt);
+        ^txt;
+    endif;
+
+    /* Rung 3: Keyless MCP Ring (Exa / Parallel / Keenable) */
+    resp := keylessRingExtract(self.net, targetUrl, self.maxChars);
+    if at(resp, #ok) == true then
+        self.lastProvider := at(resp, #provider);
+        self.lastStatus := #ok;
+        txt := formatScrapeEntry(self.net, resp, self.lastProvider, self.maxChars);
+        atPut(self.pageCache, targetUrl, txt);
+        ^txt;
+    endif;
+
+    /* Rung 4: Headless Playwright Chromium (`browser-fetch`) */
+    resp := playwrightExtract(self.net, targetUrl, self.maxChars);
+    if at(resp, #ok) == true then
+        self.lastProvider := #playwright;
+        self.lastStatus := #ok;
+        txt := formatScrapeEntry(self.net, resp, #playwright, self.maxChars);
+        atPut(self.pageCache, targetUrl, txt);
+        ^txt;
+    endif;
+
+    self.lastProvider := #failed;
+    self.lastStatus := #error;
+    ^"ERROR: All scrape providers (firecrawl, trafilatura, keyless-mcp, playwright) failed for " + asString(targetUrl) + ": " + asString(at(resp, #error));
+}!!
+
+Def extract(self, targetUrl) {
+    ^scrape(self, targetUrl);
+}!!
+
+Def cleanUrl(self, targetUrl | resp) {
+    resp := trafilaturaExtract(self.net, targetUrl, self.maxChars);
+    if at(resp, #ok) == true then
+        self.lastProvider := #trafilatura;
+        ^formatScrapeEntry(self.net, resp, #trafilatura, self.maxChars);
+    endif;
+    ^"ERROR: trafilatura failed for " + asString(targetUrl) + ": " + asString(at(resp, #error));
+}!!
+
+Def renderBrowser(self, targetUrl | resp) {
+    resp := playwrightExtract(self.net, targetUrl, self.maxChars);
+    if at(resp, #ok) == true then
+        self.lastProvider := #playwright;
+        ^formatScrapeEntry(self.net, resp, #playwright, self.maxChars);
+    endif;
+    ^"ERROR: playwright failed for " + asString(targetUrl) + ": " + asString(at(resp, #error));
+}!!
+
+/* -------------------------------------------------------------------------
+ * Multi-Tier Search Failover Ladder in 1993 Actor 4.1 Bytecode:
+ *   1. Check `self.searchCache` Dictionary
+ *   2. Try Firecrawl `/v2/search` (`firecrawlSearch`)
+ *   3. Fallback to Keyless MCP Ring (Exa / Parallel / Keenable)
+ *   4. Fallback to DuckDuckGo (`ddgsSearch`)
+ * ------------------------------------------------------------------------- */
+
+Def search(self, queryText, limit | cacheKey cached resp txt) {
+    cacheKey := asString(queryText) + "::" + asString(limit);
+    cached := at(self.searchCache, cacheKey);
+    if cached <> nil then
+        self.cacheHits := self.cacheHits + 1;
+        self.lastProvider := #cache;
+        self.lastStatus := #cached;
+        ^cached;
+    endif;
+
+    self.searchCount := self.searchCount + 1;
+
+    /* Rung 1: Firecrawl REST `/v2/search` */
+    resp := firecrawlSearch(self, queryText, limit);
+    if at(resp, #ok) == true then
+        txt := formatSearchHits(self.net, resp, #firecrawl, self.maxChars);
+        atPut(self.searchCache, cacheKey, txt);
+        ^txt;
+    endif;
+
+    /* Rung 2: Keyless MCP Ring (Exa / Parallel / Keenable) */
+    resp := keylessRingSearch(self.net, queryText, limit, self.maxChars);
+    if at(resp, #ok) == true then
+        self.lastProvider := at(resp, #provider);
+        self.lastStatus := #ok;
+        txt := formatSearchHits(self.net, resp, self.lastProvider, self.maxChars);
+        atPut(self.searchCache, cacheKey, txt);
+        ^txt;
+    endif;
+
+    /* Rung 3: DuckDuckGo Search (`ddgs`) */
+    resp := ddgsSearch(self.net, queryText, limit, self.maxChars);
+    if at(resp, #ok) == true then
+        self.lastProvider := #ddgs;
+        self.lastStatus := #ok;
+        txt := formatSearchHits(self.net, resp, #ddgs, self.maxChars);
+        atPut(self.searchCache, cacheKey, txt);
+        ^txt;
+    endif;
+
+    self.lastProvider := #failed;
+    self.lastStatus := #error;
+    ^"ERROR: All search providers (firecrawl, keyless-mcp, ddgs) failed for '" + asString(queryText) + "': " + asString(at(resp, #error));
+}!!
+
+Def lastProvider(self) { ^self.lastProvider; }!!
+Def lastStatus(self) { ^self.lastStatus; }!!
+Def scrapeCount(self) { ^self.scrapeCount; }!!
+Def searchCount(self) { ^self.searchCount; }!!
+Def cacheHits(self) { ^self.cacheHits; }!!
+Def pageCache(self) { ^self.pageCache; }!!
+Def searchCache(self) { ^self.searchCache; }!!
+Def firecrawlUrl(self) { ^self.firecrawlUrl; }!!
+Def maxChars(self) { ^self.maxChars; }!!

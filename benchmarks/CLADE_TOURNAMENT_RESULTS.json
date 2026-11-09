@@ -1,0 +1,109 @@
+[
+  {
+    "task_id": "SWE-Live/py-pdf__pypdf-3317",
+    "baseline_passed": true,
+    "winning_clade": "Clade-B (Minimal One-Liner Reproducer)",
+    "tournament_passed": true,
+    "generations_run": 1,
+    "total_clade_nodes": 1,
+    "winning_tokens": 51139,
+    "winning_steps": 7,
+    "winning_latency_s": 132.0,
+    "winning_details": "test_get_encoding__encoding_value_is_none: PASS ( 1 file changed, 3 insertions(+), 3 deletions(-))",
+    "clade_tree": [
+      {
+        "clade_id": "Clade-B (Minimal One-Liner Reproducer)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": true,
+        "tests_passed": 1,
+        "tests_failed": 0,
+        "fitness_score": 1.0,
+        "steps": 7,
+        "total_tokens": 51139,
+        "latency_s": 132.0,
+        "details": "test_get_encoding__encoding_value_is_none: PASS ( 1 file changed, 3 insertions(+), 3 deletions(-))"
+      }
+    ]
+  },
+  {
+    "task_id": "Polyglot/forth",
+    "baseline_passed": false,
+    "winning_clade": "Clade-A (Exhaustive Test-Spec Reader)",
+    "tournament_passed": true,
+    "generations_run": 1,
+    "total_clade_nodes": 1,
+    "winning_tokens": 73146,
+    "winning_steps": 7,
+    "winning_latency_s": 223.13,
+    "winning_details": "pytest forth_test.py: PASS (54 passed, 1 warning in 0.02s)",
+    "clade_tree": [
+      {
+        "clade_id": "Clade-A (Exhaustive Test-Spec Reader)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": true,
+        "tests_passed": 54,
+        "tests_failed": 0,
+        "fitness_score": 1.0,
+        "steps": 7,
+        "total_tokens": 73146,
+        "latency_s": 223.13,
+        "details": "pytest forth_test.py: PASS (54 passed, 1 warning in 0.02s)"
+      }
+    ]
+  },
+  {
+    "task_id": "SWE-Live/networkx__networkx-8105",
+    "baseline_passed": false,
+    "winning_clade": "Clade-C.1 (Gen-2 Child)",
+    "tournament_passed": true,
+    "generations_run": 2,
+    "total_clade_nodes": 3,
+    "winning_tokens": 50374,
+    "winning_steps": 8,
+    "winning_latency_s": 155.27,
+    "winning_details": "test_random_tree: PASS ( 1 file changed, 10 insertions(+))",
+    "clade_tree": [
+      {
+        "clade_id": "Clade-C (Repo Convention & Alias Inspector)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 0,
+        "tests_failed": 1,
+        "fitness_score": 0.5,
+        "steps": 8,
+        "total_tokens": 48471,
+        "latency_s": 104.13,
+        "details": "test_random_tree: FAIL ( 1 file changed, 10 insertions(+))"
+      },
+      {
+        "clade_id": "Clade-B (Minimal One-Liner Reproducer)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 0,
+        "tests_failed": 1,
+        "fitness_score": 0.5,
+        "steps": 5,
+        "total_tokens": 30308,
+        "latency_s": 80.92,
+        "details": "test_random_tree: FAIL ( 1 file changed, 10 insertions(+))"
+      },
+      {
+        "clade_id": "Clade-C.1 (Gen-2 Child)",
+        "generation": 2,
+        "parent_clade": "Clade-C (Repo Convention & Alias Inspector)",
+        "passed": true,
+        "tests_passed": 1,
+        "tests_failed": 0,
+        "fitness_score": 1.0,
+        "steps": 8,
+        "total_tokens": 50374,
+        "latency_s": 155.27,
+        "details": "test_random_tree: PASS ( 1 file changed, 10 insertions(+))"
+      }
+    ]
+  }
+]

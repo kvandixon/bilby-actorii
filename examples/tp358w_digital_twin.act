@@ -1,0 +1,110 @@
+/* =========================================================================
+ * TP358W_DIGITAL_TWIN.ACT
+ * 1993 Whitewater Actor 4.1 / ActorII Digital Twin & UI for ThermoPro TP358W
+ * Physical Device on valkyrie: TP358S (Demo) [MAC: 00:11:22:33:44:55]
+ * ========================================================================= */
+
+/* 1. ComfortMonitor: Actor observer object notified on every sensor update */
+inherit(Object, #ComfortMonitor, #(#alertCount #lastStatus #lastTempC10 #lastHumidity), 4, nil)!!
+now(ComfortMonitor)!!
+
+Def init(self) {
+    self.alertCount := 0;
+    self.lastStatus := #Unknown;
+    self.lastTempC10 := 0;
+    self.lastHumidity := 0;
+    ^self;
+}!!
+
+Def onSensorUpdate(self, twin) {
+    self.lastTempC10 := temperatureC10(twin);
+    self.lastHumidity := humidity(twin);
+    self.lastStatus := comfortLevel(twin);
+    if self.lastStatus <> #Comfort then
+        self.alertCount := self.alertCount + 1;
+    endif;
+    ^self.lastStatus;
+}!!
+
+Def alertCount(self) { ^self.alertCount; }!!
+Def lastStatus(self) { ^self.lastStatus; }!!
+Def lastTempC10(self) { ^self.lastTempC10; }!!
+Def lastHumidity(self) { ^self.lastHumidity; }!!
+
+
+/* 2. HvacController: Deterministic Actor controller driven by Digital Twin */
+inherit(Object, #HvacController, #(#mode #highTempC10 #lowTempC10 #maxHumidity #updates), 5, nil)!!
+now(HvacController)!!
+
+Def init(self, lowC10, highC10, maxHum) {
+    self.mode := "IDLE";
+    self.lowTempC10 := lowC10;
+    self.highTempC10 := highC10;
+    self.maxHumidity := maxHum;
+    self.updates := 0;
+    ^self;
+}!!
+
+Def onSensorUpdate(self, twin | tC10, hum) {
+    tC10 := temperatureC10(twin);
+    hum := humidity(twin);
+    self.updates := self.updates + 1;
+    if tC10 > self.highTempC10 then
+        self.mode := "COOLING";
+    else
+        if tC10 < self.lowTempC10 then
+            self.mode := "HEATING";
+        else
+            if hum > self.maxHumidity then
+                self.mode := "DEHUMIDIFY";
+            else
+                self.mode := "IDLE";
+            endif;
+        endif;
+    endif;
+    ^self.mode;
+}!!
+
+Def mode(self) { ^self.mode; }!!
+Def updates(self) { ^self.updates; }!!
+
+
+/* 3. ClimateAgent: AI + OOP Agent subclass collaborating with ThermoProTwin */
+inherit(Agent, #ClimateAgent, #(#twin), 1, nil)!!
+now(ClimateAgent)!!
+
+Def attachTwin(self, twinObj) {
+    self.twin := twinObj;
+    registerTool(self, #summary, twinObj);
+    ^self;
+}!!
+
+Def twinReport(self) {
+    ^summary(self.twin)
+     + " | HistoryRecords=" + asString(historyCount(self.twin))
+     + " | MinC10=" + asString(minTempC10(self.twin))
+     + " | MaxC10=" + asString(maxTempC10(self.twin))
+     + " | AvgHum=" + asString(avgHumidity(self.twin));
+}!!
+
+
+/* 4. ThermometerWindow: 1993 Actor UI Window observing ThermoProTwin */
+inherit(ThermometerUI, #ThermometerWindow, #(#lastBanner), 1, nil)!!
+now(ThermometerWindow)!!
+
+Def banner(self) {
+    self.lastBanner := tempText(self) + " | " + humidityText(self) + " | " + comfortText(self);
+    ^self.lastBanner;
+}!!
+
+
+/* 5. Instantiate the Digital Twin, Collaborators & UI Window in Actor[] */
+Actor[#Thermometer] := new(ThermoProTwin, "00:11:22:33:44:55", "TP358S (Demo)")!!
+Actor[#Monitor] := init(new(ComfortMonitor))!!
+Actor[#Hvac] := init(new(HvacController), 185, 245, 60)!!
+Actor[#ClimateBot] := new(ClimateAgent, "ValkyrieClimateBot")!!
+Actor[#ThermoUI] := new(ThermometerWindow, Actor[#Thermometer], "ThermoPro TP358W Digital Twin")!!
+
+addObserver(Actor[#Thermometer], Actor[#Monitor])!!
+addObserver(Actor[#Thermometer], Actor[#Hvac])!!
+attachTwin(Actor[#ClimateBot], Actor[#Thermometer])!!

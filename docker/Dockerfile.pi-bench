@@ -1,0 +1,6 @@
+FROM pi-coding-agent:latest
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pytest python3-mpmath && rm -rf /var/lib/apt/lists/*
+USER skippy
+WORKDIR /workspace
+ENTRYPOINT ["pi"]

@@ -1,0 +1,236 @@
+[
+  {
+    "task_id": "TB2.1-Hard/llm-inference-batching-scheduler",
+    "passed": false,
+    "winning_clade": "Clade-A.1 (Gen-2 Child)",
+    "generations_run": 2,
+    "total_clade_runs": 3,
+    "winning_steps": 5,
+    "winning_tokens": 53888,
+    "winning_latency_s": 300.13,
+    "final_details": "pytest test_outputs.py: FAIL (2 failed, 4 passed in 0.05s)",
+    "clade_tree": [
+      {
+        "clade_id": "Clade-A (Test-Suite & Baseline Runner)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 1,
+        "tests_failed": 5,
+        "fitness_score": 0.1667,
+        "steps": 8,
+        "total_tokens": 89576,
+        "latency_s": 300.11,
+        "details": "pytest test_outputs.py: FAIL (5 failed, 1 passed in 0.04s)"
+      },
+      {
+        "clade_id": "Clade-B (Binary/Crypto & Constraint Solver)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 1,
+        "tests_failed": 5,
+        "fitness_score": 0.1667,
+        "steps": 4,
+        "total_tokens": 31436,
+        "latency_s": 270.09,
+        "details": "pytest test_outputs.py: FAIL (5 failed, 1 passed in 0.03s)"
+      },
+      {
+        "clade_id": "Clade-A.1 (Gen-2 Child)",
+        "generation": 2,
+        "parent_clade": "Clade-A (Test-Suite & Baseline Runner)",
+        "passed": false,
+        "tests_passed": 4,
+        "tests_failed": 2,
+        "fitness_score": 0.6667,
+        "steps": 5,
+        "total_tokens": 53888,
+        "latency_s": 300.13,
+        "details": "pytest test_outputs.py: FAIL (2 failed, 4 passed in 0.05s)"
+      }
+    ]
+  },
+  {
+    "task_id": "TB2.1-Hard/feal-differential-cryptanalysis",
+    "passed": false,
+    "winning_clade": "Clade-B (Binary/Crypto & Constraint Solver)",
+    "generations_run": 2,
+    "total_clade_runs": 3,
+    "winning_steps": 2,
+    "winning_tokens": 3604,
+    "winning_latency_s": 188.51,
+    "final_details": "pytest test_outputs.py: FAIL (1 failed in 0.22s)",
+    "clade_tree": [
+      {
+        "clade_id": "Clade-B (Binary/Crypto & Constraint Solver)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 0,
+        "tests_failed": 1,
+        "fitness_score": 0.0,
+        "steps": 2,
+        "total_tokens": 3604,
+        "latency_s": 188.51,
+        "details": "pytest test_outputs.py: FAIL (1 failed in 0.22s)"
+      },
+      {
+        "clade_id": "Clade-A (Test-Suite & Baseline Runner)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 0,
+        "tests_failed": 1,
+        "fitness_score": 0.0,
+        "steps": 2,
+        "total_tokens": 3611,
+        "latency_s": 188.65,
+        "details": "pytest test_outputs.py: FAIL (1 failed in 0.21s)"
+      },
+      {
+        "clade_id": "Clade-B.1 (Gen-2 Child)",
+        "generation": 2,
+        "parent_clade": "Clade-B (Binary/Crypto & Constraint Solver)",
+        "passed": false,
+        "tests_passed": 0,
+        "tests_failed": 1,
+        "fitness_score": 0.0,
+        "steps": 2,
+        "total_tokens": 4910,
+        "latency_s": 190.71,
+        "details": "pytest test_outputs.py: FAIL (1 failed in 0.20s)"
+      }
+    ]
+  },
+  {
+    "task_id": "TB2.1-Hard/fix-code-vulnerability",
+    "passed": true,
+    "winning_clade": "Clade-A.1 (Gen-2 Child)",
+    "generations_run": 2,
+    "total_clade_runs": 3,
+    "winning_steps": 8,
+    "winning_tokens": 98633,
+    "winning_latency_s": 300.15,
+    "final_details": "pytest test_outputs.py: PASS (6 passed in 0.04s)",
+    "clade_tree": [
+      {
+        "clade_id": "Clade-A (Test-Suite & Baseline Runner)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 2,
+        "tests_failed": 4,
+        "fitness_score": 0.3333,
+        "steps": 7,
+        "total_tokens": 75947,
+        "latency_s": 300.12,
+        "details": "pytest test_outputs.py: FAIL (4 failed, 2 passed in 0.04s)"
+      },
+      {
+        "clade_id": "Clade-C (Schema & Edge-Case Auditor)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 2,
+        "tests_failed": 4,
+        "fitness_score": 0.3333,
+        "steps": 7,
+        "total_tokens": 77507,
+        "latency_s": 300.23,
+        "details": "pytest test_outputs.py: FAIL (4 failed, 2 passed in 0.06s)"
+      },
+      {
+        "clade_id": "Clade-A.1 (Gen-2 Child)",
+        "generation": 2,
+        "parent_clade": "Clade-A (Test-Suite & Baseline Runner)",
+        "passed": true,
+        "tests_passed": 6,
+        "tests_failed": 0,
+        "fitness_score": 1.0,
+        "steps": 8,
+        "total_tokens": 98633,
+        "latency_s": 300.15,
+        "details": "pytest test_outputs.py: PASS (6 passed in 0.04s)"
+      }
+    ]
+  },
+  {
+    "task_id": "TB2.1-Hard/db-wal-recovery",
+    "passed": true,
+    "winning_clade": "Clade-B (Binary/Crypto & Constraint Solver)",
+    "generations_run": 1,
+    "total_clade_runs": 1,
+    "winning_steps": 3,
+    "winning_tokens": 20183,
+    "winning_latency_s": 108.37,
+    "final_details": "pytest test_outputs.py: PASS (7 passed in 0.01s)",
+    "clade_tree": [
+      {
+        "clade_id": "Clade-B (Binary/Crypto & Constraint Solver)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": true,
+        "tests_passed": 7,
+        "tests_failed": 0,
+        "fitness_score": 1.0,
+        "steps": 3,
+        "total_tokens": 20183,
+        "latency_s": 108.37,
+        "details": "pytest test_outputs.py: PASS (7 passed in 0.01s)"
+      }
+    ]
+  },
+  {
+    "task_id": "TB2.1-Hard/constraints-scheduling",
+    "passed": true,
+    "winning_clade": "Clade-B.1 (Gen-2 Child)",
+    "generations_run": 2,
+    "total_clade_runs": 3,
+    "winning_steps": 3,
+    "winning_tokens": 28120,
+    "winning_latency_s": 300.22,
+    "final_details": "pytest test_outputs.py: PASS (3 passed in 0.31s)",
+    "clade_tree": [
+      {
+        "clade_id": "Clade-B (Binary/Crypto & Constraint Solver)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 1,
+        "tests_failed": 2,
+        "fitness_score": 0.3333,
+        "steps": 3,
+        "total_tokens": 27240,
+        "latency_s": 204.84,
+        "details": "pytest test_outputs.py: FAIL (2 failed, 1 passed in 0.02s)"
+      },
+      {
+        "clade_id": "Clade-C (Schema & Edge-Case Auditor)",
+        "generation": 1,
+        "parent_clade": null,
+        "passed": false,
+        "tests_passed": 0,
+        "tests_failed": 3,
+        "fitness_score": 0.0,
+        "steps": 4,
+        "total_tokens": 35825,
+        "latency_s": 300.22,
+        "details": "pytest test_outputs.py: FAIL (3 failed in 0.08s)"
+      },
+      {
+        "clade_id": "Clade-B.1 (Gen-2 Child)",
+        "generation": 2,
+        "parent_clade": "Clade-B (Binary/Crypto & Constraint Solver)",
+        "passed": true,
+        "tests_passed": 3,
+        "tests_failed": 0,
+        "fitness_score": 1.0,
+        "steps": 3,
+        "total_tokens": 28120,
+        "latency_s": 300.22,
+        "details": "pytest test_outputs.py: PASS (3 passed in 0.31s)"
+      }
+    ]
+  }
+]

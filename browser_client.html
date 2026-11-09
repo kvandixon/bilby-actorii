@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ActorII 4.1 Interactive Visual Workspace &amp; Studio</title>
+    <style>
+        :root {
+            --bg-primary: #121629;
+            --bg-secondary: #16213e;
+            --bg-panel: #0f3460;
+            --bg-input: #080b12;
+            --accent-red: #e94560;
+            --accent-teal: #1b9aaa;
+            --accent-green: #80ed99;
+            --accent-yellow: #ffb703;
+            --text-primary: #eaeaea;
+            --text-secondary: #a8dadc;
+            --text-muted: #8d99ae;
+            --border-color: #284b63;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 12px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .workspace-container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        /* Header & Status Bar */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        h1 {
+            color: var(--accent-red);
+            font-size: 1.35rem;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+        .connection-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .connection-bar input {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 180px;
+        }
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .badge.connected { background: var(--accent-teal); color: #fff; }
+        .badge.disconnected { background: #5c2028; color: #ff8597; }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            border-bottom: 2px solid var(--bg-secondary);
+            overflow-x: auto;
+        }
+        .tab-btn {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            padding: 9px 14px;
+            border-radius: 6px 6px 0 0;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .tab-btn:hover { background: var(--bg-panel); color: #fff; }
+        .tab-btn.active {
+            background: var(--bg-panel);
+            color: #fff;
+            border-color: var(--accent-red);
+            border-top: 2px solid var(--accent-red);
+        }
+
+        /* Tab Panels */
+        .tab-panel {
+            display: none;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        .tab-panel.active { display: block; }
+
+        /* Grid Layouts */
+        .two-col-grid {
+            display: grid;
+            grid-template-columns: 820px 1fr;
+            gap: 14px;
+        }
+        @media (max-width: 1100px) {
+            .two-col-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Buttons & Controls */
+        .btn {
+            background: var(--bg-panel);
+            color: #fff;
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn:hover { border-color: var(--accent-red); background: #174276; }
+        .btn:active, .btn.active { background: var(--accent-red); border-color: #ff758f; }
+        .btn-primary { background: #1d3557; border-color: #457b9d; }
+        .btn-success { background: #134e4a; border-color: var(--accent-green); color: var(--accent-green); }
+        .btn-success:hover { background: #0f766e; color: #fff; }
+
+        /* Canvas Stage */
+        .canvas-stage-wrapper {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: #ffffff;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+        }
+        #actor-canvas {
+            display: block;
+            width: 800px;
+            height: 600px;
+            touch-action: none;
+            background: #ffffff;
+        }
+        #widget-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #widget-layer > * { pointer-events: auto; }
+
+        /* Widget Controls Sidebar */
+        .sidebar-section {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .sidebar-section h3 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: var(--accent-yellow);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+        .form-row label {
+            font-size: 11px;
+            color: var(--text-muted);
+            width: 50px;
+        }
+        .form-row input, .form-row select {
+            flex: 1;
+            padding: 6px;
+            background: var(--bg-secondary);
+            color: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* Class Browser 3-Column Layout */
+        .browser-grid {
+            display: grid;
+            grid-template-columns: 240px 240px 1fr;
+            gap: 10px;
+            height: 480px;
+        }
+        .browser-column {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .column-header {
+            background: var(--bg-panel);
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .column-search {
+            padding: 6px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .column-search input {
+            width: 100%;
+            padding: 5px 8px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: #fff;
+            font-size: 11.5px;
+        }
+        .column-list {
+            flex: 1;
+            overflow-y: auto;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .column-list li {
+            padding: 6px 10px;
+            font-size: 12px;
+            font-family: monospace;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            display: flex;
+            justify-content: space-between;
+        }
+        .column-list li:hover { background: rgba(233,69,96,0.15); color: #fff; }
+        .column-list li.selected { background: var(--accent-red); color: #fff; font-weight: bold; }
+        .detail-card {
+            padding: 12px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .detail-row {
+            margin-bottom: 8px;
+        }
+        .detail-label {
+            font-weight: 700;
+            color: var(--accent-yellow);
+            margin-bottom: 2px;
+        }
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .tag {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--accent-green);
+        }
+
+        /* Workspace Evaluation (REPL) */
+        .repl-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .snippet-bar {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .snippet-bar span {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .code-editor {
+            width: 100%;
+            height: 180px;
+            background: var(--bg-input);
+            color: var(--accent-green);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: "Fira Code", monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            resize: vertical;
+        }
+        .repl-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .output-box {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            min-height: 120px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            overflow: auto;
+            color: var(--text-secondary);
+        }
+
+        /* Inspector Pane */
+        .inspector-box {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            min-height: 200px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        .fields-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+        .fields-table th, .fields-table td {
+            padding: 6px 8px;
+            border: 1px solid var(--border-color);
+            text-align: left;
+        }
+        .fields-table th { background: var(--bg-panel); color: var(--accent-yellow); }
+
+        /* Console Log */
+        .log-terminal {
+            height: 160px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        /* Mobile / Phone Responsive Layout */
+        @media (max-width: 960px) {
+            body, html {
+                height: auto;
+                overflow-y: auto;
+            }
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            .connection-bar {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+            .connection-bar input {
+                flex: 1;
+                min-width: 160px;
+            }
+            .nav-tabs {
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+            .two-col-grid {
+                grid-template-columns: 1fr;
+            }
+            .canvas-stage-wrapper {
+                overflow-x: auto;
+                justify-content: flex-start;
+            }
+            .browser-grid {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="workspace-container">
+        <!-- Header -->
+        <header>
+            <div>
+                <h1>ActorII 4.1 Interactive Visual Workspace</h1>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                    Authentic 1993 Whitewater Actor Execution Environment &amp; HTML5 Studio
+                </div>
+            </div>
+            <div class="connection-bar">
+                <input id="ws-url" value="ws://localhost:8765/">
+                <button class="btn btn-primary" id="btn-connect" onclick="toggleConnect()">Connect</button>
+                <span class="badge disconnected" id="status-badge">Disconnected</span>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" id="tab-btn-canvas" onclick="switchTab('canvas')">🗔 Workspace &amp; Surfaces</button>
+            <button class="tab-btn" id="tab-btn-agent" onclick="switchTab('agent')">🤖 Agent Harness Console</button>
+            <button class="tab-btn" id="tab-btn-classes" onclick="switchTab('classes')">📚 Class Hierarchy Browser</button>
+            <button class="tab-btn" id="tab-btn-repl" onclick="switchTab('repl')">⚡ Workspace Evaluation (!!)</button>
+            <button class="tab-btn" id="tab-btn-inspector" onclick="switchTab('inspector')">🔍 Object Inspector</button>
+            <button class="tab-btn" id="tab-btn-log" onclick="switchTab('log')">📋 Console Log</button>
+        </div>
+
+        <!-- TAB 1: Canvas & Surfaces -->
+        <div class="tab-panel active" id="panel-canvas">
+            <div class="two-col-grid">
+                <!-- Canvas Area -->
+                <div>
+                    <div style="display: flex; gap: 6px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;">
+                        <button class="btn active" id="tool-pen" onclick="setTool('pen')">✏️ Pen</button>
+                        <button class="btn" id="tool-rect" onclick="setTool('rect')">▭ Rect</button>
+                        <button class="btn" id="tool-circle" onclick="setTool('circle')">◯ Circle</button>
+                        <button class="btn" onclick="clearCanvas()">🗑️ Clear</button>
+                        <label style="font-size: 11px; margin-left: 8px;">Color: <input type="color" id="draw-color" value="#e94560"></label>
+                        <label style="font-size: 11px;">Size:
+                            <select id="draw-size" style="background:var(--bg-panel);color:#fff;border:1px solid var(--border-color);border-radius:4px;padding:2px;">
+                                <option value="2">2px</option>
+                                <option value="4" selected>4px</option>
+                                <option value="8">8px</option>
+                            </select>
+                        </label>
+                        <span id="canvas-hint" style="font-size: 11px; color: var(--accent-yellow); margin-left: auto;">
+                            Click widgets to dispatch #selected action to ActorVM
+                        </span>
+                    </div>
+
+                    <div class="canvas-stage-wrapper">
+                        <canvas id="actor-canvas" width="800" height="600"></canvas>
+                        <div id="widget-layer"></div>
+                    </div>
+                </div>
+
+                <!-- Sidebar: Widget Generator & Quick Apps -->
+                <div>
+                    <div class="sidebar-section">
+                        <h3>Render Widget on Surface</h3>
+                        <div class="form-row">
+                            <label>Type:</label>
+                            <select id="w-type">
+                                <option value="button">Button</option>
+                                <option value="checkbox">Checkbox</option>
+                                <option value="textfield">TextField</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>ID:</label>
+                            <input id="w-id" value="btnSave" placeholder="Widget ID (e.g. btnSave)">
+                        </div>
+                        <div class="form-row">
+                            <label>Label:</label>
+                            <input id="w-label" value="Save Actor State" placeholder="Label text">
+                        </div>
+                        <div class="form-row">
+                            <label>X / Y:</label>
+                            <input id="w-x" type="number" value="120" style="width: 70px;">
+                            <input id="w-y" type="number" value="150" style="width: 70px;">
+                        </div>
+                        <div class="form-row">
+                            <label>W / H:</label>
+                            <input id="w-width" type="number" value="150" style="width: 70px;">
+                            <input id="w-height" type="number" value="36" style="width: 70px;">
+                        </div>
+                        <button class="btn btn-primary" style="width: 100%; margin-top: 6px;" onclick="renderCustomWidget()">
+                            + Add Widget to Surface
+                        </button>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <h3>1993 Quick Demos & Twins</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                            <button class="btn" onclick="sendWs({type: 'solve_queens', n: 8})">👑 8-Queens</button>
+                            <button class="btn" onclick="sendWs({type: 'run_sieve', limit: 200})">📊 Sieve Data</button>
+                            <button class="btn" onclick="spawnPresetWidgets()">🪟 Spawn Dialog</button>
+                            <button class="btn" onclick="sendWs({type: 'get_surface_info'})">ℹ️ Surface Info</button>
+                            <button class="btn btn-success" style="grid-column: span 2;" onclick="sendWs({type: 'render_thermometer', sync_live: true, download_history: true})">🌡️ TP358W Thermometer Twin (Live BLE)</button>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <h3 style="margin: 0;">🤖 AI AgentHarness (`/chat` &amp; `/goal`)</h3>
+                            <button class="btn" style="padding: 3px 8px; font-size: 11px;" onclick="switchTab('agent')">Open Full Console ↗</button>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">
+                            Multi-turn chat + live 1993 Actor 4.1 bytecode execution:
+                        </div>
+                        <input id="agent-goal-input" placeholder="Chat or command Actor[#Harness] (press Enter)..." style="width: 100%; margin-bottom: 6px;" onkeydown="if(event.key==='Enter'){runStudioAgentGoal();}">
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn btn-primary" style="flex: 1;" onclick="runStudioAgentGoal()">
+                                💬 Send to AgentHarness
+                            </button>
+                            <button class="btn" onclick="clearAgentChatHistory()" title="Clear conversation history">🗑️</button>
+                        </div>
+                        <div id="agent-goal-status" style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; max-height: 90px; overflow-y: auto; line-height: 1.4;"></div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <h3>UI Action Dispatcher</h3>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">
+                            Manually send UI action to ActorVM:
+                        </div>
+                        <div class="form-row">
+                            <label>Target:</label>
+                            <input id="action-target" value="btnSave" placeholder="Widget or Window ID">
+                        </div>
+                        <div class="form-row">
+                            <label>Action:</label>
+                            <input id="action-selector" value="#selected" placeholder="#selected / #clicked">
+                        </div>
+                        <button class="btn btn-success" style="width: 100%; margin-top: 6px;" onclick="dispatchManualAction()">
+                            ⚡ Dispatch Action Message
+                        </button>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <h3>Image Snapshot (ACTOR.IMG)</h3>
+                        <div class="form-row">
+                            <label>File:</label>
+                            <input id="image-path" value="ACTOR.IMG" placeholder="ACTOR.IMG">
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;">
+                            <button class="btn btn-primary" onclick="saveImageWs()">💾 Save Image</button>
+                            <button class="btn btn-success" onclick="loadImageWs()">📂 Load Image</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 1B: AI Agent Harness Multi-Turn Console -->
+        <div class="tab-panel" id="panel-agent">
+            <div class="two-col-grid" style="grid-template-columns: 1fr 340px;">
+                <!-- Left: Multi-Turn Conversation Thread & Prompt Input -->
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                        <div>
+                            <span style="font-weight: 700; color: var(--accent-yellow); font-size: 13px;">Bilby — Metacircular Actor 4.1 Agent Console</span>
+                            <span style="font-size: 11px; color: var(--text-muted); margin-left: 8px;">Multi-turn conversational memory + guarded VM bytecode execution</span>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn" onclick="sendWs({type: 'get_chat_history'})">🔄 Sync History</button>
+                            <button class="btn" onclick="clearAgentChatHistory()">🗑️ Clear History</button>
+                        </div>
+                    </div>
+
+                    <div class="snippet-bar">
+                        <span>Quick Prompts:</span>
+                        <button class="btn" onclick="sendQuickAgentPrompt('What is the GPU status and free VRAM on Valkyrie?')">🖥️ Valkyrie GPU</button>
+                        <button class="btn" onclick="sendQuickAgentPrompt('What is the current room temperature and humidity on Actor[#Thermometer]?')">🌡️ Room Temp</button>
+                        <button class="btn" onclick="sendQuickAgentPrompt('Create a Counter class with ivar #count, initialize Actor[#MyCounter] to 10, and store its value in #counterVal')">⚙️ Create Class</button>
+                        <button class="btn" onclick="sendQuickAgentPrompt('What did we just do in the previous turn, and what is in the scratchpad?')">🧠 Follow-Up Memory</button>
+                    </div>
+
+                    <div id="agent-chat-thread" style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; height: 410px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px;">
+                        <div style="color: var(--text-muted); text-align: center; margin-top: 120px;">
+                            Ask a question in plain English or tell <code>Actor[#Harness]</code> to build classes, inspect Digital Twins, or modify UI widgets.<br>
+                            Follow-up messages automatically retain multi-turn conversation history and live VM state.
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input id="agent-console-input" placeholder="Message Bilby (plain English or Actor 4.1 task — press Enter to send)..." style="flex: 1; padding: 10px 12px; background: var(--bg-input); color: #fff; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;" onkeydown="if(event.key==='Enter'){sendAgentConsoleMessage();}">
+                        <select id="agent-max-steps" style="padding: 9px; background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px;" title="Max ReAct bytecode steps per turn">
+                            <option value="4">4 steps</option>
+                            <option value="6" selected>6 steps</option>
+                            <option value="8">8 steps</option>
+                        </select>
+                        <button class="btn btn-success" style="padding: 10px 18px; font-size: 13px;" onclick="sendAgentConsoleMessage()">
+                            💬 Send
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right: Live Harness Telemetry & Scratchpad -->
+                <div>
+                    <div class="sidebar-section">
+                        <h3>⚡ Harness Telemetry</h3>
+                        <div style="font-size: 12px; line-height: 1.7; font-family: monospace;" id="agent-telemetry-box">
+                            <div>Status : <span style="color: var(--accent-green);">#idle</span></div>
+                            <div>Model  : <span>qwen3.8:latest</span></div>
+                            <div>Turns  : <span>0</span></div>
+                            <div>Gas    : <span>0 opcodes</span></div>
+                            <div>Strikes: <span>0 / 3</span></div>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <h3>🗂️ Harness Scratchpad (`#Harness`)</h3>
+                        <div id="agent-scratchpad-box" style="font-size: 11.5px; font-family: monospace; color: var(--text-secondary); max-height: 220px; overflow-y: auto;">
+                            <span style="color: var(--text-muted);">(empty)</span>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <h3>💡 How It Works</h3>
+                        <div style="font-size: 11.5px; color: var(--text-muted); line-height: 1.5;">
+                            • <b>Conversational turns</b> reply directly without triggering compiler errors.<br>
+                            • <b>Action turns</b> compile 1993 Actor 4.1 code (<code>!!</code>) inside a copy-on-write transaction with static linting &amp; gas metering.<br>
+                            • <b>Shared with TUI</b>: Run <code>actor-tui --connect http://127.0.0.1:8090</code> to share this live conversation and VM pool in your terminal.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: Class Hierarchy Browser -->
+        <div class="tab-panel" id="panel-classes">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 12px; color: var(--text-muted);">
+                    Live ActorInheritanceHierarchy inspected via WebSocket "get_classes" protocol
+                </span>
+                <button class="btn btn-primary" onclick="refreshClasses()">🔄 Refresh Classes</button>
+            </div>
+
+            <div class="browser-grid">
+                <!-- Column 1: Classes -->
+                <div class="browser-column">
+                    <div class="column-header">
+                        <span>Classes (<span id="classes-count">0</span>)</span>
+                    </div>
+                    <div class="column-search">
+                        <input id="class-filter" placeholder="Filter classes..." oninput="filterClasses()">
+                    </div>
+                    <ul class="column-list" id="classes-list-el"></ul>
+                </div>
+
+                <!-- Column 2: Methods -->
+                <div class="browser-column">
+                    <div class="column-header">
+                        <span>Methods (<span id="methods-count">0</span>)</span>
+                    </div>
+                    <div class="column-search">
+                        <input id="method-filter" placeholder="Filter methods..." oninput="filterMethods()">
+                    </div>
+                    <ul class="column-list" id="methods-list-el"></ul>
+                </div>
+
+                <!-- Column 3: Class & Method Details -->
+                <div class="browser-column">
+                    <div class="column-header">
+                        <span>Definition &amp; State</span>
+                    </div>
+                    <div class="detail-card" id="class-detail-el">
+                        <div style="color: var(--text-muted); text-align: center; margin-top: 40px;">
+                            Select a class on the left to inspect its superclass, instance variables, and method definitions.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: Workspace Evaluation (REPL) -->
+        <div class="tab-panel" id="panel-repl">
+            <div class="repl-container">
+                <div class="snippet-bar">
+                    <span>Sample Snippets:</span>
+                    <button class="btn" onclick="setSnippet('sieve(Sam, 100)!!')">Sieve Benchmark</button>
+                    <button class="btn" onclick="setSnippet('inherit(Object, #Point2D, #(x y), 0, nil)!!')">Inherit Class</button>
+                    <button class="btn" onclick="setSnippet('a := new(Array, 4); a.fill(99); ^a[0] + a[1];!!')">Array Operations</button>
+                    <button class="btn" onclick="setSnippet('^(100 * 5) + 42!!')">Arithmetic</button>
+                </div>
+
+                <textarea class="code-editor" id="actor-code" spellcheck="false">/* Actor 4.1 Live Expression Evaluation */
+sieve(Sam, 100)!!</textarea>
+
+                <div class="repl-actions">
+                    <div style="font-size: 11.5px; color: var(--text-muted);">
+                        Tip: Chunks must end with <code style="color:var(--accent-red);font-weight:bold;">!!</code>
+                    </div>
+                    <button class="btn btn-success" style="padding: 10px 20px; font-size: 13px;" onclick="evaluateCode()">
+                        ▶️ Evaluate Code (!!)
+                    </button>
+                </div>
+
+                <div style="margin-top: 8px;">
+                    <div style="font-size: 11px; font-weight: 700; color: var(--accent-yellow); margin-bottom: 4px;">
+                        EVALUATION RESULT:
+                    </div>
+                    <div class="output-box" id="eval-output">Ready. Click "Evaluate Code (!!)" to execute on live ActorVM.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: Object Inspector -->
+        <div class="tab-panel" id="panel-inspector">
+            <div style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center;">
+                <label style="font-size: 12px; font-weight: 700;">Actor Object Key:</label>
+                <input id="inspect-key" value="Sam" placeholder="Key (e.g. Sam, btnSave, Array)" style="width: 220px; padding: 6px; background: var(--bg-input); color: #fff; border: 1px solid var(--border-color); border-radius: 4px;">
+                <button class="btn btn-primary" onclick="inspectObject()">🔍 Inspect Object</button>
+                <div style="display: flex; gap: 4px; margin-left: 12px;">
+                    <button class="btn" onclick="quickInspect('Sam')">#Sam</button>
+                    <button class="btn" onclick="quickInspect('Array')">#Array</button>
+                    <button class="btn" onclick="quickInspect('Button')">#Button</button>
+                    <button class="btn" onclick="quickInspect('Window')">#Window</button>
+                </div>
+            </div>
+
+            <div class="inspector-box" id="inspect-result">
+                <div style="color: var(--text-muted); text-align: center; margin-top: 30px;">
+                    Enter an object name or symbol from the Actor dictionary and click "Inspect Object".
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: Console Log -->
+        <div class="tab-panel" id="panel-log">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 12px; color: var(--text-muted);">WebSocket Message Stream</span>
+                <button class="btn" onclick="clearLog()">Clear Log</button>
+            </div>
+            <div class="log-terminal" id="log-terminal"></div>
+        </div>
+    </div>
+
+    <!-- Client Script -->
+    <script>
+        let ws = null;
+        let activeTab = 'canvas';
+        let currentTool = 'pen';
+        let isDrawing = false;
+        let lastPt = null;
+
+        const canvas = document.getElementById('actor-canvas');
+        const ctx = canvas.getContext('2d');
+        const widgetLayer = document.getElementById('widget-layer');
+        const logEl = document.getElementById('log-terminal');
+        const statusBadge = document.getElementById('status-badge');
+        const connectBtn = document.getElementById('btn-connect');
+
+        // Initial canvas setup
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Class browser cache
+        let loadedClasses = [];
+        let selectedClass = null;
+
+        function addLog(msg) {
+            const time = new Date().toLocaleTimeString();
+            logEl.textContent += `[${time}] ${msg}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function clearLog() {
+            logEl.textContent = '';
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(`tab-btn-${tab}`).classList.add('active');
+            document.getElementById(`panel-${tab}`).classList.add('active');
+
+            if (tab === 'classes' && loadedClasses.length === 0) {
+                refreshClasses();
+            }
+            if (tab === 'agent') {
+                sendWs({ type: 'get_chat_history' });
+            }
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            ['pen', 'rect', 'circle'].forEach(t => {
+                const el = document.getElementById(`tool-${t}`);
+                if (el) el.classList.toggle('active', t === tool);
+            });
+        }
+
+        function clearCanvas() {
+            sendWs({ type: 'clear', color: '#FFFFFF' });
+        }
+
+        // =====================================================================
+        // WebSocket Connection
+        // =====================================================================
+
+        function toggleConnect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            } else {
+                connect();
+            }
+        }
+
+        function connect() {
+            const url = document.getElementById('ws-url').value.trim() || 'ws://localhost:8765/';
+            addLog(`Connecting to ${url}...`);
+
+            try {
+                ws = new WebSocket(url);
+            } catch (e) {
+                addLog(`Connection error: ${e.message}`);
+                return;
+            }
+
+            ws.onopen = () => {
+                addLog('Connected to ActorII WebSocket server');
+                statusBadge.textContent = 'Connected';
+                statusBadge.className = 'badge connected';
+                connectBtn.textContent = 'Disconnect';
+                // Request class hierarchy, chat history, and mount TP358W Thermometer UI on connect
+                refreshClasses();
+                sendWs({ type: 'get_chat_history' });
+                sendWs({ type: 'render_thermometer' });
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handleServerMessage(data);
+                } catch (e) {
+                    addLog(`Raw message: ${event.data}`);
+                }
+            };
+
+            ws.onclose = () => {
+                addLog('Disconnected from server');
+                statusBadge.textContent = 'Disconnected';
+                statusBadge.className = 'badge disconnected';
+                connectBtn.textContent = 'Connect';
+                ws = null;
+            };
+
+            ws.onerror = (err) => {
+                addLog('WebSocket error encountered');
+            };
+        }
+
+        function sendWs(payload) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addLog('Error: Not connected to WebSocket server');
+                return;
+            }
+            const str = JSON.stringify(payload);
+            ws.send(str);
+            addLog(`Sent [${payload.type}]`);
+        }
+
+        // =====================================================================
+        // Protocol Message Handling
+        // =====================================================================
+
+        function handleServerMessage(data) {
+            const type = data.type;
+
+            switch (type) {
+                case 'eval_result':
+                    handleEvalResult(data);
+                    break;
+                case 'classes_list':
+                    handleClassesList(data);
+                    break;
+                case 'object_details':
+                    handleObjectDetails(data);
+                    break;
+                case 'ui_event_result':
+                    handleUiEventResult(data);
+                    break;
+                case 'rendered_widget':
+                    handleRenderedWidget(data);
+                    break;
+                case 'thermometer_rendered':
+                    mountThermometerUI(data.html);
+                    addLog(`🌡️ TP358W UI rendered: ${data.temp_text} | ${data.humidity_text} (${data.history_count} history pts)`);
+                    break;
+                case 'cleared':
+                    ctx.fillStyle = data.color || '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    widgetLayer.innerHTML = '';
+                    addLog(`Canvas cleared (${data.color})`);
+                    break;
+                case 'pixel_color':
+                    ctx.fillStyle = data.color || '#FF0000';
+                    ctx.fillRect((data.x || 0) - 1, (data.y || 0) - 1, 3, 3);
+                    break;
+                case 'surface_info':
+                    addLog(`Surface info: ${JSON.stringify(data.data)}`);
+                    break;
+                case 'queens_solution':
+                    renderQueensBoard(data);
+                    break;
+                case 'sieve_result':
+                    addLog(`Sieve primes count <= ${data.data.limit}: ${data.data.count}`);
+                    break;
+                case 'image_saved':
+                    if (data.success) {
+                        addLog(`✓ Image saved: ${data.path} (${data.classes_count} classes)`);
+                    } else {
+                        addLog(`✗ Image save failed: ${data.error}`);
+                    }
+                    break;
+                case 'image_loaded':
+                    if (data.success) {
+                        addLog(`✓ Image loaded: ${data.path} (${data.classes_count} classes, ${data.objects_count} objects)`);
+                        refreshClasses();
+                    } else {
+                        addLog(`✗ Image load failed: ${data.error}`);
+                    }
+                    break;
+                case 'goal_step': {
+                    const statusEl = document.getElementById('agent-goal-status');
+                    const actShort = String(data.action || '').split('\n')[0];
+                    addLog(`  [Step ${data.step} | ${data.status}] ${actShort}`);
+                    if (statusEl) {
+                        statusEl.style.color = data.status === 'error' ? '#ef4444' : '#38bdf8';
+                        statusEl.textContent = `⚡ Step ${data.step} [${data.status}]: ${actShort}`;
+                    }
+                    appendLiveStepToActiveTurn(data);
+                    break;
+                }
+                case 'goal_result': {
+                    const statusEl = document.getElementById('agent-goal-status');
+                    if (data.thermometer_html) {
+                        mountThermometerUI(data.thermometer_html);
+                    }
+                    refreshClasses();
+                    if (Array.isArray(data.chat_history)) {
+                        renderAgentChatThread(data.chat_history);
+                    }
+                    updateAgentTelemetry(data);
+                    if (data.success) {
+                        addLog(`✓ AgentGoal completed (${data.steps_count} steps): ${data.final_summary}`);
+                        if (statusEl) {
+                            statusEl.style.color = '#80ed99';
+                            statusEl.textContent = `💬 ${data.final_summary} (${data.steps_count} step${data.steps_count === 1 ? '' : 's'}, ${data.gas_used || 0} ops)`;
+                        }
+                    } else {
+                        addLog(`✗ AgentGoal failed: ${data.error || data.final_summary}`);
+                        if (statusEl) {
+                            statusEl.style.color = '#ef4444';
+                            statusEl.textContent = `✗ Failed: ${data.error || data.final_summary}`;
+                        }
+                    }
+                    break;
+                }
+                case 'chat_history': {
+                    if (Array.isArray(data.chat_history)) {
+                        renderAgentChatThread(data.chat_history);
+                    }
+                    updateAgentTelemetry(data);
+                    if (data.cleared) {
+                        const statusEl = document.getElementById('agent-goal-status');
+                        if (statusEl) {
+                            statusEl.style.color = '#8d99ae';
+                            statusEl.textContent = 'Conversation history cleared.';
+                        }
+                    }
+                    break;
+                }
+                case 'error':
+                    addLog(`Server Error: ${data.message}`);
+                    break;
+                default:
+                    addLog(`Received [${type}]: ${JSON.stringify(data)}`);
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function updateAgentTelemetry(data) {
+            const tBox = document.getElementById('agent-telemetry-box');
+            const sBox = document.getElementById('agent-scratchpad-box');
+            const turnsCount = Array.isArray(data.chat_history) ? data.chat_history.length : 0;
+            if (tBox) {
+                const st = escapeHtml(data.status || '#idle');
+                const mdl = escapeHtml(data.model || 'qwen3.8:latest');
+                const gas = Number(data.gas_used || 0);
+                const fails = Number(data.failures || 0);
+                const maxFails = Number(data.max_failures || 3);
+                tBox.innerHTML = `
+                    <div>Status : <span style="color: var(--accent-green);">${st}</span></div>
+                    <div>Model  : <span>${mdl}</span></div>
+                    <div>Turns  : <span>${turnsCount}</span></div>
+                    <div>Gas    : <span>${gas} opcodes</span></div>
+                    <div>Strikes: <span>${fails} / ${maxFails}</span></div>
+                `;
+            }
+            if (sBox && data.scratchpad && typeof data.scratchpad === 'object') {
+                const keys = Object.keys(data.scratchpad).sort();
+                if (keys.length === 0) {
+                    sBox.innerHTML = '<span style="color: var(--text-muted);">(empty)</span>';
+                } else {
+                    sBox.innerHTML = keys.map(k => {
+                        const valStr = typeof data.scratchpad[k] === 'object'
+                            ? JSON.stringify(data.scratchpad[k])
+                            : String(data.scratchpad[k]);
+                        return `<div style="margin-bottom: 4px;"><span style="color: var(--accent-yellow);">#${escapeHtml(k)}</span> = <span style="color: var(--accent-green);">${escapeHtml(valStr)}</span></div>`;
+                    }).join('');
+                }
+            }
+        }
+
+        function renderAgentChatThread(turns) {
+            const threadEl = document.getElementById('agent-chat-thread');
+            if (!threadEl) return;
+            if (!turns || turns.length === 0) {
+                threadEl.innerHTML = `
+                    <div style="color: var(--text-muted); text-align: center; margin-top: 120px;">
+                        Ask a question in plain English or tell <code>Actor[#Harness]</code> to build classes, inspect Digital Twins, or modify UI widgets.<br>
+                        Follow-up messages automatically retain multi-turn conversation history and live VM state.
+                    </div>
+                `;
+                return;
+            }
+            threadEl.innerHTML = turns.map(t => {
+                const actions = Array.isArray(t.actions) ? t.actions : [];
+                const actHtml = actions.length > 0
+                    ? `<div style="margin-top: 6px; padding: 6px 8px; background: rgba(15, 52, 96, 0.55); border-left: 3px solid var(--accent-teal); border-radius: 4px; font-family: monospace; font-size: 11px; color: var(--text-secondary);">
+                        <div style="color: var(--accent-yellow); font-weight: 700; margin-bottom: 2px;">⚡ Compiled 1993 Actor 4.1 Bytecode (${t.steps || 1} step${(t.steps || 1) === 1 ? '' : 's'}, ${t.gas_used || 0} opcodes):</div>
+                        ${actions.map(a => `<div><code>${escapeHtml(a)}</code></div>`).join('')}
+                       </div>`
+                    : `<div style="margin-top: 4px; font-size: 10.5px; color: var(--text-muted);">[Conversational Turn · 0 opcodes]</div>`;
+                return `
+                    <div style="display: flex; flex-direction: column; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                        <div style="align-self: flex-end; background: var(--bg-panel); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 10px 10px 2px 10px; max-width: 85%;">
+                            <div style="font-size: 10px; color: var(--accent-yellow); font-weight: 700; margin-bottom: 2px;">You · Turn #${escapeHtml(t.turn)}</div>
+                            <div>${escapeHtml(t.user)}</div>
+                        </div>
+                        <div style="align-self: flex-start; background: #101b33; border: 1px solid var(--border-color); padding: 9px 12px; border-radius: 10px 10px 10px 2px; max-width: 90%;">
+                            <div style="font-size: 10px; color: var(--accent-green); font-weight: 700; margin-bottom: 3px;">💬 Bilby (Actor[#Bilby] / Actor[#Harness])</div>
+                            <div style="white-space: pre-wrap; line-height: 1.45;">${escapeHtml(t.reply)}</div>
+                            ${actHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            threadEl.scrollTop = threadEl.scrollHeight;
+        }
+
+        function appendLiveStepToActiveTurn(stepData) {
+            const threadEl = document.getElementById('agent-chat-thread');
+            if (!threadEl) return;
+            let liveBox = document.getElementById('agent-live-pending-box');
+            if (!liveBox) {
+                liveBox = document.createElement('div');
+                liveBox.id = 'agent-live-pending-box';
+                liveBox.style.cssText = 'padding: 8px 12px; background: rgba(27, 154, 170, 0.12); border: 1px dashed var(--accent-teal); border-radius: 6px; font-family: monospace; font-size: 11.5px; color: var(--text-secondary);';
+                threadEl.appendChild(liveBox);
+            }
+            const line = document.createElement('div');
+            const isErr = stepData.status === 'error';
+            line.style.color = isErr ? '#ef4444' : '#80ed99';
+            line.textContent = `⚡ Step ${stepData.step} [${stepData.tier || stepData.status} | gas=${stepData.gas_used || 0}]: ${stepData.action}`;
+            liveBox.appendChild(line);
+            threadEl.scrollTop = threadEl.scrollHeight;
+        }
+
+        function dispatchAgentObjective(objective, maxSteps) {
+            const text = String(objective || '').trim();
+            if (!text) return;
+            const statusEl = document.getElementById('agent-goal-status');
+            if (statusEl) {
+                statusEl.style.color = '#f59e0b';
+                statusEl.textContent = `⏳ Bilby thinking: "${text}"...`;
+            }
+            const threadEl = document.getElementById('agent-chat-thread');
+            if (threadEl) {
+                const pending = document.createElement('div');
+                pending.id = 'agent-live-pending-box';
+                pending.style.cssText = 'padding: 8px 12px; background: rgba(27, 154, 170, 0.12); border: 1px dashed var(--accent-teal); border-radius: 6px; font-family: monospace; font-size: 11.5px; color: var(--text-secondary);';
+                pending.innerHTML = `<div style="color: var(--accent-yellow); font-weight: 700; margin-bottom: 4px;">⏳ Processing: ${escapeHtml(text)}</div>`;
+                threadEl.appendChild(pending);
+                threadEl.scrollTop = threadEl.scrollHeight;
+            }
+            addLog(`▶ Running AgentHarness: ${text}`);
+            sendWs({type: 'run_goal', objective: text, max_steps: maxSteps || 6});
+        }
+
+        function runStudioAgentGoal() {
+            const input = document.getElementById('agent-goal-input');
+            const objective = (input ? input.value : '').trim();
+            if (!objective) return;
+            input.value = '';
+            dispatchAgentObjective(objective, 6);
+        }
+
+        function sendAgentConsoleMessage() {
+            const input = document.getElementById('agent-console-input');
+            const stepsSel = document.getElementById('agent-max-steps');
+            const objective = (input ? input.value : '').trim();
+            if (!objective) return;
+            input.value = '';
+            const maxSteps = stepsSel ? parseInt(stepsSel.value, 10) || 6 : 6;
+            dispatchAgentObjective(objective, maxSteps);
+        }
+
+        function sendQuickAgentPrompt(promptText) {
+            switchTab('agent');
+            dispatchAgentObjective(promptText, 6);
+        }
+
+        function clearAgentChatHistory() {
+            sendWs({type: 'clear_chat_history'});
+        }
+
+        // =====================================================================
+        // Evaluation (REPL) UI
+        // =====================================================================
+
+        function setSnippet(code) {
+            document.getElementById('actor-code').value = code;
+        }
+
+        function evaluateCode() {
+            const code = document.getElementById('actor-code').value;
+            const outEl = document.getElementById('eval-output');
+            outEl.textContent = 'Evaluating on ActorVM...';
+            sendWs({ type: 'eval', source: code });
+        }
+
+        function handleEvalResult(data) {
+            const outEl = document.getElementById('eval-output');
+            if (data.thermometer_html) {
+                mountThermometerUI(data.thermometer_html);
+            }
+            if (data.success) {
+                let resStr = typeof data.result === 'object' ? JSON.stringify(data.result, null, 2) : String(data.result);
+                outEl.innerHTML = `<span style="color:var(--accent-green);font-weight:bold;">✓ SUCCESS:</span>\n${resStr}`;
+                addLog(`Eval succeeded -> ${resStr}`);
+            } else {
+                outEl.innerHTML = `<span style="color:var(--accent-red);font-weight:bold;">✗ ERROR:</span>\n${data.error}`;
+                addLog(`Eval failed -> ${data.error}`);
+            }
+        }
+
+        // =====================================================================
+        // Class Hierarchy Browser UI
+        // =====================================================================
+
+        function refreshClasses() {
+            sendWs({ type: 'get_classes' });
+        }
+
+        function handleClassesList(data) {
+            loadedClasses = data.classes || [];
+            document.getElementById('classes-count').textContent = loadedClasses.length;
+            renderClassesList(loadedClasses);
+            addLog(`Loaded ${loadedClasses.length} classes from hierarchy`);
+        }
+
+        function renderClassesList(classes) {
+            const listEl = document.getElementById('classes-list-el');
+            listEl.innerHTML = '';
+            classes.forEach(c => {
+                const li = document.createElement('li');
+                li.textContent = c.name;
+                li.onclick = () => selectClass(c, li);
+                listEl.appendChild(li);
+            });
+        }
+
+        function filterClasses() {
+            const q = document.getElementById('class-filter').value.toLowerCase();
+            const filtered = loadedClasses.filter(c => c.name.toLowerCase().includes(q));
+            renderClassesList(filtered);
+        }
+
+        function selectClass(cls, liEl) {
+            selectedClass = cls;
+            document.querySelectorAll('#classes-list-el li').forEach(el => el.classList.remove('selected'));
+            if (liEl) liEl.classList.add('selected');
+
+            // Populate methods list
+            const methods = cls.methods || [];
+            document.getElementById('methods-count').textContent = methods.length;
+            renderMethodsList(methods);
+
+            // Populate class details
+            const detailEl = document.getElementById('class-detail-el');
+            const ivars = cls.ivars || [];
+            const ivarTags = ivars.length > 0 
+                ? ivars.map(v => `<span class="tag">${v}</span>`).join('')
+                : '<span style="color:var(--text-muted);font-style:italic;">None</span>';
+
+            detailEl.innerHTML = `
+                <div class="detail-row">
+                    <div class="detail-label">CLASS NAME:</div>
+                    <div style="font-size:14px;font-weight:bold;color:#fff;">${cls.name}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">SUPERCLASS:</div>
+                    <div style="color:var(--accent-teal);font-weight:600;">${cls.super || 'None (Root Object)'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">INSTANCE VARIABLES (IVARS):</div>
+                    <div class="tag-list">${ivarTags}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">METHOD COUNT:</div>
+                    <div>${methods.length} selectors registered</div>
+                </div>
+                <div style="margin-top:14px;">
+                    <button class="btn btn-primary" onclick="quickInspect('${cls.name}')">🔍 Inspect in Object Inspector</button>
+                </div>
+            `;
+        }
+
+        function renderMethodsList(methods) {
+            const listEl = document.getElementById('methods-list-el');
+            listEl.innerHTML = '';
+            methods.forEach(m => {
+                const li = document.createElement('li');
+                li.textContent = m;
+                li.onclick = () => selectMethod(m, li);
+                listEl.appendChild(li);
+            });
+        }
+
+        function filterMethods() {
+            if (!selectedClass) return;
+            const q = document.getElementById('method-filter').value.toLowerCase();
+            const filtered = (selectedClass.methods || []).filter(m => m.toLowerCase().includes(q));
+            renderMethodsList(filtered);
+        }
+
+        function selectMethod(methodName, liEl) {
+            document.querySelectorAll('#methods-list-el li').forEach(el => el.classList.remove('selected'));
+            if (liEl) liEl.classList.add('selected');
+            addLog(`Selected method: ${selectedClass.name}>>${methodName}`);
+        }
+
+        // =====================================================================
+        // Object Inspector UI
+        // =====================================================================
+
+        function inspectObject() {
+            const key = document.getElementById('inspect-key').value.trim();
+            if (!key) return;
+            sendWs({ type: 'inspect_object', key: key });
+        }
+
+        function quickInspect(key) {
+            document.getElementById('inspect-key').value = key;
+            switchTab('inspector');
+            sendWs({ type: 'inspect_object', key: key });
+        }
+
+        function handleObjectDetails(data) {
+            const resEl = document.getElementById('inspect-result');
+            if (!data.found) {
+                resEl.innerHTML = `<span style="color:var(--accent-red);font-weight:bold;">✗ Not Found:</span> ${data.error || 'Object not in Actor dictionary'}`;
+                return;
+            }
+
+            let rows = '';
+            for (let [k, v] of Object.entries(data.fields || {})) {
+                let vStr = typeof v === 'object' ? JSON.stringify(v) : String(v);
+                rows += `<tr><td style="color:var(--accent-yellow);font-weight:600;">${k}</td><td>${vStr}</td></tr>`;
+            }
+
+            resEl.innerHTML = `
+                <div style="margin-bottom:8px;">
+                    <span style="color:var(--text-muted);">KEY:</span> <strong style="color:#fff;">${data.key}</strong>
+                    &nbsp;|&nbsp;
+                    <span style="color:var(--text-muted);">CLASS:</span> <strong style="color:var(--accent-teal);">${data.class}</strong>
+                </div>
+                <table class="fields-table">
+                    <thead><tr><th>Attribute / Field</th><th>Value</th></tr></thead>
+                    <tbody>${rows || '<tr><td colspan="2">No fields defined</td></tr>'}</tbody>
+                </table>
+            `;
+            addLog(`Inspected object #${data.key} (${data.class})`);
+        }
+
+        // =====================================================================
+        // Widget Rendering & Interactive UI Event Wiring (Milestone M5)
+        // =====================================================================
+
+        function renderCustomWidget() {
+            const type = document.getElementById('w-type').value;
+            const id = document.getElementById('w-id').value.trim() || `widget_${Date.now()}`;
+            const label = document.getElementById('w-label').value.trim() || 'Control';
+            const x = parseInt(document.getElementById('w-x').value) || 50;
+            const y = parseInt(document.getElementById('w-y').value) || 50;
+            const width = parseInt(document.getElementById('w-width').value) || 120;
+            const height = parseInt(document.getElementById('w-height').value) || 32;
+
+            sendWs({
+                type: 'render_widget',
+                widget_type: type,
+                id: id,
+                label: label,
+                x: x,
+                y: y,
+                width: width,
+                height: height
+            });
+        }
+
+        function handleRenderedWidget(data) {
+            if (!data.html) return;
+            const wrap = document.createElement('div');
+            wrap.innerHTML = data.html;
+            const el = wrap.firstElementChild;
+            if (el) {
+                const widgetId = data.widget_id || el.dataset.id || el.dataset.label || 'widget';
+                el.style.pointerEvents = 'auto';
+
+                // M5 Interactive Wiring: Click forwards ui_event to WebSocket -> ActorVM
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    addLog(`⚡ Widget clicked: ${widgetId} -> sending ui_event to ActorVM`);
+                    sendWs({
+                        type: 'ui_event',
+                        widget_id: widgetId,
+                        action: '#selected',
+                        msg: { label: data.label, type: data.widget_type }
+                    });
+                    highlightWidgetFeedback(el);
+                });
+
+                widgetLayer.appendChild(el);
+                addLog(`Widget [${widgetId}] rendered and wired to ActorVM`);
+            }
+        }
+
+        function highlightWidgetFeedback(el) {
+            const orig = el.style.boxShadow;
+            el.style.boxShadow = '0 0 12px #80ed99';
+            setTimeout(() => { el.style.boxShadow = orig; }, 300);
+        }
+
+        function dispatchManualAction() {
+            const target = document.getElementById('action-target').value.trim();
+            const action = document.getElementById('action-selector').value.trim();
+            if (!target) return;
+            sendWs({
+                type: 'ui_event',
+                widget_id: target,
+                action: action
+            });
+        }
+
+        function saveImageWs() {
+            const path = document.getElementById('image-path').value.trim() || 'ACTOR.IMG';
+            sendWs({ type: 'save_image', path: path });
+        }
+
+        function loadImageWs() {
+            const path = document.getElementById('image-path').value.trim() || 'ACTOR.IMG';
+            sendWs({ type: 'load_image', path: path });
+        }
+
+        function handleUiEventResult(data) {
+            if (data.handled) {
+                addLog(`✓ Action #${data.action} handled on ${data.widget_id}: result = ${JSON.stringify(data.result)}`);
+                if (data.thermometer_html) {
+                    mountThermometerUI(data.thermometer_html);
+                }
+            } else {
+                addLog(`✗ Action #${data.action} failed on ${data.widget_id}: ${data.error}`);
+            }
+        }
+
+        function mountThermometerUI(html) {
+            if (!html) return;
+            const existing = widgetLayer.querySelector('.actor-thermometer-ui');
+            if (existing) existing.remove();
+            const wrap = document.createElement('div');
+            wrap.innerHTML = html;
+            const el = wrap.firstElementChild;
+            if (!el) return;
+            el.style.pointerEvents = 'auto';
+            el.querySelectorAll('button[data-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const href = btn.getAttribute('data-href');
+                    const wid = btn.dataset.id;
+                    addLog(`⚡ Thermometer UI Button [${wid}] -> sending ui_event to ActorVM`);
+                    sendWs({
+                        type: 'ui_event',
+                        widget_id: wid,
+                        action: '#selected'
+                    });
+                    if (href && window.location.pathname !== href) {
+                        window.location.href = href;
+                    }
+                });
+            });
+            widgetLayer.appendChild(el);
+        }
+
+        function spawnPresetWidgets() {
+            // Spawn sample Button and Checkbox pair
+            sendWs({
+                type: 'render_widget',
+                widget_type: 'button',
+                id: 'btnApply',
+                label: 'Apply Filter',
+                x: 60,
+                y: 80,
+                width: 140,
+                height: 34
+            });
+            sendWs({
+                type: 'render_widget',
+                widget_type: 'checkbox',
+                id: 'chkVerbose',
+                label: 'Verbose Logging',
+                x: 60,
+                y: 130,
+                width: 160,
+                height: 30,
+                checked: true
+            });
+        }
+
+        function renderQueensBoard(data) {
+            const n = data.n || 8;
+            const board = data.board || [];
+            const cellSize = 40;
+            const startX = 240;
+            const startY = 120;
+
+            for (let r = 0; r < n; r++) {
+                for (let c = 0; c < n; c++) {
+                    ctx.fillStyle = (r + c) % 2 === 0 ? '#EEEED2' : '#769656';
+                    ctx.fillRect(startX + c * cellSize, startY + r * cellSize, cellSize, cellSize);
+                    if (board[r] === c) {
+                        ctx.fillStyle = '#16213e';
+                        ctx.font = '28px sans-serif';
+                        ctx.fillText('♛', startX + c * cellSize + 6, startY + r * cellSize + 30);
+                    }
+                }
+            }
+            addLog(`Rendered 8-Queens solution #${(data.index || 0) + 1} of ${data.total_solutions}`);
+        }
+
+        // =====================================================================
+        // Canvas Pointer Interaction (Pen / Rect / Circle)
+        // =====================================================================
+
+        function getCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: Math.round((e.clientX - rect.left) * scaleX),
+                y: Math.round((e.clientY - rect.top) * scaleY)
+            };
+        }
+
+        canvas.addEventListener('pointerdown', (e) => {
+            isDrawing = true;
+            lastPt = getCoords(e);
+            const color = document.getElementById('draw-color').value;
+            ctx.fillStyle = color;
+            ctx.fillRect(lastPt.x - 2, lastPt.y - 2, 4, 4);
+            sendWs({ type: 'set_pixel', x: lastPt.x, y: lastPt.y, color: color });
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!isDrawing) return;
+            const pt = getCoords(e);
+            const color = document.getElementById('draw-color').value;
+            const size = parseInt(document.getElementById('draw-size').value) || 3;
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = size;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(lastPt.x, lastPt.y);
+            ctx.lineTo(pt.x, pt.y);
+            ctx.stroke();
+
+            sendWs({ type: 'draw_stroke', points: [[pt.x, pt.y]], color: color, size: size });
+            lastPt = pt;
+        });
+
+        window.addEventListener('pointerup', () => { isDrawing = false; });
+
+        // Auto-connect on page load using the host/port used to load the page
+        window.addEventListener('DOMContentLoaded', () => {
+            const wsInput = document.getElementById('ws-url');
+            if (wsInput && window.location.host) {
+                const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                wsInput.value = `${proto}//${window.location.host}/`;
+            }
+            connect();
+        });
+    </script>
+</body>
+</html>

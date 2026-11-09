@@ -1,0 +1,751 @@
+[
+  {
+    "condition_id": "Condition A",
+    "condition_label": "RAM-Only OOP (No Neo4j Bridge)",
+    "model": "qwen3.8:latest",
+    "enable_memory_graph": false,
+    "enable_engrams": false,
+    "summary": {
+      "passed": 0,
+      "total": 12,
+      "pass_rate_pct": 0.0,
+      "avg_steps_per_query": 3.0,
+      "avg_tokens_per_query": 11087.7,
+      "avg_time_s_per_query": 35.69,
+      "total_query_tokens": 133052,
+      "total_query_time_s": 428.26,
+      "total_ingest_tokens": 30687,
+      "total_ingest_time_s": 196.87,
+      "amortized_total_tokens": 163739,
+      "amortized_total_time_s": 625.13
+    },
+    "tasks": [
+      {
+        "task_id": "recipe_efficiency",
+        "workflow": "Workflow 1: Existing Graph",
+        "title": "Multi-Constraint Recipe Efficiency Scorer",
+        "ingest": {
+          "steps": 2,
+          "llm_calls": 2,
+          "gas_used": 224,
+          "elapsed_s": 56.77,
+          "est_tokens": 8144,
+          "prompt_chars": 31533,
+          "completion_chars": 1044
+        },
+        "queries": [
+          {
+            "query_id": "q1_prep30_no_nuts",
+            "expected": 190,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 21,
+            "elapsed_s": 34.21,
+            "est_tokens": 10987,
+            "prompt_chars": 43484,
+            "completion_chars": 465
+          },
+          {
+            "query_id": "q2_prep20_no_dairy",
+            "expected": 120,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 21,
+            "elapsed_s": 34.57,
+            "est_tokens": 10991,
+            "prompt_chars": 43498,
+            "completion_chars": 468
+          },
+          {
+            "query_id": "q3_prep40_no_gluten",
+            "expected": 290,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 21,
+            "elapsed_s": 34.79,
+            "est_tokens": 10995,
+            "prompt_chars": 43512,
+            "completion_chars": 471
+          }
+        ],
+        "task_passed": 0,
+        "task_total": 3
+      },
+      {
+        "task_id": "service_cascade",
+        "workflow": "Workflow 1: Existing Graph",
+        "title": "Service Cluster Spike Risk Calculator",
+        "ingest": {
+          "steps": 2,
+          "llm_calls": 2,
+          "gas_used": 165,
+          "elapsed_s": 67.18,
+          "est_tokens": 7969,
+          "prompt_chars": 30508,
+          "completion_chars": 1368
+        },
+        "queries": [
+          {
+            "query_id": "q1_core_spike2",
+            "expected": 640,
+            "actual": 0,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 72,
+            "elapsed_s": 58.94,
+            "est_tokens": 11961,
+            "prompt_chars": 46732,
+            "completion_chars": 1114
+          },
+          {
+            "query_id": "q2_core_spike3",
+            "expected": 1120,
+            "actual": 0,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 72,
+            "elapsed_s": 59.33,
+            "est_tokens": 11960,
+            "prompt_chars": 46732,
+            "completion_chars": 1110
+          },
+          {
+            "query_id": "q3_edge_spike2",
+            "expected": 400,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 21,
+            "elapsed_s": 31.51,
+            "est_tokens": 10965,
+            "prompt_chars": 43452,
+            "completion_chars": 408
+          }
+        ],
+        "task_passed": 0,
+        "task_total": 3
+      },
+      {
+        "task_id": "thermal_cooling",
+        "workflow": "Workflow 2: Chat-Ingested Memory+Skill",
+        "title": "Server Zone Iterative Cooling Curve Memory",
+        "ingest": {
+          "steps": 2,
+          "llm_calls": 2,
+          "gas_used": 86,
+          "elapsed_s": 30.35,
+          "est_tokens": 7166,
+          "prompt_chars": 28183,
+          "completion_chars": 482
+        },
+        "queries": [
+          {
+            "query_id": "q1_zoneA_to_74",
+            "expected": 6,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 15,
+            "elapsed_s": 33.6,
+            "est_tokens": 11039,
+            "prompt_chars": 43694,
+            "completion_chars": 462
+          },
+          {
+            "query_id": "q2_zoneB_to_75",
+            "expected": 5,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 18,
+            "elapsed_s": 30.67,
+            "est_tokens": 10978,
+            "prompt_chars": 43553,
+            "completion_chars": 359
+          },
+          {
+            "query_id": "q3_zoneC_to_80",
+            "expected": 6,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 15,
+            "elapsed_s": 33.41,
+            "est_tokens": 11036,
+            "prompt_chars": 43687,
+            "completion_chars": 460
+          }
+        ],
+        "task_passed": 0,
+        "task_total": 3
+      },
+      {
+        "task_id": "contractor_ledger",
+        "workflow": "Workflow 2: Chat-Ingested Memory+Skill",
+        "title": "Contractor Tiered Overtime Payroll Memory",
+        "ingest": {
+          "steps": 2,
+          "llm_calls": 2,
+          "gas_used": 92,
+          "elapsed_s": 42.57,
+          "est_tokens": 7408,
+          "prompt_chars": 28816,
+          "completion_chars": 816
+        },
+        "queries": [
+          {
+            "query_id": "q1_hours40",
+            "expected": 9900,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 18,
+            "elapsed_s": 23.31,
+            "est_tokens": 10693,
+            "prompt_chars": 42648,
+            "completion_chars": 126
+          },
+          {
+            "query_id": "q2_hours45",
+            "expected": 12300,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 18,
+            "elapsed_s": 23.32,
+            "est_tokens": 10693,
+            "prompt_chars": 42647,
+            "completion_chars": 126
+          },
+          {
+            "query_id": "q3_hours30",
+            "expected": 7200,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 18,
+            "elapsed_s": 30.6,
+            "est_tokens": 10754,
+            "prompt_chars": 42647,
+            "completion_chars": 372
+          }
+        ],
+        "task_passed": 0,
+        "task_total": 3
+      }
+    ]
+  },
+  {
+    "condition_id": "Condition B",
+    "condition_label": "Passive Graph-RAG (Cypher-in-Actor Only, No Stored Engrams)",
+    "model": "qwen3.8:latest",
+    "enable_memory_graph": true,
+    "enable_engrams": false,
+    "summary": {
+      "passed": 8,
+      "total": 12,
+      "pass_rate_pct": 66.7,
+      "avg_steps_per_query": 2.67,
+      "avg_tokens_per_query": 10212.8,
+      "avg_time_s_per_query": 40.13,
+      "total_query_tokens": 122554,
+      "total_query_time_s": 481.56,
+      "total_ingest_tokens": 18541,
+      "total_ingest_time_s": 67.48,
+      "amortized_total_tokens": 141095,
+      "amortized_total_time_s": 549.04
+    },
+    "tasks": [
+      {
+        "task_id": "recipe_efficiency",
+        "workflow": "Workflow 1: Existing Graph",
+        "title": "Multi-Constraint Recipe Efficiency Scorer",
+        "ingest": {
+          "steps": 0,
+          "llm_calls": 0,
+          "gas_used": 0,
+          "elapsed_s": 0.0,
+          "est_tokens": 0
+        },
+        "queries": [
+          {
+            "query_id": "q1_prep30_no_nuts",
+            "expected": 190,
+            "actual": 190,
+            "passed": true,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 70,
+            "elapsed_s": 52.31,
+            "est_tokens": 11463,
+            "prompt_chars": 45085,
+            "completion_chars": 770
+          },
+          {
+            "query_id": "q2_prep20_no_dairy",
+            "expected": 120,
+            "actual": 120,
+            "passed": true,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 56,
+            "elapsed_s": 41.47,
+            "est_tokens": 11334,
+            "prompt_chars": 44730,
+            "completion_chars": 606
+          },
+          {
+            "query_id": "q3_prep40_no_gluten",
+            "expected": 290,
+            "actual": 56,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 69,
+            "elapsed_s": 42.07,
+            "est_tokens": 11609,
+            "prompt_chars": 45814,
+            "completion_chars": 624
+          }
+        ],
+        "task_passed": 2,
+        "task_total": 3
+      },
+      {
+        "task_id": "service_cascade",
+        "workflow": "Workflow 1: Existing Graph",
+        "title": "Service Cluster Spike Risk Calculator",
+        "ingest": {
+          "steps": 0,
+          "llm_calls": 0,
+          "gas_used": 0,
+          "elapsed_s": 0.0,
+          "est_tokens": 0
+        },
+        "queries": [
+          {
+            "query_id": "q1_core_spike2",
+            "expected": 640,
+            "actual": 640,
+            "passed": true,
+            "steps": 2,
+            "llm_calls": 2,
+            "gas_used": 145,
+            "elapsed_s": 34.14,
+            "est_tokens": 7700,
+            "prompt_chars": 30212,
+            "completion_chars": 589
+          },
+          {
+            "query_id": "q2_core_spike3",
+            "expected": 1120,
+            "actual": 1120,
+            "passed": true,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 27,
+            "elapsed_s": 76.06,
+            "est_tokens": 12263,
+            "prompt_chars": 47677,
+            "completion_chars": 1376
+          },
+          {
+            "query_id": "q3_edge_spike2",
+            "expected": 400,
+            "actual": 400,
+            "passed": true,
+            "steps": 2,
+            "llm_calls": 2,
+            "gas_used": 109,
+            "elapsed_s": 49.36,
+            "est_tokens": 7767,
+            "prompt_chars": 30213,
+            "completion_chars": 857
+          }
+        ],
+        "task_passed": 3,
+        "task_total": 3
+      },
+      {
+        "task_id": "thermal_cooling",
+        "workflow": "Workflow 2: Chat-Ingested Memory+Skill",
+        "title": "Server Zone Iterative Cooling Curve Memory",
+        "ingest": {
+          "steps": 2,
+          "llm_calls": 2,
+          "gas_used": 26,
+          "elapsed_s": 31.44,
+          "est_tokens": 7429,
+          "prompt_chars": 29229,
+          "completion_chars": 487
+        },
+        "queries": [
+          {
+            "query_id": "q1_zoneA_to_74",
+            "expected": 6,
+            "actual": 6,
+            "passed": true,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 30,
+            "elapsed_s": 34.15,
+            "est_tokens": 11156,
+            "prompt_chars": 44213,
+            "completion_chars": 413
+          },
+          {
+            "query_id": "q2_zoneB_to_75",
+            "expected": 5,
+            "actual": 5,
+            "passed": true,
+            "steps": 2,
+            "llm_calls": 2,
+            "gas_used": 30,
+            "elapsed_s": 26.18,
+            "est_tokens": 7370,
+            "prompt_chars": 29098,
+            "completion_chars": 382
+          },
+          {
+            "query_id": "q3_zoneC_to_80",
+            "expected": 6,
+            "actual": 6,
+            "passed": true,
+            "steps": 2,
+            "llm_calls": 2,
+            "gas_used": 30,
+            "elapsed_s": 26.32,
+            "est_tokens": 7371,
+            "prompt_chars": 29102,
+            "completion_chars": 385
+          }
+        ],
+        "task_passed": 3,
+        "task_total": 3
+      },
+      {
+        "task_id": "contractor_ledger",
+        "workflow": "Workflow 2: Chat-Ingested Memory+Skill",
+        "title": "Contractor Tiered Overtime Payroll Memory",
+        "ingest": {
+          "steps": 3,
+          "llm_calls": 3,
+          "gas_used": 26,
+          "elapsed_s": 36.04,
+          "est_tokens": 11112,
+          "prompt_chars": 43935,
+          "completion_chars": 513
+        },
+        "queries": [
+          {
+            "query_id": "q1_hours40",
+            "expected": 9900,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 43,
+            "elapsed_s": 33.11,
+            "est_tokens": 11500,
+            "prompt_chars": 45599,
+            "completion_chars": 402
+          },
+          {
+            "query_id": "q2_hours45",
+            "expected": 12300,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 55,
+            "elapsed_s": 33.53,
+            "est_tokens": 11522,
+            "prompt_chars": 45665,
+            "completion_chars": 424
+          },
+          {
+            "query_id": "q3_hours30",
+            "expected": 7200,
+            "actual": null,
+            "passed": false,
+            "steps": 3,
+            "llm_calls": 3,
+            "gas_used": 43,
+            "elapsed_s": 32.86,
+            "est_tokens": 11499,
+            "prompt_chars": 45597,
+            "completion_chars": 402
+          }
+        ],
+        "task_passed": 0,
+        "task_total": 3
+      }
+    ]
+  },
+  {
+    "condition_id": "Condition C",
+    "condition_label": "Active Engrams (Neo4j Data + Stored & Hydrated Actor 4.1 Bytecode Skills)",
+    "model": "qwen3.8:latest",
+    "enable_memory_graph": true,
+    "enable_engrams": true,
+    "summary": {
+      "passed": 12,
+      "total": 12,
+      "pass_rate_pct": 100.0,
+      "avg_steps_per_query": 1.08,
+      "avg_tokens_per_query": 4002.6,
+      "avg_time_s_per_query": 10.16,
+      "total_query_tokens": 48031,
+      "total_query_time_s": 121.94,
+      "total_ingest_tokens": 51204,
+      "total_ingest_time_s": 249.65,
+      "amortized_total_tokens": 99235,
+      "amortized_total_time_s": 371.59
+    },
+    "tasks": [
+      {
+        "task_id": "recipe_efficiency",
+        "workflow": "Workflow 1: Existing Graph",
+        "title": "Multi-Constraint Recipe Efficiency Scorer",
+        "ingest": {
+          "steps": 3,
+          "llm_calls": 3,
+          "gas_used": 305,
+          "elapsed_s": 62.89,
+          "est_tokens": 12809,
+          "prompt_chars": 49991,
+          "completion_chars": 1246
+        },
+        "queries": [
+          {
+            "query_id": "q1_prep30_no_nuts",
+            "expected": 190,
+            "actual": 190,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 286,
+            "elapsed_s": 9.41,
+            "est_tokens": 3688,
+            "prompt_chars": 14649,
+            "completion_chars": 103
+          },
+          {
+            "query_id": "q2_prep20_no_dairy",
+            "expected": 120,
+            "actual": 120,
+            "passed": true,
+            "steps": 2,
+            "llm_calls": 2,
+            "gas_used": 276,
+            "elapsed_s": 16.69,
+            "est_tokens": 7443,
+            "prompt_chars": 29666,
+            "completion_chars": 109
+          },
+          {
+            "query_id": "q3_prep40_no_gluten",
+            "expected": 290,
+            "actual": 290,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 602,
+            "elapsed_s": 11.53,
+            "est_tokens": 3702,
+            "prompt_chars": 14653,
+            "completion_chars": 156
+          }
+        ],
+        "task_passed": 3,
+        "task_total": 3
+      },
+      {
+        "task_id": "service_cascade",
+        "workflow": "Workflow 1: Existing Graph",
+        "title": "Service Cluster Spike Risk Calculator",
+        "ingest": {
+          "steps": 3,
+          "llm_calls": 3,
+          "gas_used": 238,
+          "elapsed_s": 53.6,
+          "est_tokens": 12669,
+          "prompt_chars": 49723,
+          "completion_chars": 956
+        },
+        "queries": [
+          {
+            "query_id": "q1_core_spike2",
+            "expected": 640,
+            "actual": 640,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 219,
+            "elapsed_s": 9.22,
+            "est_tokens": 3687,
+            "prompt_chars": 14654,
+            "completion_chars": 97
+          },
+          {
+            "query_id": "q2_core_spike3",
+            "expected": 1120,
+            "actual": 1120,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 220,
+            "elapsed_s": 9.16,
+            "est_tokens": 3687,
+            "prompt_chars": 14654,
+            "completion_chars": 97
+          },
+          {
+            "query_id": "q3_edge_spike2",
+            "expected": 400,
+            "actual": 400,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 197,
+            "elapsed_s": 9.15,
+            "est_tokens": 3687,
+            "prompt_chars": 14654,
+            "completion_chars": 97
+          }
+        ],
+        "task_passed": 3,
+        "task_total": 3
+      },
+      {
+        "task_id": "thermal_cooling",
+        "workflow": "Workflow 2: Chat-Ingested Memory+Skill",
+        "title": "Server Zone Iterative Cooling Curve Memory",
+        "ingest": {
+          "steps": 3,
+          "llm_calls": 3,
+          "gas_used": 163,
+          "elapsed_s": 62.22,
+          "est_tokens": 12866,
+          "prompt_chars": 50303,
+          "completion_chars": 1163
+        },
+        "queries": [
+          {
+            "query_id": "q1_zoneA_to_74",
+            "expected": 6,
+            "actual": 6,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 138,
+            "elapsed_s": 9.68,
+            "est_tokens": 3692,
+            "prompt_chars": 14666,
+            "completion_chars": 103
+          },
+          {
+            "query_id": "q2_zoneB_to_75",
+            "expected": 5,
+            "actual": 5,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 125,
+            "elapsed_s": 9.61,
+            "est_tokens": 3692,
+            "prompt_chars": 14666,
+            "completion_chars": 103
+          },
+          {
+            "query_id": "q3_zoneC_to_80",
+            "expected": 6,
+            "actual": 6,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 138,
+            "elapsed_s": 9.68,
+            "est_tokens": 3692,
+            "prompt_chars": 14666,
+            "completion_chars": 103
+          }
+        ],
+        "task_passed": 3,
+        "task_total": 3
+      },
+      {
+        "task_id": "contractor_ledger",
+        "workflow": "Workflow 2: Chat-Ingested Memory+Skill",
+        "title": "Contractor Tiered Overtime Payroll Memory",
+        "ingest": {
+          "steps": 3,
+          "llm_calls": 3,
+          "gas_used": 174,
+          "elapsed_s": 70.94,
+          "est_tokens": 12860,
+          "prompt_chars": 50084,
+          "completion_chars": 1359
+        },
+        "queries": [
+          {
+            "query_id": "q1_hours40",
+            "expected": 9900,
+            "actual": 9900,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 149,
+            "elapsed_s": 9.25,
+            "est_tokens": 3687,
+            "prompt_chars": 14655,
+            "completion_chars": 94
+          },
+          {
+            "query_id": "q2_hours45",
+            "expected": 12300,
+            "actual": 12300,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 167,
+            "elapsed_s": 9.34,
+            "est_tokens": 3687,
+            "prompt_chars": 14655,
+            "completion_chars": 94
+          },
+          {
+            "query_id": "q3_hours30",
+            "expected": 7200,
+            "actual": 7200,
+            "passed": true,
+            "steps": 1,
+            "llm_calls": 1,
+            "gas_used": 140,
+            "elapsed_s": 9.22,
+            "est_tokens": 3687,
+            "prompt_chars": 14655,
+            "completion_chars": 94
+          }
+        ],
+        "task_passed": 3,
+        "task_total": 3
+      }
+    ]
+  }
+]

@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Caches and ephemeral test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.tmp
+*.log
+
+# Build and package distribution
+*.egg-info/
+build/
+dist/
+
+# Knowledge graph cache (preserve graph.json, graph.html, manifest, GRAPH_REPORT.md)
+graphify-out/cache/
+graphify-out/20*/
+
+# Runtime-generated file-out directory and temporary .img snapshots
+examples/fileout/
+*.img
+
+# Optional local-only historical 1993 reference archive (not distributed in git)
+historical_actor_41_source/
+*.IMA
+*.CLS
+
+# Cached upstream SWE-bench_Lite, QuixBugs, LongMemEval/LOCOMO raw data, and Next-Gen git checkouts
+benchmarks/data/repos/
+benchmarks/data/quixbugs_repo/
+benchmarks/data/longmem/
+benchmarks/data/nextgen/repos/
+benchmarks/data/nextgen/polyglot_benchmark/
+benchmarks/data/nextgen/terminal_bench_2_1/
+benchmarks/data/nextgen/*.parquet
+
+# Local environment secrets & agent scratchpads
+.env
+.agents/
+COMPLETION_SUMMARY.md
+ENGRAM_IMPLEMENTATION_STATE.json
+PROJECT_GOAL.md
+SESSION.md
+TEST_READY.md

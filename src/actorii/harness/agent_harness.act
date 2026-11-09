@@ -1,0 +1,312 @@
+/* =========================================================================
+ * AGENT_HARNESS.ACT
+ * Metacircular Agent Orchestration Harness written in 1993 Whitewater Actor 4.1
+ *
+ * Lives inside the ActorII object pool as a compiled subclass of `Agent`.
+ * Orchestrates ReAct (Plan -> Guarded Eval -> Observe -> Self-Correct) loops,
+ * speculative copy-on-write shadow dry-runs (`dryRun`), opcode gas metering,
+ * static bytecode linting (`lint`), and a 3-strike circuit breaker in pure
+ * VM bytecode.
+ * ========================================================================= */
+
+inherit(Agent, #AgentHarness, #(
+    #sandbox
+    #goal
+    #status
+    #stepCount
+    #maxSteps
+    #failures
+    #maxFailures
+    #scratchpad
+    #stepLog
+    #lastAction
+    #lastResult
+    #lastError
+    #gasLimit
+    #totalGasUsed
+    #chatLog
+    #taskContract
+    #lastErrorContext
+    #tokenBudget
+), 18, nil)!!
+
+now(AgentHarness)!!
+
+Def initHarness(self, sandboxObj) {
+    self.sandbox := sandboxObj;
+    self.goal := "";
+    self.status := #idle;
+    self.stepCount := 0;
+    self.maxSteps := 8;
+    self.failures := 0;
+    self.maxFailures := 3;
+    self.scratchpad := new(Dictionary, 32);
+    self.stepLog := new(OrderedCollection);
+    self.lastAction := "";
+    self.lastResult := nil;
+    self.lastError := "";
+    self.gasLimit := 25000;
+    self.totalGasUsed := 0;
+    self.chatLog := new(OrderedCollection);
+    self.taskContract := nil;
+    self.lastErrorContext := nil;
+    self.tokenBudget := 12000;
+    ^self;
+}!!
+
+Def setGoal(self, goalText) {
+    self.goal := goalText;
+    self.status := #ready;
+    self.stepCount := 0;
+    self.failures := 0;
+    self.stepLog := new(OrderedCollection);
+    self.lastAction := "";
+    self.lastResult := nil;
+    self.lastError := "";
+    self.lastErrorContext := nil;
+    ^self;
+}!!
+
+Def setTaskContract(self, contractObj) {
+    self.taskContract := contractObj;
+    ^self;
+}!!
+
+Def clearTaskContract(self) {
+    self.taskContract := nil;
+    ^self;
+}!!
+
+Def setTokenBudget(self, maxTokens) {
+    self.tokenBudget := maxTokens;
+    ^self;
+}!!
+
+Def compactContext(self, keepTurns) {
+    ^compactChatHistory(self.sandbox, self, keepTurns);
+}!!
+
+Def spawnSubGoal(self, subGoal, policyOverride, maxSteps) {
+    ^forkHarness(self.sandbox, self, subGoal, policyOverride, maxSteps, self.gasLimit);
+}!!
+
+Def setGasLimit(self, maxOps) {
+    self.gasLimit := maxOps;
+    ^self;
+}!!
+
+Def setMaxSteps(self, limit) {
+    self.maxSteps := limit;
+    ^self;
+}!!
+
+Def resetBreaker(self) {
+    self.failures := 0;
+    self.lastError := "";
+    self.status := #ready;
+    ^self;
+}!!
+
+Def storeScratch(self, key, val) {
+    atPut(self.scratchpad, key, val);
+    remember(self, key, val);
+    ^val;
+}!!
+
+Def readScratch(self, key) {
+    ^at(self.scratchpad, key);
+}!!
+
+Def dryRun(self, codeChunk) {
+    ^evalShadow(self.sandbox, codeChunk, self.gasLimit);
+}!!
+
+Def lint(self, codeChunk) {
+    ^lintChunk(self.sandbox, codeChunk);
+}!!
+
+Def executeAction(self, codeChunk) {
+    self.lastAction := codeChunk;
+    ^executeStepAction(self.sandbox, self, codeChunk, self.gasLimit);
+}!!
+
+/* =========================================================================
+ * Metacircular Self-Mutable Cognitive Hooks (Overridable in Live Bytecode)
+ * ========================================================================= */
+
+Def policyNote(self) {
+    ^"";
+}!!
+
+Def selectEngramContext(self, goalText) {
+    if Actor[#Memory] == nil then
+        ^"";
+    endif;
+    ^hydrateContext(Actor[#Memory], goalText);
+}!!
+
+Def selectGrammarContext(self, goalText) {
+    if Actor[#Grammar] == nil then
+        ^"";
+    endif;
+    ^queryConstructsForTask(Actor[#Grammar], goalText, "", "");
+}!!
+
+Def instructionBlock(self) {
+    ^defaultInstructions(self.sandbox);
+}!!
+
+Def buildStepPrompt(self, engramCtx, grammarCtx, policyTxt | p turnsTxt stepsTxt errTxt instTxt) {
+    p := "You are executing inside `ActorII` (the modern Linux-ported, Actor-inspired bytecode virtual machine & metacircular harness).\n";
+    p := p + "GOAL: " + asString(self.goal);
+    if policyTxt <> "" then
+        p := p + "\n\n[HARNESS RUNTIME POLICY OVERRIDE]:\n" + policyTxt;
+    endif;
+    if engramCtx <> "" then
+        p := p + "\n\n" + engramCtx;
+    endif;
+    if grammarCtx <> "" then
+        p := p + "\n\n" + grammarCtx;
+    endif;
+    instTxt := instructionBlock(self);
+    if instTxt <> "" then
+        p := p + "\n\n" + instTxt;
+    endif;
+    turnsTxt := formatRecentTurns(self.sandbox, self);
+    if turnsTxt <> "" then
+        p := p + "\n\n" + turnsTxt;
+    endif;
+    stepsTxt := formatStepHistory(self.sandbox, self);
+    if stepsTxt <> "" then
+        p := p + "\n\n" + stepsTxt;
+    endif;
+    p := p + "\n\nLIVE POOL SUMMARY: " + poolSummary(self.sandbox) + "\n";
+    p := p + "STEP: " + asString(self.stepCount) + " of " + asString(self.maxSteps) + "\n";
+    p := p + "SCRATCHPAD (`Actor[#Harness].scratchpad`): " + formatScratchpad(self.sandbox, self) + "\n";
+    p := p + "LAST RESULT: " + formatLastResult(self.sandbox, self);
+    if self.lastError <> "" then
+        errTxt := formatErrorDiagnostic(self.sandbox, self);
+        p := p + "\n\n" + errTxt;
+    endif;
+    ^p;
+}!!
+
+Def invokeModel(self, promptText) {
+    ^complete(Actor[#LLM], promptText, self);
+}!!
+
+Def parseModelReply(self, rawReply) {
+    ^extractAction(self.sandbox, rawReply);
+}!!
+
+Def transformAction(self, rawAction) {
+    ^rawAction;
+}!!
+
+Def verifyOutcome(self, outcome) {
+    if self.taskContract <> nil then
+        ^check(self.taskContract, outcome);
+    endif;
+    ^true;
+}!!
+
+Def evolve(self, patchCode, validationCode) {
+    ^evolveHarness(self.sandbox, self, patchCode, validationCode);
+}!!
+
+Def rollbackHarness(self) {
+    if Actor[#Memory] == nil then
+        ^"ERROR: Memory graph disabled";
+    endif;
+    ^rollbackEngram(Actor[#Memory], #AgentHarness);
+}!!
+
+Def step(self | engramCtx grammarCtx policyTxt promptText rawReply rawAction actionText outcome ok) {
+    if self.status == #complete then
+        ^self.lastResult;
+    endif;
+    if self.failures >= self.maxFailures then
+        self.status := #blocked;
+        ^"HALT: Circuit breaker tripped";
+    endif;
+    if self.stepCount >= self.maxSteps then
+        self.status := #halted;
+        ^"HALT: Max steps reached";
+    endif;
+
+    self.stepCount := self.stepCount + 1;
+    self.status := #running;
+
+    engramCtx := selectEngramContext(self, self.goal);
+    grammarCtx := selectGrammarContext(self, self.goal);
+    policyTxt := policyNote(self);
+
+    promptText := buildStepPrompt(self, engramCtx, grammarCtx, policyTxt);
+    if countTokens(Actor[#LLM], promptText) > self.tokenBudget then
+        compactContext(self, 2);
+        promptText := buildStepPrompt(self, engramCtx, grammarCtx, policyTxt);
+    endif;
+    rawReply := invokeModel(self, promptText);
+    rawAction := parseModelReply(self, rawReply);
+    actionText := transformAction(self, rawAction);
+    self.lastAction := actionText;
+
+    outcome := executeStepAction(self.sandbox, self, actionText, self.gasLimit);
+    if self.lastError == "" then
+        ok := verifyOutcome(self, outcome);
+        if ok == false then
+            outcome := rejectStepOutcome(self.sandbox, self, "verifyOutcome(self, outcome) rejected step result");
+        endif;
+    endif;
+    ^outcome;
+}!!
+
+Def runGoal(self, goalText, maxSteps) {
+    setGoal(self, goalText);
+    self.maxSteps := maxSteps;
+    self.status := #running;
+    loop
+        while (self.status == #running)
+    begin
+        if self.stepCount >= self.maxSteps then
+            self.status := #halted;
+        else
+            if self.failures >= self.maxFailures then
+                self.status := #blocked;
+            else
+                step(self);
+            endif;
+        endif;
+    endLoop;
+    ^self.lastResult;
+}!!
+
+Def chat(self, message) {
+    ^runGoal(self, message, self.maxSteps);
+}!!
+
+Def chatHistory(self) {
+    ^getChatHistory(self.sandbox, self);
+}!!
+
+Def clearChat(self) {
+    ^clearChatHistory(self.sandbox, self);
+}!!
+
+Def goal(self) { ^self.goal; }!!
+Def status(self) { ^self.status; }!!
+Def stepCount(self) { ^self.stepCount; }!!
+Def maxSteps(self) { ^self.maxSteps; }!!
+Def failures(self) { ^self.failures; }!!
+Def maxFailures(self) { ^self.maxFailures; }!!
+Def scratchpad(self) { ^self.scratchpad; }!!
+Def stepLog(self) { ^self.stepLog; }!!
+Def lastAction(self) { ^self.lastAction; }!!
+Def lastResult(self) { ^self.lastResult; }!!
+Def lastError(self) { ^self.lastError; }!!
+Def gasLimit(self) { ^self.gasLimit; }!!
+Def totalGasUsed(self) { ^self.totalGasUsed; }!!
+Def chatLog(self) { ^self.chatLog; }!!
+Def taskContract(self) { ^self.taskContract; }!!
+Def lastErrorContext(self) { ^self.lastErrorContext; }!!
+Def tokenBudget(self) { ^self.tokenBudget; }!!

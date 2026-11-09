@@ -1,0 +1,247 @@
+/* =========================================================================
+ * OOP_FOUNDATION.ACT
+ * Foundational 1993 Whitewater Actor 4.1 Domain & Architecture Hierarchy
+ *
+ * Provides reusable abstract and concrete base classes in the ActorII image
+ * so that domain models, Neo4j graph analyzers, polymorphic evaluators, and
+ * multi-stage pipelines can subclass rich abstractions (`inherit(GraphService, ...)`
+ * or `inherit(MetricEvaluator, ...)`) instead of writing flat `Object` classes:
+ *
+ *   Object
+ *    +-- DomainEntity       (#id, #name, #metadata)
+ *    +-- GraphService       (#namespace, #defaultLabel, #lastQueryCount)
+ *    |    +-- MetricEvaluator (#metricName, #threshold, #weight)
+ *    +-- CompositePipeline  (#pipelineName, #stages, #lastReport)
+ * ========================================================================= */
+
+/* -------------------------------------------------------------------------
+ * 1. DomainEntity: Base class for identifiable domain objects & records
+ * ------------------------------------------------------------------------- */
+inherit(Object, #DomainEntity, #(
+    #id
+    #name
+    #metadata
+), 3, nil)!!
+
+now(DomainEntity)!!
+
+Def initEntity(self, entityId, entityName) {
+    self.id := entityId;
+    self.name := entityName;
+    self.metadata := new(Dictionary, 16);
+    ^self;
+}!!
+
+Def entityId(self) { ^self.id; }!!
+Def entityName(self) { ^self.name; }!!
+Def metadata(self) { ^self.metadata; }!!
+
+Def setMeta(self, key, val) {
+    if self.metadata == nil then
+        self.metadata := new(Dictionary, 16);
+    endif;
+    atPut(self.metadata, key, val);
+    ^val;
+}!!
+
+Def getMeta(self, key) {
+    if self.metadata == nil then
+        ^nil;
+    endif;
+    ^at(self.metadata, key);
+}!!
+
+Def describe(self) {
+    ^asString(class(self)) + "(" + asString(self.id) + ":" + asString(self.name) + ")";
+}!!
+
+/* -------------------------------------------------------------------------
+ * 2. GraphService: Base class for Neo4j graph query, write & aggregation services
+ *    Subclasses inherit `queryRows`, `writeGraph`, `sumColumn`, `avgColumn`,
+ *    `countWhereAbove`, and `maxColumn` directly on `self`!
+ * ------------------------------------------------------------------------- */
+inherit(Object, #GraphService, #(
+    #namespace
+    #defaultLabel
+    #lastQueryCount
+), 3, nil)!!
+
+now(GraphService)!!
+
+Def initService(self, labelName) {
+    self.namespace := "default";
+    self.defaultLabel := labelName;
+    self.lastQueryCount := 0;
+    ^self;
+}!!
+
+Def queryRows(self, cypherStr | rows) {
+    rows := cypherQuery(Actor[#Memory], cypherStr);
+    self.lastQueryCount := size(rows);
+    ^rows;
+}!!
+
+Def queryRowsWith(self, cypherStr, param1 | rows) {
+    rows := cypherQueryWith(Actor[#Memory], cypherStr, param1);
+    self.lastQueryCount := size(rows);
+    ^rows;
+}!!
+
+Def writeGraph(self, cypherStr) {
+    ^cypherWrite(Actor[#Memory], cypherStr);
+}!!
+
+Def sumColumn(self, rows, colSymbol | i n total row val) {
+    total := 0;
+    n := size(rows);
+    i := 0;
+    loop while (i < n) begin
+        row := rows[i];
+        val := at(row, colSymbol);
+        if (val <> nil) then
+            total := total + val;
+        endif;
+        i := i + 1;
+    endLoop;
+    ^total;
+}!!
+
+Def avgColumn(self, rows, colSymbol | n total) {
+    n := size(rows);
+    if (n == 0) then
+        ^0.0;
+    endif;
+    total := sumColumn(self, rows, colSymbol);
+    ^(total / (n * 1.0));
+}!!
+
+Def maxColumn(self, rows, colSymbol | i n best row val) {
+    n := size(rows);
+    if (n == 0) then
+        ^0;
+    endif;
+    best := at(rows[0], colSymbol);
+    i := 1;
+    loop while (i < n) begin
+        row := rows[i];
+        val := at(row, colSymbol);
+        if (val > best) then
+            best := val;
+        endif;
+        i := i + 1;
+    endLoop;
+    ^best;
+}!!
+
+/* -------------------------------------------------------------------------
+ * 3. MetricEvaluator: Subclass of GraphService for polymorphic scoring
+ *    Subclasses override `evaluateRow(self, row)` while inheriting
+ *    `evaluateAll(self, rows)` and `weightedTotal(self, rows)` (Template Method Pattern).
+ * ------------------------------------------------------------------------- */
+inherit(GraphService, #MetricEvaluator, #(
+    #metricName
+    #threshold
+    #weight
+), 3, nil)!!
+
+now(MetricEvaluator)!!
+
+Def initEvaluator(self, nameStr, threshVal, weightVal) {
+    initService(self, nameStr);
+    self.metricName := nameStr;
+    self.threshold := threshVal;
+    self.weight := weightVal;
+    ^self;
+}!!
+
+Def metricName(self) { ^self.metricName; }!!
+Def threshold(self) { ^self.threshold; }!!
+Def weight(self) { ^self.weight; }!!
+
+/* Default polymorphic hook — subclasses override `evaluateRow(self, row)` */
+Def evaluateRow(self, row | val) {
+    val := at(row, #value);
+    if (val == nil) then
+        ^0;
+    endif;
+    if (val >= self.threshold) then
+        ^val;
+    endif;
+    ^0;
+}!!
+
+/* Template Method: calls polymorphic `evaluateRow(self, rows[i])` on each row */
+Def evaluateAll(self, rows | i n total) {
+    total := 0;
+    n := size(rows);
+    i := 0;
+    loop while (i < n) begin
+        total := total + evaluateRow(self, rows[i]);
+        i := i + 1;
+    endLoop;
+    ^total;
+}!!
+
+Def weightedTotal(self, rows) {
+    ^(evaluateAll(self, rows) * self.weight);
+}!!
+
+/* -------------------------------------------------------------------------
+ * 4. CompositePipeline: Object Composition & Polymorphic Dispatch Container
+ *    Composes multiple worker/evaluator objects (`self.stages`) and dispatches
+ *    `evaluateAll(stage, rows)` polymorphically across all registered stages.
+ * ------------------------------------------------------------------------- */
+inherit(Object, #CompositePipeline, #(
+    #pipelineName
+    #stages
+    #lastReport
+), 3, nil)!!
+
+now(CompositePipeline)!!
+
+Def initPipeline(self, nameStr) {
+    self.pipelineName := nameStr;
+    self.stages := new(OrderedCollection);
+    self.lastReport := new(Dictionary, 16);
+    ^self;
+}!!
+
+Def addStage(self, stageObj) {
+    if self.stages == nil then
+        self.stages := new(OrderedCollection);
+    endif;
+    add(self.stages, stageObj);
+    ^self;
+}!!
+
+Def stageCount(self) {
+    if self.stages == nil then
+        ^0;
+    endif;
+    ^size(self.stages);
+}!!
+
+Def runEvaluators(self, rows | i n total stage score) {
+    if self.stages == nil then
+        ^0;
+    endif;
+    if self.lastReport == nil then
+        self.lastReport := new(Dictionary, 16);
+    endif;
+    total := 0;
+    n := size(self.stages);
+    i := 0;
+    loop while (i < n) begin
+        stage := self.stages[i];
+        score := evaluateAll(stage, rows);
+        atPut(self.lastReport, metricName(stage), score);
+        total := total + score;
+        i := i + 1;
+    endLoop;
+    atPut(self.lastReport, #total, total);
+    ^total;
+}!!
+
+Def lastReport(self) {
+    ^self.lastReport;
+}!!

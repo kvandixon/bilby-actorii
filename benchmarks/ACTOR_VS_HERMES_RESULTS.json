@@ -1,0 +1,644 @@
+{
+  "timestamp": "2026-11-01T14:58:01-0500",
+  "model": "qwen3.8:latest",
+  "completed_tasks": 30,
+  "overall": {
+    "actorii_pass": "28/30 (93.3%)",
+    "hermes_pass": "14/30 (46.7%)",
+    "actorii_total_tokens": 132445,
+    "hermes_total_tokens": 385513,
+    "actorii_total_s": 948.0,
+    "hermes_total_s": 2371.92
+  },
+  "by_track": {
+    "HumanEval": {
+      "n": 15,
+      "actorii_pass": "14/15 (93.3%)",
+      "hermes_pass": "8/15 (53.3%)",
+      "actorii_tokens": 40414,
+      "hermes_tokens": 156730,
+      "actorii_avg_s": 33.15,
+      "hermes_avg_s": 74.07
+    },
+    "GSM8K": {
+      "n": 10,
+      "actorii_pass": "9/10 (90.0%)",
+      "hermes_pass": "6/10 (60.0%)",
+      "actorii_tokens": 74902,
+      "hermes_tokens": 212282,
+      "actorii_avg_s": 40.3,
+      "hermes_avg_s": 71.06
+    },
+    "MemGraph": {
+      "n": 5,
+      "actorii_pass": "5/5 (100.0%)",
+      "hermes_pass": "0/5 (0.0%)",
+      "actorii_tokens": 17129,
+      "hermes_tokens": 16501,
+      "actorii_avg_s": 9.55,
+      "hermes_avg_s": 110.05
+    }
+  },
+  "tasks": [
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/0",
+      "title": "has_close_elements",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1803,
+        "elapsed_s": 19.67,
+        "gas": 1996
+      },
+      "hermes": {
+        "passed": false,
+        "api_calls": 1,
+        "tokens": 3327,
+        "elapsed_s": 90.1
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/2",
+      "title": "truncate_number",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 2,
+        "tokens": 3764,
+        "elapsed_s": 52.29,
+        "gas": 48
+      },
+      "hermes": {
+        "passed": true,
+        "api_calls": 1,
+        "tokens": 16738,
+        "elapsed_s": 71.39
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/4",
+      "title": "mean_absolute_deviation",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1818,
+        "elapsed_s": 19.29,
+        "gas": 543
+      },
+      "hermes": {
+        "passed": false,
+        "api_calls": 1,
+        "tokens": 3348,
+        "elapsed_s": 90.1
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/5",
+      "title": "intersperse",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1770,
+        "elapsed_s": 18.54,
+        "gas": 189
+      },
+      "hermes": {
+        "passed": true,
+        "api_calls": 1,
+        "tokens": 16695,
+        "elapsed_s": 64.2
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/9",
+      "title": "rolling_max",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 2,
+        "tokens": 3932,
+        "elapsed_s": 44.39,
+        "gas": 424
+      },
+      "hermes": {
+        "passed": false,
+        "api_calls": 1,
+        "tokens": 3310,
+        "elapsed_s": 90.1
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/12",
+      "title": "longest",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1786,
+        "elapsed_s": 17.66,
+        "gas": 207
+      },
+      "hermes": {
+        "passed": false,
+        "api_calls": 1,
+        "tokens": 3331,
+        "elapsed_s": 90.1
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/18",
+      "title": "how_many_times",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 2,
+        "tokens": 4049,
+        "elapsed_s": 85.46,
+        "gas": 1539
+      },
+      "hermes": {
+        "passed": false,
+        "api_calls": 1,
+        "tokens": 3313,
+        "elapsed_s": 90.1
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/28",
+      "title": "concatenate",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1725,
+        "elapsed_s": 14.07,
+        "gas": 191
+      },
+      "hermes": {
+        "passed": true,
+        "api_calls": 1,
+        "tokens": 16682,
+        "elapsed_s": 67.1
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/30",
+      "title": "get_positive",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1732,
+        "elapsed_s": 15.99,
+        "gas": 440
+      },
+      "hermes": {
+        "passed": false,
+        "api_calls": 1,
+        "tokens": 3296,
+        "elapsed_s": 90.1
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/36",
+      "title": "fizz_buzz",
+      "actorii": {
+        "passed": false,
+        "engram_cold_boot_passed": false,
+        "steps": 4,
+        "tokens": 9123,
+        "elapsed_s": 119.44,
+        "gas": 2347068
+      },
+      "hermes": {
+        "passed": false,
+        "api_calls": 1,
+        "tokens": 3295,
+        "elapsed_s": 90.1
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/40",
+      "title": "triples_sum_to_zero",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1841,
+        "elapsed_s": 22.98,
+        "gas": 2015
+      },
+      "hermes": {
+        "passed": true,
+        "api_calls": 1,
+        "tokens": 16893,
+        "elapsed_s": 81.62
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/42",
+      "title": "incr_list",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1711,
+        "elapsed_s": 13.11,
+        "gas": 282
+      },
+      "hermes": {
+        "passed": true,
+        "api_calls": 1,
+        "tokens": 16465,
+        "elapsed_s": 28.88
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/43",
+      "title": "pairs_sum_to_zero",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1822,
+        "elapsed_s": 19.23,
+        "gas": 1893
+      },
+      "hermes": {
+        "passed": true,
+        "api_calls": 1,
+        "tokens": 16740,
+        "elapsed_s": 60.79
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/46",
+      "title": "fib4",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1802,
+        "elapsed_s": 21.18,
+        "gas": 733
+      },
+      "hermes": {
+        "passed": true,
+        "api_calls": 1,
+        "tokens": 16899,
+        "elapsed_s": 81.37
+      }
+    },
+    {
+      "track": "HumanEval",
+      "task_id": "HumanEval/48",
+      "title": "is_palindrome",
+      "actorii": {
+        "passed": true,
+        "engram_cold_boot_passed": true,
+        "steps": 1,
+        "tokens": 1736,
+        "elapsed_s": 13.97,
+        "gas": 414
+      },
+      "hermes": {
+        "passed": true,
+        "api_calls": 1,
+        "tokens": 16398,
+        "elapsed_s": 25.02
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/8",
+      "title": "John drives for 3 hours at a speed of 60 mph and...",
+      "gold": 45,
+      "actorii": {
+        "passed": true,
+        "predicted": 45,
+        "steps": 2,
+        "tokens": 7676,
+        "elapsed_s": 36.41,
+        "gas": 129
+      },
+      "hermes": {
+        "passed": true,
+        "predicted": 45,
+        "api_calls": 2,
+        "tokens": 33413,
+        "elapsed_s": 73.3
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/9",
+      "title": "Eliza's rate per hour for the first 40 hours she...",
+      "gold": 460,
+      "actorii": {
+        "passed": true,
+        "predicted": 460,
+        "steps": 2,
+        "tokens": 7240,
+        "elapsed_s": 60.57,
+        "gas": 81
+      },
+      "hermes": {
+        "passed": true,
+        "predicted": 460,
+        "api_calls": 2,
+        "tokens": 33069,
+        "elapsed_s": 49.13
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/10",
+      "title": "A new program had 60 downloads in the first mont...",
+      "gold": 366,
+      "actorii": {
+        "passed": true,
+        "predicted": 366,
+        "steps": 1,
+        "tokens": 3471,
+        "elapsed_s": 19.81,
+        "gas": 58
+      },
+      "hermes": {
+        "passed": false,
+        "predicted": null,
+        "api_calls": 1,
+        "tokens": 3292,
+        "elapsed_s": 90.11
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/11",
+      "title": "Toula went to the bakery and bought various type...",
+      "gold": 694,
+      "actorii": {
+        "passed": true,
+        "predicted": 694,
+        "steps": 2,
+        "tokens": 6946,
+        "elapsed_s": 18.64,
+        "gas": 37
+      },
+      "hermes": {
+        "passed": true,
+        "predicted": 694,
+        "api_calls": 2,
+        "tokens": 33141,
+        "elapsed_s": 63.03
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/12",
+      "title": "Carlos is planting a lemon tree. The tree will c...",
+      "gold": 13,
+      "actorii": {
+        "passed": false,
+        "predicted": null,
+        "steps": 3,
+        "tokens": 10934,
+        "elapsed_s": 89.14,
+        "gas": 0
+      },
+      "hermes": {
+        "passed": false,
+        "predicted": null,
+        "api_calls": 1,
+        "tokens": 3289,
+        "elapsed_s": 90.01
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/13",
+      "title": "Melanie is a door-to-door saleswoman. She sold a...",
+      "gold": 18,
+      "actorii": {
+        "passed": true,
+        "predicted": 18,
+        "steps": 4,
+        "tokens": 16993,
+        "elapsed_s": 84.36,
+        "gas": 29078
+      },
+      "hermes": {
+        "passed": false,
+        "predicted": null,
+        "api_calls": 1,
+        "tokens": 3284,
+        "elapsed_s": 90.1
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/14",
+      "title": "In a dance class of 20 students, 20% enrolled in...",
+      "gold": 60,
+      "actorii": {
+        "passed": true,
+        "predicted": 60,
+        "steps": 2,
+        "tokens": 7088,
+        "elapsed_s": 23.32,
+        "gas": 52
+      },
+      "hermes": {
+        "passed": true,
+        "predicted": 60,
+        "api_calls": 2,
+        "tokens": 33176,
+        "elapsed_s": 57.11
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/15",
+      "title": "A merchant wants to make a choice of purchase be...",
+      "gold": 125,
+      "actorii": {
+        "passed": true,
+        "predicted": 125,
+        "steps": 1,
+        "tokens": 3560,
+        "elapsed_s": 21.02,
+        "gas": 53
+      },
+      "hermes": {
+        "passed": true,
+        "predicted": 125,
+        "api_calls": 2,
+        "tokens": 33228,
+        "elapsed_s": 53.51
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/16",
+      "title": "Two trains leave San Rafael at the same time. Th...",
+      "gold": 230,
+      "actorii": {
+        "passed": true,
+        "predicted": 230,
+        "steps": 1,
+        "tokens": 3385,
+        "elapsed_s": 10.63,
+        "gas": 31
+      },
+      "hermes": {
+        "passed": false,
+        "predicted": null,
+        "api_calls": 1,
+        "tokens": 3280,
+        "elapsed_s": 90.07
+      }
+    },
+    {
+      "track": "GSM8K",
+      "task_id": "GSM8K/17",
+      "title": "Jill gets paid $20 per hour to teach and $30 to ...",
+      "gold": 57500,
+      "actorii": {
+        "passed": true,
+        "predicted": 57500,
+        "steps": 2,
+        "tokens": 7609,
+        "elapsed_s": 39.1,
+        "gas": 142
+      },
+      "hermes": {
+        "passed": true,
+        "predicted": 57500,
+        "api_calls": 2,
+        "tokens": 33110,
+        "elapsed_s": 54.21
+      }
+    },
+    {
+      "track": "MemGraph",
+      "task_id": "MemGraph/1",
+      "title": "Contractor Overtime Payroll (hours=52)",
+      "gold": 27860,
+      "actorii": {
+        "passed": true,
+        "predicted": 27860,
+        "steps": 1,
+        "tokens": 3427,
+        "elapsed_s": 9.15,
+        "gas": 221
+      },
+      "hermes": {
+        "passed": false,
+        "predicted": null,
+        "api_calls": 1,
+        "tokens": 3299,
+        "elapsed_s": 110.02
+      }
+    },
+    {
+      "track": "MemGraph",
+      "task_id": "MemGraph/2",
+      "title": "Supply Chain Landed Tariff Cost (surcharge=15%)",
+      "gold": 37100,
+      "actorii": {
+        "passed": true,
+        "predicted": 37100,
+        "steps": 1,
+        "tokens": 3415,
+        "elapsed_s": 9.26,
+        "gas": 209
+      },
+      "hermes": {
+        "passed": false,
+        "predicted": null,
+        "api_calls": 1,
+        "tokens": 3303,
+        "elapsed_s": 110.11
+      }
+    },
+    {
+      "track": "MemGraph",
+      "task_id": "MemGraph/3",
+      "title": "Microservice SLA Latency Breach Score (budget=65ms)",
+      "gold": 249,
+      "actorii": {
+        "passed": true,
+        "predicted": 249,
+        "steps": 1,
+        "tokens": 3426,
+        "elapsed_s": 9.39,
+        "gas": 221
+      },
+      "hermes": {
+        "passed": false,
+        "predicted": null,
+        "api_calls": 1,
+        "tokens": 3300,
+        "elapsed_s": 110.01
+      }
+    },
+    {
+      "track": "MemGraph",
+      "task_id": "MemGraph/4",
+      "title": "Smart-Grid Time-of-Use Bill Cents (days=10)",
+      "gold": 15400,
+      "actorii": {
+        "passed": true,
+        "predicted": 15400,
+        "steps": 1,
+        "tokens": 3425,
+        "elapsed_s": 9.25,
+        "gas": 225
+      },
+      "hermes": {
+        "passed": false,
+        "predicted": null,
+        "api_calls": 1,
+        "tokens": 3301,
+        "elapsed_s": 110.02
+      }
+    },
+    {
+      "track": "MemGraph",
+      "task_id": "MemGraph/5",
+      "title": "EV Fleet Thermal Charging Energy Wh (lossPct=12)",
+      "gold": 278880,
+      "actorii": {
+        "passed": true,
+        "predicted": 278880,
+        "steps": 1,
+        "tokens": 3436,
+        "elapsed_s": 10.68,
+        "gas": 201
+      },
+      "hermes": {
+        "passed": false,
+        "predicted": null,
+        "api_calls": 1,
+        "tokens": 3298,
+        "elapsed_s": 110.11
+      }
+    }
+  ]
+}

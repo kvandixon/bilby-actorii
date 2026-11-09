@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""Sandbox RGB & Fan Lighting Controller CLI (`valkyrie-rgb-ctl`) inside `actorii-sandbox`.
+
+Provides a realistic, stateful RGB/fan lighting control utility inside the Docker
+sandbox (`/etc/valkyrie-rgb/devices.json`) so `Actor[#Harness]` can safely discover,
+inspect, and manipulate lighting zones without touching the host OS.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+CONFIG_PATH = Path("/etc/valkyrie-rgb/devices.json")
+
+DEFAULT_STATE = {
+    "controller": "Valkyrie Aura/OpenRGB Sandbox Controller v2.4",
+    "driver": "valkyrie-smbus-rgb (container-sandbox)",
+    "zones": {
+        "cpu_fan_ring": {
+            "type": "ARGB Fan Ring",
+            "leds": 16,
+            "mode": "breathing",
+            "color": "#00E5FF",
+            "brightness": 80,
+            "rpm": 1150,
+        },
+        "chassis_fans_front": {
+            "type": "3x 120mm ARGB Intake Fans",
+            "leds": 36,
+            "mode": "static",
+            "color": "#7B2CBF",
+            "brightness": 75,
+            "rpm": 980,
+        },
+        "ddr5_dimm_0": {
+            "type": "DDR5 RAM RGB Lightbar (Slot A2)",
+            "leds": 8,
+            "mode": "rainbow_wave",
+            "color": "#FF0055",
+            "brightness": 90,
+        },
+        "ddr5_dimm_1": {
+            "type": "DDR5 RAM RGB Lightbar (Slot B2)",
+            "leds": 8,
+            "mode": "rainbow_wave",
+            "color": "#FF0055",
+            "brightness": 90,
+        },
+        "gpu_shroud": {
+            "type": "RTX 5070 Ti Accent Bar",
+            "leds": 12,
+            "mode": "static",
+            "color": "#10B981",
+            "brightness": 65,
+        },
+    },
+}
+
+
+def _load() -> dict:
+    if CONFIG_PATH.is_file():
+        try:
+            return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps(DEFAULT_STATE, indent=2), encoding="utf-8")
+    return dict(DEFAULT_STATE)
+
+
+def _save(data: dict) -> None:
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def main() -> int:
+    data = _load()
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help", "help"):
+        print(
+            "Usage: valkyrie-rgb-ctl <command> [args]\n"
+            "Commands:\n"
+            "  status / list                          List all RGB lighting zones, modes, colors & brightness\n"
+            "  get <zone>                             Show details for a single lighting zone\n"
+            "  set <zone> <color_hex> [mode] [bright] Set color (#RRGGBB), mode (static/breathing/off), brightness (0-100)\n"
+            "  off [zone|all]                         Turn off a zone or all zones\n"
+            "\nConfig file: /etc/valkyrie-rgb/devices.json"
+        )
+        return 0
+
+    cmd = args[0].lower()
+    zones = data.get("zones", {})
+
+    if cmd in ("status", "list"):
+        parts = []
+        for zname, z in zones.items():
+            parts.append(f"{zname}={z['mode']}({z['color']} @ {z['brightness']}%)")
+        print(f"{data.get('controller')}: " + " | ".join(parts))
+        return 0
+
+    if cmd == "get" and len(args) >= 2:
+        zname = args[1]
+        if zname not in zones:
+            print(f"Unknown zone '{zname}'. Available: {list(zones.keys())}")
+            return 1
+        print(json.dumps({zname: zones[zname]}, indent=2))
+        return 0
+
+    if cmd == "set" and len(args) >= 2:
+        zname = args[1]
+        if zname not in zones and zname != "all":
+            print(f"Unknown zone '{zname}'. Available: {list(zones.keys())} or 'all'")
+            return 1
+        targets = list(zones.keys()) if zname == "all" else [zname]
+        color = zones[targets[0]]["color"]
+        mode = zones[targets[0]]["mode"]
+        bright = zones[targets[0]]["brightness"]
+        valid_modes = {"static", "breathing", "rainbow_wave", "reactive", "off", "pulse"}
+
+        # Parse remaining args flexibly (supports both --color/--mode/--brightness flags and positional tokens)
+        rest = args[2:]
+        i = 0
+        while i < len(rest):
+            tok = rest[i]
+            if tok in ("--color", "-c") and i + 1 < len(rest):
+                cval = rest[i + 1].lstrip("#")
+                color = f"#{cval.upper()}"
+                i += 2
+                continue
+            if tok in ("--mode", "-m") and i + 1 < len(rest):
+                mode = rest[i + 1].lower()
+                i += 2
+                continue
+            if tok in ("--brightness", "--bright", "-b") and i + 1 < len(rest):
+                try:
+                    bright = int(rest[i + 1].rstrip("%"))
+                except ValueError:
+                    pass
+                i += 2
+                continue
+            # Positional token classification
+            clean_hex = tok.lstrip("#")
+            if tok.startswith("#") or (len(clean_hex) == 6 and all(c in "0123456789abcdefABCDEF" for c in clean_hex)):
+                color = f"#{clean_hex.upper()}"
+            elif tok.lower() in valid_modes:
+                mode = tok.lower()
+            elif tok.rstrip("%").isdigit():
+                bright = int(tok.rstrip("%"))
+            i += 1
+
+        for t in targets:
+            zones[t]["color"] = color
+            zones[t]["mode"] = mode
+            zones[t]["brightness"] = max(0, min(100, bright))
+        _save(data)
+        print(f"Updated {targets} -> color={color}, mode={mode}, brightness={bright}%")
+        return 0
+
+    if cmd == "off":
+        target = args[1] if len(args) >= 2 else "all"
+        targets = list(zones.keys()) if target == "all" else [target]
+        for t in targets:
+            if t in zones:
+                zones[t]["mode"] = "off"
+                zones[t]["brightness"] = 0
+        _save(data)
+        print(f"Turned off lighting zones: {targets}")
+        return 0
+
+    print(f"Unknown command '{cmd}'. Run `valkyrie-rgb-ctl --help`.")
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

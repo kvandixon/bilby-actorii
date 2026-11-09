@@ -1,0 +1,61 @@
+[
+  {
+    "spec_id": "Spec-1-Virtual-Paging",
+    "title": "OS-Style L1/L2 Step Result Paging in `formatStepHistory`",
+    "pathway": "Pathway 3: OS-Tiered & Graph-Consolidated Context Management (Mem0 / Virtual Paging)",
+    "target_file": "src/actorii/harness/__init__.py",
+    "passed": true,
+    "steps": 4,
+    "total_tokens": 33381,
+    "latency_s": 111.63,
+    "verification_output": "1 passed, 2 deselected in 0.04s",
+    "step_trace": [
+      "Step 1 [ok]: readFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/__init__.py\", 79",
+      "Step 3 [ok]: editFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/__init__.py\", \"\"",
+      "Step 4 [ok]: execShell(Actor[#Host], \"python3 -m pytest tests/test_pathway_upgrades.py -k test_spec1_l1",
+      "Step 5 [complete]: COMPLETE: Spec 1 implemented and verified"
+    ]
+  },
+  {
+    "spec_id": "Spec-2-AST-Symbol-ACI",
+    "title": "AST Symbol Inspector `readSymbol(Actor[#Host], path, symbol_name)`",
+    "pathway": "Pathway 4: Code-as-Action & Specialized Agent-Computer Interfaces (CodeAct / ACI)",
+    "target_file": "src/actorii/harness/host_bridge.py",
+    "passed": true,
+    "steps": 8,
+    "total_tokens": 84155,
+    "latency_s": 192.9,
+    "verification_output": "1 passed, 2 deselected in 0.04s",
+    "step_trace": [
+      "Step 1 [ok]: readFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/host_bridge.py\",",
+      "Step 2 [ok]: editFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/host_bridge.py\",",
+      "Step 3 [ok]: execShell(Actor[#Host], \"python3 -m pytest tests/test_pathway_upgrades.py -k test_spec2_as",
+      "Step 4 [ok]: readFile(Actor[#Host], \"/workspace/ActorII/tests/test_pathway_upgrades.py\", 1, ",
+      "Step 5 [ok]: searchFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness\", \"_bridges\", ",
+      "Step 6 [ok]: searchFile(Actor[#Host], \"/workspace/ActorII/src/actorii\", \"_bridges\", 15)!!",
+      "Step 7 [ok]: readFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/__init__.py\", 1,",
+      "Step 8 [complete]: COMPLETE: Spec 2 implemented and verified"
+    ]
+  },
+  {
+    "spec_id": "Spec-3-Godel-Test-Ratchet",
+    "title": "G\u00f6del Test-Score Regression Ratchet & `undoLastEdit(Actor[#Host], path)`",
+    "pathway": "Pathway 1: Self-Evolving & Recursive Harnesses (Darwin / Huxley-G\u00f6del Machine)",
+    "target_file": "src/actorii/harness/host_bridge.py",
+    "passed": true,
+    "steps": 8,
+    "total_tokens": 71637,
+    "latency_s": 182.28,
+    "verification_output": "1 passed, 2 deselected in 0.30s",
+    "step_trace": [
+      "Step 1 [ok]: readFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/host_bridge.py\",",
+      "Step 2 [ok]: editFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/host_bridge.py\",",
+      "Step 3 [ok]: readFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/host_bridge.py\",",
+      "Step 4 [ok]: editFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/host_bridge.py\",",
+      "Step 5 [ok]: editFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/host_bridge.py\",",
+      "Step 6 [ok]: editFile(Actor[#Host], \"/workspace/ActorII/src/actorii/harness/host_bridge.py\",",
+      "Step 7 [ok]: execShell(Actor[#Host], \"python3 -m pytest tests/test_pathway_upgrades.py -k test_spec3_go",
+      "Step 8 [complete]: COMPLETE: Spec 3 implemented and verified"
+    ]
+  }
+]

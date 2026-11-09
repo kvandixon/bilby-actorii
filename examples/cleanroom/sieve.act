@@ -1,0 +1,27 @@
+/* Clean-room Prime Sieve implementation in ActorII syntax */
+
+inherit(Object, #Sam, #(#flags #primeCount), 2, nil)!!
+
+now(Sam)!!
+
+Def sieve(self, limit | i, k, count, flags) {
+    flags := new(Array, limit);
+    fill(flags, true);
+    count := 0;
+    i := 2;
+    loop while (i < limit) begin
+        if flags[i] then
+            count := count + 1;
+            k := i + i;
+            loop while (k < limit) begin
+                flags[k] := false;
+                k := k + i;
+            endLoop;
+        endif;
+        i := i + 1;
+    endLoop;
+    self.primeCount := count;
+    ^count;
+}!!
+
+Actor[#Sam] := new(Sam)!!
