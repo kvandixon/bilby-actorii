@@ -449,6 +449,7 @@ class ActorGrammarGraph:
                 "- Surgical edit: `editFile(Actor[#Host], \"/workspace/path.py\", \"exact old lines\", \"new lines\")!!`.\n"
                 "- Write full file: `writeFile(Actor[#Host], \"/workspace/path.py\", \"content\")!!`.\n"
                 "- Run shell/tests: `execShell(Actor[#Host], \"pytest -q\", 20)!!`.\n"
+                "- For math word problems (`answer.txt`): NEVER guess arithmetic in a `writeFile` string literal! Always compute and write the exact number using Python (`execShell(Actor[#Host], \"python3 -c '...; open(\\\"/workspace/answer.txt\\\", \\\"w\\\").write(str(ans))'\", 10)!!`) or Actor arithmetic.\n"
                 "- When verified, reply: `COMPLETE: <summary>`."
             )
         needs_graph_constructs = (not entry_point) and any(

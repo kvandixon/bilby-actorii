@@ -175,9 +175,17 @@ def run_swebench_live_task(row: Dict[str, Any], harness_name: str, model: str) -
             f"{row['problem_statement'][:2200]}\n\n"
             f"Search `/workspace` to locate the relevant source file(s) and edit the code in `/workspace` so the issue is fixed."
         )
-        _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-            harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
-        )
+        prev_think = os.environ.get("ACTORII_ENABLE_THINKING")
+        os.environ["ACTORII_ENABLE_THINKING"] = "1"
+        try:
+            _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
+                harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
+            )
+        finally:
+            if prev_think is None:
+                os.environ.pop("ACTORII_ENABLE_THINKING", None)
+            else:
+                os.environ["ACTORII_ENABLE_THINKING"] = prev_think
 
         diff_proc = subprocess.run(
             ["git", "-c", "core.fileMode=false", "diff", "--stat"],
