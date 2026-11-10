@@ -63,7 +63,8 @@ SLASH_COMMANDS: Dict[str, str] = {
     "/engrams": "/engrams                   List saved Neo4j `:ActorEngram` computational memory-skills (`Actor[#Memory]`)",
     "/schema": "/schema                    Inspect active Neo4j domain node labels & relationships (`graphSchema(Actor[#Memory])`)",
     "/hydrate": "/hydrate <EngramName>      Hydrate a saved `:ActorEngram` from Neo4j into `Actor[#EngramName]`",
-    "/twins": "/twins                     Inspect live Digital Twins (`#Valkyrie`, `#Hue`, `#Pantry`, `#Thermometer`)",
+    "/twins": "/twins                     Inspect live Digital Twins (`#Valkyrie`, `#Proxy`, `#Hue`, `#Pantry`, `#Thermometer`)",
+    "/proxy": "/proxy [status|lan|tailscale|local|pause|auth on|auth off|rotate|logs] Manage WLAN/Tailscale reverse proxy",
     "/connect": "/connect [url|off]         Attach TUI to shared `:8090` Web Studio VM (`http://127.0.0.1:8090`)",
     "/step": "/step [objective]          Execute a single ReAct tick (`step(Actor[#Harness])!!`)",
     "/shadow": "/shadow <code!!>           Speculative copy-on-write dry-run (`shadow_only=True`, 0 side effects)",
@@ -683,9 +684,49 @@ class ActorTUISession:
                 self._emit(self._c(RED + BOLD, f"✖ Failed to hydrate '{ename}': {exc}\n"))
             return True
 
+        if cmd == "/proxy":
+            sub_raw = (arg or "status").strip()
+            parts = sub_raw.split(maxsplit=1)
+            action = parts[0].lower()
+            rest = parts[1].strip() if len(parts) > 1 else ""
+            from actorii.harness.twins import ReverseProxyTwin
+
+            ptwin = ReverseProxyTwin()
+            if action in ("status", "urls", "links", "info"):
+                out = ptwin.status()
+            elif action in ("lan", "wlan", "open", "on"):
+                out = ptwin.setMode("lan")
+            elif action in ("tailscale", "tailscale_only", "vpn"):
+                out = ptwin.setMode("tailscale_only")
+            elif action in ("local", "local_only", "localhost"):
+                out = ptwin.setMode("local_only")
+            elif action in ("pause", "paused", "off"):
+                out = ptwin.setMode("paused")
+            elif action == "auth":
+                out = ptwin.setAuth(rest or "on")
+            elif action == "rotate":
+                out = ptwin.rotateToken()
+            elif action == "allow" and rest:
+                out = ptwin.allowCidr(rest)
+            elif action in ("block", "deny") and rest:
+                out = ptwin.blockIp(rest)
+            elif action == "unblock" and rest:
+                out = ptwin.unblockIp(rest)
+            elif action == "logs":
+                lim = int(rest) if rest.isdigit() else 10
+                out = ptwin.recentLogs(lim)
+            else:
+                out = (
+                    "Usage: /proxy [status | links | lan | tailscale | local | pause | "
+                    "auth on | auth off | rotate | allow <cidr> | block <ip> | unblock <ip> | logs [n]]"
+                )
+            self._emit(f"\n{out}\n")
+            return True
+
         if cmd == "/twins":
             self._emit(f"\n{self._c(CYAN + BOLD, '=== ActorII Live Digital Twins (`Actor[...]`) ===')}")
             valk = self.vm.eval_chunk("summary(Actor[#Valkyrie])!!")
+            proxy_twin = self.vm.eval_chunk("summary(Actor[#Proxy])!!")
             re_twin = self.vm.eval_chunk("summary(Actor[#ReverseEngineer])!!")
             tg_twin = self.vm.eval_chunk("summary(Actor[#Telegram])!!")
             web_twin = self.vm.eval_chunk("summary(Actor[#Web])!!")
@@ -694,6 +735,7 @@ class ActorTUISession:
             pantry_cnt = self.vm.eval_chunk("recipeCount(Actor[#Pantry])!!")
             pantry_list = self.vm.eval_chunk("listRecipes(Actor[#Pantry], 5)!!")
             self._emit(f"  • {self._c(GREEN + BOLD, 'Actor[#Valkyrie]')}        : {valk}")
+            self._emit(f"  • {self._c(BLUE + BOLD, 'Actor[#Proxy]')}           : {proxy_twin}")
             self._emit(f"  • {self._c(CYAN + BOLD, 'Actor[#ReverseEngineer]')} : {re_twin}")
             self._emit(f"  • {self._c(BLUE + BOLD, 'Actor[#Telegram]')}        : {tg_twin}")
             self._emit(f"  • {self._c(GREEN + BOLD, 'Actor[#Web]')}             : {web_twin}")

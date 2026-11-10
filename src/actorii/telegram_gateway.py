@@ -290,15 +290,16 @@ class BilbyTelegramGateway:
 
             if cmd_lower in ("/start", "/help"):
                 return (
-                    "🦘 Bilby (ActorII v4.1 Metacircular Agent Harness — Hardened Lockdown)\n"
+                    "🦘 Bilby (ActorII v4.2.0 Metacircular Agent Harness — Hardened Lockdown)\n"
                     "Resident System AI on valkyrie (Actor-inspired Linux VM).\n\n"
                     "Commands:\n"
                     "• Plain English or Actor 4.1 code (`!!`) — Runs Bilby's guarded ReAct loop\n"
+                    "• /proxy [status|links|lan|tailscale|local|pause|auth on|auth off|rotate|logs] — Manage WLAN & Tailscale `:8090` Reverse Proxy\n"
                     "• /controls — Inspect active security & containment locks\n"
                     "• /freeze | /unlock — Emergency kill-switch to freeze/unfreeze Bilby\n"
                     "• /eval <code!!> — Direct Actor 4.1 bytecode evaluation (Ring 0/1 & Host-Lockdown enforced)\n"
                     "• /status — VM, GPU VRAM, and Harness status\n"
-                    "• /twins — Live Digital Twins (Valkyrie, ReverseEngineer, Thermometer, Pantry, Telegram)\n"
+                    "• /twins — Live Digital Twins (Valkyrie, Proxy, ReverseEngineer, Thermometer, Pantry, Telegram)\n"
                     "• /engrams — List crystallized Neo4j ActorEngrams\n"
                     "• /scratch — Inspect `Actor[#Bilby]` scratchpad\n"
                     "• /history — Recent multi-turn conversation history\n"
@@ -312,7 +313,7 @@ class BilbyTelegramGateway:
                 out = "\n".join(self.session.transcript[before:]).strip()
                 return out or "Evaluated."
 
-            if cmd_lower in ("/status", "/twins", "/engrams", "/scratch", "/history", "/clear", "/classes", "/schema", "/capabilities", "/caps", "/config"):
+            if cmd_lower in ("/status", "/proxy", "/twins", "/engrams", "/scratch", "/history", "/clear", "/classes", "/schema", "/capabilities", "/caps", "/config"):
                 before = len(self.session.transcript)
                 self.session.handle_input(f"{cmd_lower} {arg_str}".strip())
                 out = "\n".join(self.session.transcript[before:]).strip()

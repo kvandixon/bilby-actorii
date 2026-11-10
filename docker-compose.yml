@@ -23,8 +23,8 @@ services:
     depends_on:
       - neo4j
     ports:
-      - "${ACTOR_BIND_IP:-127.0.0.1}:8090:8090"
-      - "${ACTOR_BIND_IP:-127.0.0.1}:8765:8765"
+      - "${ACTOR_BIND_IP:-127.0.0.1}:${ACTOR_HTTP_HOST_PORT:-8090}:8090"
+      - "${ACTOR_BIND_IP:-127.0.0.1}:${ACTOR_WS_HOST_PORT:-8765}:8765"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     cap_drop:
@@ -56,6 +56,7 @@ services:
       - ./workspace:/workspace
       - ./benchmarks/scoreboard.json:/app/benchmarks/scoreboard.json:ro
       - ./benchmarks/scoreboard.html:/app/benchmarks/scoreboard.html:ro
+      - ${ACTORII_PROXY_STATE_HOST_DIR:-./workspace/.proxy}:/proxy-state
       - /tmp/actorii-llm-bridge:/llm-bridge
       - bilby_state_data:/home/bilby/.actorii
 

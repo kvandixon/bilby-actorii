@@ -1372,11 +1372,192 @@ class PDFDocumentTwin:
         return out[:char_limit]
 
 
+@actor_bridge(name="ReverseProxyTwin")
+class ReverseProxyTwin:
+    """Digital Twin (`Actor[#Proxy]`) enabling Bilby to inspect and manage the WLAN/Tailscale HTTP & WebSocket reverse proxy."""
+
+    def _urls_for_host(self, host: str, port: int, token_param: str = "") -> str:
+        suffix = f"?pass={token_param}" if token_param else ""
+        return (
+            f"  Studio     : http://{host}:{port}/{suffix}\n"
+            f"  Benchmarks : http://{host}:{port}/benchmarks{suffix}\n"
+            f"  ThermoUI   : http://{host}:{port}/thermometer{suffix}"
+        )
+
+    @actor_query
+    def summary(self) -> str:
+        """One-line operational summary of the Bilby Reverse Proxy."""
+        from actorii.reverse_proxy import discover_host_network_ips, load_proxy_config
+
+        cfg = load_proxy_config()
+        ips = discover_host_network_ips()
+        lan_ip = ips.get("lan", "127.0.0.1")
+        ts_ip = ips.get("tailscale", "")
+        port = int(cfg.get("http_port", 8090))
+        auth_state = "AUTH-REQUIRED" if cfg.get("require_auth") else "CIDR-ALLOWLIST"
+        ts_part = f" | tailscale=http://{ts_ip}:{port}" if ts_ip else ""
+        return (
+            f"ReverseProxyTwin(mode={cfg.get('mode', 'lan')} | gate={auth_state} | "
+            f"wlan=http://{lan_ip}:{port}{ts_part})"
+        )
+
+    @actor_query
+    def status(self) -> str:
+        """Detailed proxy status, active mode, network URLs, CIDRs, and auth gate."""
+        from actorii.reverse_proxy import discover_host_network_ips, load_proxy_config
+
+        cfg = load_proxy_config()
+        ips = discover_host_network_ips()
+        port = int(cfg.get("http_port", 8090))
+        ws_port = int(cfg.get("ws_port", 8765))
+        req_auth = bool(cfg.get("require_auth", False))
+        tok = str(cfg.get("access_token", "")) if req_auth else ""
+
+        lines = [
+            f"🌐 Bilby Reverse Proxy (`:{port}` HTTP+WS / `:{ws_port}` WS -> `127.0.0.1:{cfg.get('upstream_http_port', 18090)}`)",
+            f"• Mode          : `{cfg.get('mode', 'lan')}` (`lan` | `tailscale_only` | `local_only` | `paused`)",
+            f"• Auth Gate     : {'🔒 Passcode / Magic-Link Cookie ENABLED' if req_auth else '🟢 Open to Allowed Subnets (`require_auth=false`)'}",
+            f"• Allowed CIDRs : {', '.join(cfg.get('allowed_cidrs') or [])}",
+            f"• Blocked IPs   : {', '.join(cfg.get('blocked_ips') or []) or '(none)'}",
+        ]
+        if ips.get("lan"):
+            lines.append(f"\n📡 WLAN (`{ips['lan']}`):\n" + self._urls_for_host(ips["lan"], port, tok))
+        if ips.get("tailscale"):
+            lines.append(f"\n🔐 Tailscale (`{ips['tailscale']}`):\n" + self._urls_for_host(ips["tailscale"], port, tok))
+        lines.append(f"\n🖥️ Localhost:\n  http://127.0.0.1:{port}/  |  http://127.0.0.1:{port}/benchmarks")
+        return "\n".join(lines)
+
+    @actor_query
+    def urls(self) -> str:
+        """Return ready-to-open WLAN and Tailscale Studio & Benchmark URLs (including magic-link token if enabled)."""
+        return self.status()
+
+    @actor_command
+    def setMode(self, mode: str) -> str:
+        """Set reverse proxy access mode: `lan`, `tailscale_only`, `local_only`, or `paused`."""
+        from actorii.reverse_proxy import VALID_MODES, load_proxy_config, save_proxy_config
+
+        norm = str(mode or "").strip().lstrip("#").lower()
+        aliases = {
+            "wlan": "lan",
+            "open": "lan",
+            "on": "lan",
+            "tailscale": "tailscale_only",
+            "vpn": "tailscale_only",
+            "local": "local_only",
+            "localhost": "local_only",
+            "off": "paused",
+            "pause": "paused",
+        }
+        norm = aliases.get(norm, norm)
+        if norm not in VALID_MODES:
+            return f"ERROR: Unsupported mode {mode!r}. Expected one of: {', '.join(VALID_MODES)}"
+        cfg = load_proxy_config()
+        cfg["mode"] = norm
+        save_proxy_config(cfg)
+        return f"✔ Reverse proxy mode updated to `{norm}` (effective immediately).\n\n{self.status()}"
+
+    @actor_command
+    def setAuth(self, enabled: Any) -> str:
+        """Enable or disable the passcode / 1-tap magic-link cookie gate (`true` / `false`)."""
+        from actorii.reverse_proxy import load_proxy_config, save_proxy_config
+
+        if isinstance(enabled, str):
+            flag = enabled.strip().lower() in ("1", "true", "on", "yes", "enable", "enabled")
+        else:
+            flag = bool(enabled)
+        cfg = load_proxy_config()
+        cfg["require_auth"] = flag
+        save_proxy_config(cfg)
+        state_lbl = "ENABLED (1-tap magic links below)" if flag else "DISABLED (subnet allowlist active)"
+        return f"✔ Proxy passcode gate {state_lbl}.\n\n{self.status()}"
+
+    @actor_command
+    def rotateToken(self) -> str:
+        """Rotate the proxy access token (invalidating prior browser session cookies) and return fresh links."""
+        import secrets
+        from actorii.reverse_proxy import load_proxy_config, save_proxy_config
+
+        cfg = load_proxy_config()
+        cfg["access_token"] = secrets.token_urlsafe(18)
+        save_proxy_config(cfg)
+        return f"✔ Proxy access token rotated (previous session cookies invalidated).\n\n{self.status()}"
+
+    @actor_command
+    def allowCidr(self, cidr: str) -> str:
+        """Add an IP or CIDR subnet (e.g. `192.168.68.0/22`) to `allowed_cidrs`."""
+        import ipaddress
+        from actorii.reverse_proxy import load_proxy_config, save_proxy_config
+
+        raw = str(cidr or "").strip()
+        try:
+            net = str(ipaddress.ip_network(raw, strict=False))
+        except ValueError as exc:
+            return f"ERROR: Invalid IP/CIDR {raw!r}: {exc}"
+        cfg = load_proxy_config()
+        cidrs = list(cfg.get("allowed_cidrs") or [])
+        if net not in cidrs:
+            cidrs.append(net)
+        cfg["allowed_cidrs"] = cidrs
+        save_proxy_config(cfg)
+        return f"✔ Allowed CIDR `{net}` added ({len(cidrs)} total rules)."
+
+    @actor_command
+    def blockIp(self, ip_or_cidr: str) -> str:
+        """Immediately block an IP address or CIDR at the reverse proxy."""
+        import ipaddress
+        from actorii.reverse_proxy import load_proxy_config, save_proxy_config
+
+        raw = str(ip_or_cidr or "").strip()
+        try:
+            norm = str(ipaddress.ip_network(raw, strict=False)) if "/" in raw else str(ipaddress.ip_address(raw))
+        except ValueError as exc:
+            return f"ERROR: Invalid IP/CIDR {raw!r}: {exc}"
+        if norm.startswith("127.") or norm == "::1":
+            return "ERROR: Refusing to block loopback."
+        cfg = load_proxy_config()
+        blocked = list(cfg.get("blocked_ips") or [])
+        if norm not in blocked:
+            blocked.append(norm)
+        cfg["blocked_ips"] = blocked
+        save_proxy_config(cfg)
+        return f"✔ Blocked `{norm}` at reverse proxy."
+
+    @actor_command
+    def unblockIp(self, ip_or_cidr: str) -> str:
+        """Remove an IP address or CIDR from `blocked_ips`."""
+        from actorii.reverse_proxy import load_proxy_config, save_proxy_config
+
+        raw = str(ip_or_cidr or "").strip()
+        cfg = load_proxy_config()
+        before = list(cfg.get("blocked_ips") or [])
+        after = [x for x in before if x != raw]
+        cfg["blocked_ips"] = after
+        save_proxy_config(cfg)
+        return f"✔ Removed `{raw}` from blocked IPs ({len(after)} remaining)."
+
+    @actor_query
+    def recentLogs(self, limit: int = 10) -> str:
+        """Return the last `limit` external HTTP/WebSocket access events seen by the reverse proxy."""
+        from actorii.reverse_proxy import read_recent_proxy_logs
+
+        events = read_recent_proxy_logs(limit=max(1, min(50, int(limit or 10))))
+        if not events:
+            return "No external proxy requests logged yet."
+        rows = [
+            f"• {e.get('ts', '')[:19]}Z | {e.get('ip', '?'):15s} | :{e.get('port', '8090')} | "
+            f"{e.get('method', 'GET'):4s} {e.get('path', '/'):20s} -> {e.get('status', '?')} ({e.get('reason', '')})"
+            for e in events
+        ]
+        return f"Recent Proxy Access Log ({len(rows)} entries):\n" + "\n".join(rows)
+
+
 __all__ = [
     "NetTransportBridge",
     "PDFDocumentTwin",
     "PantryGraphTwin",
     "ReverseEngineeringTwin",
+    "ReverseProxyTwin",
     "SmartLightTwin",
     "TelegramBotTwin",
     "ValkyrieSystemTwin",

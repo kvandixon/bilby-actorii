@@ -1647,8 +1647,12 @@ def _is_request_origin_allowed(request: Any) -> bool:
         return True
 
     req_host = (request.headers.get("Host") or "").strip().lower()
-    if req_host and parsed.netloc.lower() == req_host:
-        return True
+    if req_host:
+        if parsed.netloc.lower() == req_host:
+            return True
+        req_hostname = req_host.split(":", 1)[0]
+        if host_only == req_hostname and sec_site != "cross-site":
+            return True
 
     return False
 
