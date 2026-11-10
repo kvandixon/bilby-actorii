@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git file ca-cer
         duckduckgo-search
 
 COPY pyproject.toml README.md websocket_server.py browser_client.html index.html thermometer_surface.html actor_tui.py actor_telegram.py /app/
+COPY benchmarks/scoreboard.json benchmarks/scoreboard.html benchmarks/scoreboard.py /app/benchmarks/
 COPY src /app/src
 COPY examples /app/examples
 COPY docker /app/docker

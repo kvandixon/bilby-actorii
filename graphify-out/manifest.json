@@ -65,8 +65,8 @@
     "semantic_hash": ""
   },
   "start_server.sh": {
-    "mtime": 1794249617.6761744,
-    "ast_hash": "929c06df510a354d5a9a14172483bae1",
+    "mtime": 1794328191.2033174,
+    "ast_hash": "2a5704aeb97247e706ea370e9d660c94",
     "semantic_hash": ""
   },
   "tests/test_actor.py": {
@@ -95,8 +95,8 @@
     "semantic_hash": "e10c3ae2089986cdf94e5d0ab82adf8c"
   },
   "websocket_server.py": {
-    "mtime": 1794327392.97013,
-    "ast_hash": "0ae4596e8fe520e413e77d49bd914e05",
+    "mtime": 1794329115.2062821,
+    "ast_hash": "4b51fb71e74b0b251f07c45657f47e0c",
     "semantic_hash": ""
   },
   "ARCHITECTURE.md": {
@@ -105,13 +105,13 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794327685.3817525,
-    "ast_hash": "4b95a4e47f72485428d19e9612c7d2a7",
+    "mtime": 1794329074.360488,
+    "ast_hash": "d2a237b3bac153e62c6d437e01b45fe8",
     "semantic_hash": ""
   },
   "browser_client.html": {
-    "mtime": 1794327441.311382,
-    "ast_hash": "429089130eb2b49852a17626874d1a87",
+    "mtime": 1794329116.5183432,
+    "ast_hash": "cc5a99be49c3bce6b5332e59e16b0de5",
     "semantic_hash": ""
   },
   "docs/HISTORICAL_ACTOR_SPEC.md": {
@@ -385,8 +385,8 @@
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1794327445.515578,
-    "ast_hash": "ea833bf206a5e92f21312c9e2bf104d5",
+    "mtime": 1794329120.6965375,
+    "ast_hash": "58d8d64c40867945ee39c524a1afd7b1",
     "semantic_hash": ""
   },
   "benchmarks/data/agentbench_os_dev.json": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "benchmarks/BENCHMARK_RESULTS.md": {
-    "mtime": 1794295061.5625978,
-    "ast_hash": "23f3ef06f5cbbc8062363a75cfe4ccfe",
+    "mtime": 1794329074.3598619,
+    "ast_hash": "484e77faff7672f3a70e689f047efebe",
     "semantic_hash": ""
   },
   "benchmarks/archive/ACTOR_VS_HERMES_REPORT.md": {
@@ -712,6 +712,26 @@
   "benchmarks/archive/TB21_HARD_THINKING_REPORT.md": {
     "mtime": 1794249640.556211,
     "ast_hash": "f09c9bfae461e1e67467884e35eea8b0",
+    "semantic_hash": ""
+  },
+  "benchmarks/scoreboard.json": {
+    "mtime": 1794328951.607677,
+    "ast_hash": "595297b3a8bbcd024b76034022d2046a",
+    "semantic_hash": ""
+  },
+  "benchmarks/scoreboard.py": {
+    "mtime": 1794329065.429968,
+    "ast_hash": "6e6e60f635510fc447868995c594d08b",
+    "semantic_hash": ""
+  },
+  "tests/test_benchmark_scoreboard.py": {
+    "mtime": 1794329143.2885876,
+    "ast_hash": "3db89b183a5022ed3c014386fbc9c1d4",
+    "semantic_hash": ""
+  },
+  "benchmarks/scoreboard.html": {
+    "mtime": 1794329074.360303,
+    "ast_hash": "8ed2990c0b429e3c6504327aaf347edc",
     "semantic_hash": ""
   }
 }

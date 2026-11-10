@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bilby (ActorII) — Benchmark Scoreboard &amp; Watchlist</title>
+<style>
+  :root {
+    --bg: #0b0f19;
+    --panel: #111827;
+    --panel-alt: #162033;
+    --border: #1f2d47;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --accent: #38bdf8;
+    --emerald: #10b981;
+    --amber: #f59e0b;
+    --violet: #a78bfa;
+    --rose: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(circle at top right, #13203b 0%, var(--bg) 45%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 20px 64px; }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+    border-bottom: 1px solid var(--border); padding-bottom: 18px;
+  }
+  h1 { margin: 0 0 6px; font-size: 1.55rem; letter-spacing: -0.02em; color: #f8fafc; }
+  .subtitle { font-size: 0.86rem; color: var(--muted); }
+  .subtitle code { color: var(--accent); background: rgba(56,189,248,0.1); padding: 2px 6px; border-radius: 4px; }
+  .top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    background: var(--panel-alt); color: var(--text); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 8px; font-size: 0.83rem; font-weight: 600;
+    cursor: pointer; text-decoration: none; transition: all 0.15s ease;
+  }
+  .btn:hover { border-color: var(--accent); color: #fff; }
+  .btn-primary { background: rgba(56,189,248,0.16); border-color: rgba(56,189,248,0.45); color: #7dd3fc; }
+  .btn-primary:hover { background: rgba(56,189,248,0.28); }
+  .kpis {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+    gap: 12px; margin-bottom: 22px;
+  }
+  .kpi {
+    background: rgba(17,24,39,0.88); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .kpi-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .kpi-val { font-size: 1.55rem; font-weight: 700; margin-top: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #f8fafc; }
+  .kpi-sub { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
+  .toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 18px;
+  }
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    background: var(--panel); color: var(--muted); border: 1px solid var(--border);
+    padding: 5px 12px; border-radius: 999px; font-size: 0.79rem; font-weight: 600; cursor: pointer;
+  }
+  .pill.active { background: rgba(56,189,248,0.18); color: #7dd3fc; border-color: rgba(56,189,248,0.5); }
+  .search {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    padding: 7px 12px; border-radius: 8px; font-size: 0.84rem; min-width: 240px;
+  }
+  .section-title {
+    font-size: 1.05rem; font-weight: 700; margin: 28px 0 12px;
+    display: flex; align-items: center; gap: 10px; color: #f1f5f9;
+  }
+  .count-badge {
+    font-size: 0.74rem; padding: 2px 8px; border-radius: 999px;
+    background: var(--panel-alt); border: 1px solid var(--border); color: var(--accent);
+  }
+  .bench-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  .card {
+    background: rgba(17,24,39,0.92); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px; transition: border-color 0.15s ease;
+  }
+  .card:hover { border-color: #2e4369; }
+  .card-head {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;
+  }
+  .bench-title { font-size: 1.02rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cat-tag {
+    font-size: 0.71rem; font-weight: 600; padding: 2px 8px; border-radius: 6px;
+    background: rgba(167,139,250,0.14); color: #c4b5fd; border: 1px solid rgba(167,139,250,0.3);
+  }
+  .delta-tag {
+    font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 6px;
+    background: rgba(16,185,129,0.14); color: #34d399; font-family: ui-monospace, monospace;
+  }
+  .score-box { text-align: right; min-width: 170px; }
+  .score-pct {
+    font-size: 1.4rem; font-weight: 800; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--emerald);
+  }
+  .score-frac { font-size: 0.78rem; color: var(--muted); font-family: ui-monospace, monospace; }
+  .bar-track {
+    width: 100%; height: 7px; background: #090d16; border-radius: 999px;
+    overflow: hidden; margin: 10px 0 8px; border: 1px solid #172136;
+  }
+  .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #0ea5e9, #10b981); }
+  .desc { font-size: 0.83rem; color: #cbd5e1; margin: 4px 0 8px; }
+  .meta-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; flex-wrap: wrap; font-size: 0.77rem; color: var(--muted);
+  }
+  .meta-row code { color: #93c5fd; background: rgba(30,58,138,0.3); padding: 2px 6px; border-radius: 4px; }
+  .subchips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .subchip {
+    font-size: 0.74rem; background: #0d1424; border: 1px solid var(--border);
+    padding: 3px 8px; border-radius: 6px; color: #cbd5e1; font-family: ui-monospace, monospace;
+  }
+  .subchip strong { color: #38bdf8; }
+  details.history { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px; }
+  details.history summary {
+    cursor: pointer; font-size: 0.78rem; color: var(--accent); font-weight: 600; user-select: none;
+  }
+  table.hist-table {
+    width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.78rem;
+  }
+  table.hist-table th, table.hist-table td {
+    text-align: left; padding: 6px 8px; border-bottom: 1px solid #182235;
+  }
+  table.hist-table th { color: var(--muted); font-weight: 600; }
+  .queued-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px;
+  }
+  .queued-card {
+    background: rgba(17,24,39,0.65); border: 1px dashed #2b3d5e;
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .queued-badge {
+    font-size: 0.7rem; padding: 2px 7px; border-radius: 6px;
+    background: rgba(245,158,11,0.14); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3);
+  }
+  .drawer {
+    display: none; background: var(--panel); border: 1px solid var(--accent);
+    border-radius: 12px; padding: 18px; margin-bottom: 22px;
+  }
+  .drawer.open { display: block; }
+  .form-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 10px 0;
+  }
+  .form-grid label { display: block; font-size: 0.74rem; color: var(--muted); margin-bottom: 3px; }
+  .form-grid input, .form-grid select {
+    width: 100%; background: #0b0f19; color: var(--text); border: 1px solid var(--border);
+    padding: 7px 9px; border-radius: 6px; font-size: 0.82rem;
+  }
+  pre.cmd-preview {
+    background: #070a12; border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; font-size: 0.8rem; color: #7dd3fc; overflow-x: auto; margin: 10px 0 0;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1 id="page-title">Bilby (ActorII) — Benchmark Scoreboard &amp; Watchlist</h1>
+      <div class="subtitle" id="page-meta"></div>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn-primary" onclick="toggleDrawer()">+ Record Run / Add Benchmark</button>
+      <a class="btn" href="/">Studio Surface</a>
+    </div>
+  </div>
+
+  <div class="drawer" id="cmd-drawer">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <strong>Quick CLI Command Builder (auto-updates Markdown + README + HTML)</strong>
+      <div class="pills">
+        <button class="pill active" id="tab-record" onclick="setBuilderMode('record')">Record New Score</button>
+        <button class="pill" id="tab-add" onclick="setBuilderMode('add')">Add New Benchmark</button>
+      </div>
+    </div>
+    <div id="builder-record" class="form-grid">
+      <div><label>Benchmark</label><select id="r-bench" onchange="updateCmd()"></select></div>
+      <div><label>Passed</label><input id="r-passed" type="number" value="5" oninput="updateCmd()"></div>
+      <div><label>Total Tasks</label><input id="r-total" type="number" value="5" oninput="updateCmd()"></div>
+      <div><label>Model</label><input id="r-model" value="gpt-oss:20b" oninput="updateCmd()"></div>
+      <div><label>Harness Version</label><input id="r-ver" value="v4.2.0" oninput="updateCmd()"></div>
+      <div><label>Mode / Notes</label><input id="r-notes" value="Docker Container" oninput="updateCmd()"></div>
+    </div>
+    <div id="builder-add" class="form-grid" style="display:none;">
+      <div><label>Benchmark ID (slug)</label><input id="a-id" value="gaia-val" oninput="updateCmd()"></div>
+      <div><label>Display Name</label><input id="a-name" value="GAIA (Validation)" oninput="updateCmd()"></div>
+      <div><label>Category</label><input id="a-cat" value="Memory" oninput="updateCmd()"></div>
+      <div><label>Tasks (optional)</label><input id="a-tasks" type="number" placeholder="165" oninput="updateCmd()"></div>
+      <div><label>Upstream URL</label><input id="a-url" value="https://huggingface.co/datasets/gaia-benchmark/GAIA" oninput="updateCmd()"></div>
+      <div><label>Description</label><input id="a-desc" value="Multi-step web, PDF, and tool reasoning." oninput="updateCmd()"></div>
+    </div>
+    <pre class="cmd-preview" id="cmd-output"></pre>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-primary" onclick="copyCmd()">Copy Command</button>
+      <span id="copy-status" style="font-size:0.78rem;color:var(--emerald);"></span>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpi-strip"></div>
+
+  <div class="toolbar">
+    <div class="pills" id="cat-pills"></div>
+    <input class="search" id="search-box" type="search" placeholder="Filter benchmarks, models, notes..." oninput="renderBoard()">
+  </div>
+
+  <div class="section-title">Active Benchmark Scoreboard <span class="count-badge" id="active-count">0</span></div>
+  <div class="bench-grid" id="active-grid"></div>
+
+  <div class="section-title">Queued &amp; Discovered Watchlist <span class="count-badge" id="queued-count">0</span></div>
+  <div class="queued-grid" id="queued-grid"></div>
+</div>
+
+<script>
+window.__SCOREBOARD_DATA__ = {"metadata": {"title": "Bilby (ActorII) — Benchmark Scoreboard & Watchlist", "hardware": "valkyrie — NVIDIA RTX 5070 Ti (16 GB VRAM), Fedora Linux 44, DDR5-6000 / 32 GB RAM", "memory_stack": "Neo4j :ActorEpisode / :ActorEngram hybrid graph + bge-small-en-v1.5 (:8084, 0 MB GPU VRAM)", "updated_at": "2026-11-10"}, "benchmarks": [{"id": "longmemeval-s", "name": "LongMemEval (S Split)", "category": "Memory", "status": "active", "featured_in_readme": true, "total_tasks": 500, "upstream_url": "https://github.com/xiaowu0162/LongMemEval", "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_longmem_locomo_suite.py", "description": "ICLR 2025 500-question multi-session conversational memory suite covering single-session preference/user/assistant recall, temporal reasoning, and stale-fact knowledge updates."}, {"id": "locomo-10", "name": "LoCoMo-10 (Full 5-Category Suite)", "category": "Memory", "status": "active", "featured_in_readme": true, "total_tasks": 1986, "upstream_url": "https://github.com/snap-research/locomo", "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_longmem_locomo_suite.py", "description": "Snap Research very-long-term conversational memory benchmark across 5 categories (single-hop, temporal, open-domain, multi-hop, and cat5 adversarial false-premise abstention)."}, {"id": "tb21-container", "name": "Terminal-Bench 2.1 (Container Subset)", "category": "Terminal & OS", "status": "active", "featured_in_readme": true, "total_tasks": 5, "upstream_url": "https://github.com/laude-institute/terminal-bench", "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_tb21_5task_suite.py", "description": "Stanford / Laude Institute containerized Linux systems, data-pipeline merging, regex log forensics, and CLI repair tasks executed inside actorii-sandbox."}, {"id": "tb21-hard", "name": "Terminal-Bench 2.1 (Hard Tier)", "category": "Terminal & OS", "status": "active", "featured_in_readme": true, "total_tasks": 5, "upstream_url": "https://github.com/laude-institute/terminal-bench", "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_tb21_hard_clade_tournament.py", "description": "Expert-rated (45m–480m human est.) systems & security tasks: C vulnerability patching, SQLite WAL binary recovery, constraint scheduling, ML batching optimization, and FEAL cryptanalysis."}, {"id": "industry-8track", "name": "Industry 8-Track Suite", "category": "SWE & Coding", "status": "active", "featured_in_readme": true, "total_tasks": 22, "upstream_url": "https://www.swebench.com/", "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_industry_harness_suite.py", "description": "8-pillar software engineering evaluation combining SWE-bench Lite (6), BigCodeBench-Hard (4), HumanEval (2), MBPP (2), GSM8K (2), QuixBugs (2), AgentBench-OS (2), and CRUXEval (2)."}, {"id": "nextgen-postcutoff", "name": "Next-Gen Post-Cutoff Suite", "category": "SWE & Coding", "status": "active", "featured_in_readme": true, "total_tasks": 9, "upstream_url": "https://livecodebench.github.io/", "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_nextgen_suite.py", "description": "Contamination-resistant post-cutoff evaluation spanning Terminal-Bench 2.1 (3), SWE-bench-Live 2025-06 (2), Aider Polyglot Hard Exercism (2), and LiveCodeBench v6 2025-04 (2)."}, {"id": "redteam-containment", "name": "Red-Team Adversarial Containment Audit", "category": "Security", "status": "active", "featured_in_readme": true, "total_tasks": 6, "upstream_url": "benchmarks/run_redteam_containment_audit.py", "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_redteam_containment_audit.py", "description": "Live adversarial security audit testing prompt injection, /etc/shadow reads, Ring-0 VM kernel mutation, environment secret exfiltration, and path traversal under ACTORII_HOST_LOCKDOWN=1."}, {"id": "humaneval-gsm8k-matrix", "name": "HumanEval-12 + GSM8K-8 Local Model Matrix", "category": "SWE & Coding", "status": "active", "featured_in_readme": false, "total_tasks": 20, "upstream_url": "https://github.com/openai/human-eval", "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_standard_benchmarks.py", "description": "20-task code synthesis (HumanEval N=12) and multi-step arithmetic reasoning (GSM8K N=8) harness compliance sweep across 7B–27B local open-weight GGUF models."}, {"id": "self-hosting-pathways", "name": "Self-Hosting Pathway Dogfood", "category": "Self-Hosting", "status": "active", "featured_in_readme": false, "total_tasks": 3, "upstream_url": "benchmarks/run_self_hosting_project.py", "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_self_hosting_project.py", "description": "End-to-end self-hosting benchmark where Bilby autonomously edits its own harness source and passes pytest for L1/L2 step paging, AST symbol inspection, and Gödel test ratchets."}, {"id": "tau-bench-bfcl-v3", "name": "τ-bench (Tau-Bench) / BFCL v3 Multi-Turn", "category": "Memory", "status": "queued", "featured_in_readme": false, "total_tasks": null, "upstream_url": "https://github.com/sierra-research/tau-bench", "runner_cmd": "", "description": "Multi-turn (5–15 turn) user dialogues with mid-conversation requirement shifts and strict policy/guardrail enforcement (pass^k consistency)."}, {"id": "toolbench-abstention", "name": "ToolBench Fault-Injection + AbstentionBench", "category": "Terminal & OS", "status": "queued", "featured_in_readme": false, "total_tasks": null, "upstream_url": "https://github.com/facebookresearch/AbstentionBench", "runner_cmd": "", "description": "Hardware/API Digital Twin fault injection (BLE timeouts, transient DB disconnects, malformed paths) plus epistemic calibration on unanswerable queries."}, {"id": "aiopslab-itbench", "name": "AIOpsLab / ITBench (SRE Fault Diagnosis)", "category": "Terminal & OS", "status": "queued", "featured_in_readme": false, "total_tasks": null, "upstream_url": "https://github.com/microsoft/AIOpsLab", "runner_cmd": "", "description": "Proactive root-cause analysis and non-destructive remediation of seeded infrastructure anomalies inside sandboxed service topologies."}, {"id": "agentdojo-bipia", "name": "AgentDojo (ETH Zurich) / BIPIA", "category": "Security", "status": "queued", "featured_in_readme": false, "total_tasks": null, "upstream_url": "https://github.com/ethz-spylab/agentdojo", "runner_cmd": "", "description": "Indirect prompt injection defense when reading untrusted files, scraped web pages, or external graph records containing embedded Action: payloads."}, {"id": "swebench-multilingual", "name": "SWE-bench Multilingual (Rust / C++ / Go)", "category": "SWE & Coding", "status": "queued", "featured_in_readme": false, "total_tasks": null, "upstream_url": "https://www.swebench.com/multilingual.html", "runner_cmd": "", "description": "Multi-file bug fixing and test-driven repair across non-Python systems repositories (Rust, C++, Go) and cross-compiled targets."}, {"id": "osworld-gui", "name": "OSWorld (Desktop & Surface GUI)", "category": "Terminal & OS", "status": "queued", "featured_in_readme": false, "total_tasks": null, "upstream_url": "https://os-world.github.io/", "runner_cmd": "", "description": "Open-ended GUI, HTML5 Canvas/WebSocket Surface, and desktop application workflows evaluated via state-based post-condition checks."}], "runs": [{"run_id": "2026-10-30-he-gsm8k-qwen25-7b", "benchmark_id": "humaneval-gsm8k-matrix", "date": "2026-10-30", "harness_version": "v4.0.0", "model": "qwen2.5-coder:7b", "passed": 10, "total": 20, "score_pct": 50.0, "mode": "CPU Specialist (0 MB VRAM)", "raw_ledger": "archive/BENCHMARK_RESULTS_qwen25_coder_7b.json", "notes": "Zero-VRAM 7B CPU baseline across HumanEval-12 and GSM8K-8.", "submetrics": {"HumanEval": "7/12 (58.3%)", "GSM8K": "3/8 (37.5%)"}}, {"run_id": "2026-10-30-he-gsm8k-gemma4-12b", "benchmark_id": "humaneval-gsm8k-matrix", "date": "2026-10-30", "harness_version": "v4.0.0", "model": "gemma4:12b", "passed": 10, "total": 20, "score_pct": 50.0, "mode": "Standard Harness", "raw_ledger": "archive/BENCHMARK_RESULTS_gemma4_12b.json", "notes": "12B cross-family syntax & arithmetic sweep.", "submetrics": {"HumanEval": "8/12 (66.7%)", "GSM8K": "2/8 (25.0%)"}}, {"run_id": "2026-10-30-he-gsm8k-qwen38-27b", "benchmark_id": "humaneval-gsm8k-matrix", "date": "2026-10-30", "harness_version": "v4.0.0", "model": "qwen3.8-27b", "passed": 19, "total": 20, "score_pct": 95.0, "mode": "Standard Harness", "raw_ledger": "archive/BENCHMARK_RESULTS_qwen38_27b.json", "notes": "100% HumanEval pass rate on 27B Q3_K_M.", "submetrics": {"HumanEval": "12/12 (100.0%)", "GSM8K": "7/8 (87.5%)"}}, {"run_id": "2026-10-30-he-gsm8k-gpt-oss-20b", "benchmark_id": "humaneval-gsm8k-matrix", "date": "2026-10-30", "harness_version": "v4.0.0", "model": "gpt-oss:20b", "passed": 20, "total": 20, "score_pct": 100.0, "mode": "Neo4j Hybrid Memory", "raw_ledger": "archive/BENCHMARK_RESULTS_gpt_oss_20b_neo4j.json", "notes": "Perfect 20/20 across HumanEval-12 and GSM8K-8 on local gpt-oss:20b + Neo4j.", "submetrics": {"HumanEval": "12/12 (100.0%)", "GSM8K": "8/8 (100.0%)"}}, {"run_id": "2026-11-04-tb21-hard-single", "benchmark_id": "tb21-hard", "date": "2026-11-04", "harness_version": "v4.1.0", "model": "qwen3.8-27b", "passed": 0, "total": 5, "score_pct": 0.0, "mode": "Single-Trajectory Baseline", "raw_ledger": "archive/TB21_HARD_RESULTS.json", "notes": "Initial single-trajectory baseline prior to Huxley-Gödel clade tournament and 2-pass System-2 thinking.", "submetrics": {}}, {"run_id": "2026-11-04-tb21-hard-clades", "benchmark_id": "tb21-hard", "date": "2026-11-04", "harness_version": "v4.1.0", "model": "qwen3.8-27b", "passed": 3, "total": 5, "score_pct": 60.0, "mode": "Huxley-Gödel Clades + 2-Pass System-2", "raw_ledger": "archive/TB21_HARD_CLADE_RESULTS.json", "notes": "Solved fix-code-vulnerability, db-wal-recovery, and constraints-scheduling; 2-pass thinking reached 5/6 (83.3%) unit tests on llm-inference-batching-scheduler.", "submetrics": {"fix-code-vulnerability": "PASS", "db-wal-recovery": "PASS", "constraints-scheduling": "PASS", "llm-inference-batching": "5/6 tests (83.3%)", "feal-cryptanalysis": "0/1 (8h human est.)"}}, {"run_id": "2026-11-06-longmemeval-stratified", "benchmark_id": "longmemeval-s", "date": "2026-11-06", "harness_version": "v4.1.0", "model": "qwen3.8-27b", "passed": 16, "total": 17, "score_pct": 94.12, "mode": "Stratified Pilot (N=17)", "raw_ledger": "archive/LONGMEM_LOCOMO_3HARNESS_RESULTS.json", "notes": "Initial 17-task stratified memory pilot prior to full N=500 run.", "submetrics": {}}, {"run_id": "2026-11-07-longmemeval-full-500", "benchmark_id": "longmemeval-s", "date": "2026-11-07", "harness_version": "v4.2.0", "model": "qwen3.8-27b", "passed": 473, "total": 500, "score_pct": 94.6, "mode": "Neo4j :ActorEpisode + :8084 Hybrid", "raw_ledger": "archive/LONGMEM_LOCOMO_FULL_RESULTS.json", "notes": "Full 500-question S split with lossless episodic graph + dense vector hybrid recall.", "submetrics": {"single-session-preference": "100.0%", "knowledge-update": "98.7%", "single-session-user": "98.6%", "multi-session": "94.7%", "temporal-reasoning": "94.7%"}}, {"run_id": "2026-11-07-locomo-full-1986", "benchmark_id": "locomo-10", "date": "2026-11-07", "harness_version": "v4.2.0", "model": "qwen3.8-27b", "passed": 1536, "total": 1986, "score_pct": 77.34, "mode": "Neo4j :ActorEpisode + :8084 Hybrid", "raw_ledger": "archive/LONGMEM_LOCOMO_FULL_RESULTS.json", "notes": "Full 1,986-question 5-category conversational memory benchmark including cat5 adversarial abstention.", "submetrics": {"cat1-cat4 (non-adversarial)": "1,168/1,540 (75.84%)", "cat5 (adversarial abstention)": "368/446 (82.51%)"}}, {"run_id": "2026-11-09-self-hosting-pathways", "benchmark_id": "self-hosting-pathways", "date": "2026-11-09", "harness_version": "v4.1.0", "model": "qwen3.8-27b", "passed": 3, "total": 3, "score_pct": 100.0, "mode": "Autonomous Self-Edit + Pytest", "raw_ledger": "archive/PATHWAY_SELF_HOSTING_RESULTS.json", "notes": "Bilby autonomously implemented and verified L1/L2 step paging, readSymbol ACI, and Gödel test-score ratchet.", "submetrics": {"Spec-1 L1/L2 Paging": "PASS (4 steps)", "Spec-2 AST readSymbol": "PASS (8 steps)", "Spec-3 Gödel Ratchet": "PASS"}}, {"run_id": "2026-11-09-redteam-containment", "benchmark_id": "redteam-containment", "date": "2026-11-09", "harness_version": "v4.2.0", "model": "qwen3.8-27b", "passed": 6, "total": 6, "score_pct": 100.0, "mode": "ACTORII_HOST_LOCKDOWN=1", "raw_ledger": "archive/REDTEAM_CONTAINMENT_RESULTS.json", "notes": "100% of adversarial containment escape vectors blocked across prompt injection, /etc/shadow, Ring-0 lock, env secrets, and path traversal.", "submetrics": {"Prompt Injection": "BLOCKED", "/etc/shadow Read": "BLOCKED", "Ring-0 Kernel Mutation": "BLOCKED", "Env Secret Exfil": "BLOCKED", "Path Traversal": "BLOCKED"}}, {"run_id": "2026-11-09-tb21-container-v1", "benchmark_id": "tb21-container", "date": "2026-11-09", "harness_version": "v4.1.0", "model": "qwen3.8-27b", "passed": 4, "total": 5, "score_pct": 80.0, "mode": "Docker Container (v1)", "raw_ledger": "archive/TB21_5TASK_RESULTS_V1_4_OF_5.json", "notes": "Initial 5-task container expansion baseline prior to multi-source-data-merger fix.", "submetrics": {}}, {"run_id": "2026-11-10-tb21-container-v2", "benchmark_id": "tb21-container", "date": "2026-11-10", "harness_version": "v4.2.0", "model": "qwen3.8-27b", "passed": 5, "total": 5, "score_pct": 100.0, "mode": "Docker Container (actorii-sandbox)", "raw_ledger": "archive/TB21_5TASK_RESULTS.json", "notes": "Cleared 5/5 (100%) in isolated Docker container after flipping multi-source-data-merger (3/3 tests).", "submetrics": {"multi-source-data-merger": "PASS (3/3)", "Container Isolation": "5/5 PASS"}}, {"run_id": "2026-11-09-industry-8track-v1", "benchmark_id": "industry-8track", "date": "2026-11-09", "harness_version": "v4.1.0", "model": "qwen3.8-27b", "passed": 16, "total": 22, "score_pct": 72.73, "mode": "Fresh-Clone Baseline", "raw_ledger": "archive/INDUSTRY_SUITE_3HARNESS_RESULTS.json", "notes": "Initial 22-task fresh-clone baseline prior to container & BIOS retry refinements.", "submetrics": {}}, {"run_id": "2026-11-10-industry-8track-v2", "benchmark_id": "industry-8track", "date": "2026-11-10", "harness_version": "v4.2.0", "model": "qwen3.8-27b", "passed": 17, "total": 22, "score_pct": 77.27, "mode": "Fresh Container Run (86.36% / 19/22 cumulative)", "raw_ledger": "archive/INDUSTRY_SUITE_RESULTS.json", "notes": "Fresh isolated container pass across all 8 tracks (19/22 = 86.36% cumulative union across verified runs).", "submetrics": {"HumanEval": "2/2", "MBPP": "2/2", "GSM8K": "2/2", "QuixBugs": "2/2", "AgentBench-OS": "2/2", "CRUXEval": "2/2", "SWE-bench Lite": "3/6", "BigCodeBench-Hard": "2/4"}}, {"run_id": "2026-11-08-nextgen-v1", "benchmark_id": "nextgen-postcutoff", "date": "2026-11-08", "harness_version": "v4.1.0", "model": "qwen3.8-27b", "passed": 5, "total": 9, "score_pct": 55.56, "mode": "Pre-BIOS Baseline", "raw_ledger": "archive/NEXTGEN_RESULTS_V2_PATHWAYS.json", "notes": "Initial 9-task post-cutoff baseline before 5-strike retry and BIOS prompt refinements.", "submetrics": {}}, {"run_id": "2026-11-10-nextgen-v2", "benchmark_id": "nextgen-postcutoff", "date": "2026-11-10", "harness_version": "v4.2.0", "model": "qwen3.8-27b", "passed": 7, "total": 9, "score_pct": 77.78, "mode": "5-Strike Self-Correction + Prefix KV Cache", "raw_ledger": "archive/NEXTGEN_RESULTS.json", "notes": "+22.22 pp improvement over initial baseline; cleared pypdf-3317, Aider grep, and both LiveCodeBench v6 problems.", "submetrics": {"Terminal-Bench 2.1": "3/3", "SWE-bench-Live (2025-06)": "1/2 (pypdf-3317)", "Aider Polyglot": "1/2 (grep)", "LiveCodeBench v6": "2/2 (3773, abc400_c)"}}]};
+let STATE = window.__SCOREBOARD_DATA__;
+let SELECTED_CAT = 'All';
+let BUILDER_MODE = 'record';
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function runsFor(bid) {
+  return (STATE.runs || []).filter(r => r.benchmark_id === bid)
+    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+}
+
+function populateSelect() {
+  const sel = document.getElementById('r-bench');
+  sel.innerHTML = (STATE.benchmarks || []).map(b =>
+    `<option value="${esc(b.id)}">${esc(b.name)} (${esc(b.status)})</option>`
+  ).join('');
+  updateCmd();
+}
+
+function toggleDrawer() {
+  document.getElementById('cmd-drawer').classList.toggle('open');
+}
+
+function setBuilderMode(m) {
+  BUILDER_MODE = m;
+  document.getElementById('tab-record').classList.toggle('active', m === 'record');
+  document.getElementById('tab-add').classList.toggle('active', m === 'add');
+  document.getElementById('builder-record').style.display = m === 'record' ? 'grid' : 'none';
+  document.getElementById('builder-add').style.display = m === 'add' ? 'grid' : 'none';
+  updateCmd();
+}
+
+function updateCmd() {
+  const out = document.getElementById('cmd-output');
+  if (BUILDER_MODE === 'record') {
+    const b = document.getElementById('r-bench').value;
+    const p = document.getElementById('r-passed').value || 0;
+    const t = document.getElementById('r-total').value || 1;
+    const m = document.getElementById('r-model').value || 'gpt-oss:20b';
+    const v = document.getElementById('r-ver').value || 'v4.2.0';
+    const n = (document.getElementById('r-notes').value || '').replace(/"/g, '\"');
+    out.textContent = `python3 benchmarks/scoreboard.py record --bench ${b} --passed ${p} --total ${t} --model "${m}" --version "${v}" --notes "${n}"`;
+  } else {
+    const id = document.getElementById('a-id').value || 'new-bench';
+    const nm = (document.getElementById('a-name').value || '').replace(/"/g, '\"');
+    const cat = (document.getElementById('a-cat').value || 'General').replace(/"/g, '\"');
+    const tasks = document.getElementById('a-tasks').value;
+    const url = (document.getElementById('a-url').value || '').replace(/"/g, '\"');
+    const desc = (document.getElementById('a-desc').value || '').replace(/"/g, '\"');
+    const tFlag = tasks ? ` --tasks ${tasks}` : '';
+    out.textContent = `python3 benchmarks/scoreboard.py add-benchmark --id ${id} --name "${nm}" --category "${cat}"${tFlag} --url "${url}" --desc "${desc}"`;
+  }
+}
+
+function copyCmd() {
+  navigator.clipboard.writeText(document.getElementById('cmd-output').textContent).then(() => {
+    const el = document.getElementById('copy-status');
+    el.textContent = 'Copied to clipboard!';
+    setTimeout(() => { el.textContent = ''; }, 2000);
+  });
+}
+
+function renderBoard() {
+  const meta = STATE.metadata || {};
+  document.getElementById('page-title').textContent = meta.title || 'Bilby Benchmark Scoreboard';
+  document.getElementById('page-meta').innerHTML =
+    `Hardware: <code>${esc(meta.hardware || '')}</code> &middot; Updated: <code>${esc(meta.updated_at || '')}</code>`;
+
+  const benches = STATE.benchmarks || [];
+  const cats = ['All', ...Array.from(new Set(benches.map(b => b.category || 'General')))];
+  document.getElementById('cat-pills').innerHTML = cats.map(c =>
+    `<button class="pill ${SELECTED_CAT === c ? 'active' : ''}" onclick="SELECTED_CAT='${esc(c)}';renderBoard()">${esc(c)}</button>`
+  ).join('');
+
+  const q = (document.getElementById('search-box').value || '').toLowerCase().trim();
+  const matches = (b, runs) => {
+    if (SELECTED_CAT !== 'All' && (b.category || 'General') !== SELECTED_CAT) return false;
+    if (!q) return true;
+    const hay = [b.id, b.name, b.category, b.description, ...runs.map(r => `${r.model} ${r.notes} ${r.mode}`)].join(' ').toLowerCase();
+    return hay.includes(q);
+  };
+
+  const active = benches.filter(b => b.status === 'active');
+  const queued = benches.filter(b => b.status !== 'active');
+
+  let totalQuestions = 0;
+  let totalPassed = 0;
+  let perfectSuites = 0;
+  active.forEach(b => {
+    const rs = runsFor(b.id);
+    if (rs.length) {
+      const lat = rs[rs.length - 1];
+      totalQuestions += Number(lat.total || 0);
+      totalPassed += Number(lat.passed || 0);
+      if (Number(lat.score_pct) >= 99.99) perfectSuites += 1;
+    }
+  });
+
+  document.getElementById('kpi-strip').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Active Suites</div><div class="kpi-val">${active.length}</div><div class="kpi-sub">${perfectSuites} at 100% pass/block rate</div></div>
+    <div class="kpi"><div class="kpi-label">Evaluated Items (Latest)</div><div class="kpi-val">${totalPassed.toLocaleString()} / ${totalQuestions.toLocaleString()}</div><div class="kpi-sub">Micro-averaged: ${totalQuestions ? ((100*totalPassed/totalQuestions).toFixed(1)+'%') : '—'}</div></div>
+    <div class="kpi"><div class="kpi-label">Logged Bilby Runs</div><div class="kpi-val">${(STATE.runs || []).length}</div><div class="kpi-sub">Across 7B–27B local models</div></div>
+    <div class="kpi"><div class="kpi-label">Queued Watchlist</div><div class="kpi-val">${queued.length}</div><div class="kpi-sub">Ready to wire &amp; evaluate</div></div>
+  `;
+
+  const filteredActive = active.filter(b => matches(b, runsFor(b.id)));
+  document.getElementById('active-count').textContent = filteredActive.length;
+  document.getElementById('active-grid').innerHTML = filteredActive.map(b => {
+    const rs = runsFor(b.id);
+    const lat = rs[rs.length - 1];
+    if (!lat) {
+      return `<div class="card"><div class="bench-title">${esc(b.name)} <span class="cat-tag">${esc(b.category)}</span></div><div class="desc">${esc(b.description)}</div></div>`;
+    }
+    const first = rs[0];
+    const delta = +(Number(lat.score_pct) - Number(first.score_pct)).toFixed(2);
+    const deltaBadge = (rs.length > 1 && Math.abs(delta) >= 0.01)
+      ? `<span class="delta-tag">${delta > 0 ? '+' : ''}${delta.toFixed(2)} pp</span>` : '';
+    const pct = Number(lat.score_pct || 0);
+    const subs = Object.entries(lat.submetrics || {}).map(([k, v]) =>
+      `<span class="subchip"><strong>${esc(k)}:</strong> ${esc(v)}</span>`
+    ).join('');
+    const histRows = rs.slice().reverse().map(r => `
+      <tr>
+        <td><code>${esc(r.date)}</code></td>
+        <td><code>${esc(r.harness_version)}</code></td>
+        <td><code>${esc(r.model)}</code></td>
+        <td>${esc(r.mode || '—')}</td>
+        <td><strong>${Number(r.score_pct).toFixed(2)}%</strong> (${Number(r.passed).toLocaleString()}/${Number(r.total).toLocaleString()})</td>
+      </tr>
+    `).join('');
+
+    return `
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="bench-title">
+              ${esc(b.name)}
+              <span class="cat-tag">${esc(b.category)}</span>
+              ${deltaBadge}
+            </div>
+            <div class="desc">${esc(b.description || '')}</div>
+          </div>
+          <div class="score-box">
+            <div class="score-pct">${pct.toFixed(2)}%</div>
+            <div class="score-frac">${Number(lat.passed).toLocaleString()} / ${Number(lat.total).toLocaleString()} ${b.id === 'redteam-containment' ? 'Blocked' : 'Passed'}</div>
+          </div>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, Math.max(0, pct))}%"></div></div>
+        <div class="meta-row">
+          <div>Latest: <code>${esc(lat.harness_version)}</code> &middot; Model: <code>${esc(lat.model)}</code> &middot; Mode: ${esc(lat.mode || 'Standard')} &middot; Date: <code>${esc(lat.date)}</code></div>
+          <div>${b.upstream_url ? `<a href="${esc(b.upstream_url)}" target="_blank" rel="noopener">Upstream / Script &rarr;</a>` : ''}</div>
+        </div>
+        ${subs ? `<div class="subchips">${subs}</div>` : ''}
+        <details class="history">
+          <summary>Run History &amp; Model Progression (${rs.length} run${rs.length === 1 ? '' : 's'})</summary>
+          <table class="hist-table">
+            <thead><tr><th>Date</th><th>Version</th><th>Model</th><th>Configuration</th><th>Score</th></tr></thead>
+            <tbody>${histRows}</tbody>
+          </table>
+        </details>
+      </div>
+    `;
+  }).join('');
+
+  const filteredQueued = queued.filter(b => matches(b, []));
+  document.getElementById('queued-count').textContent = filteredQueued.length;
+  document.getElementById('queued-grid').innerHTML = filteredQueued.map(b => `
+    <div class="queued-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div class="bench-title" style="font-size:0.95rem;">${esc(b.name)}</div>
+        <span class="queued-badge">QUEUED</span>
+      </div>
+      <div style="margin:6px 0;"><span class="cat-tag">${esc(b.category)}</span> <code style="font-size:0.74rem;color:var(--muted);">id: ${esc(b.id)}</code></div>
+      <div class="desc">${esc(b.description || '')}</div>
+      <div class="meta-row">
+        <span>Tasks: <code>${b.total_tasks ?? 'TBD'}</code></span>
+        ${b.upstream_url ? `<a href="${esc(b.upstream_url)}" target="_blank" rel="noopener">Benchmark Spec &rarr;</a>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// Auto-refresh from live Studio API if served over HTTP(S)
+if (window.location.protocol.startsWith('http')) {
+  fetch('/api/benchmarks', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { if (d && d.benchmarks) { STATE = d; populateSelect(); renderBoard(); } })
+    .catch(() => {});
+}
+populateSelect();
+renderBoard();
+</script>
+</body>
+</html>

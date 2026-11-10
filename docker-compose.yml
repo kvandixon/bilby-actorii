@@ -54,6 +54,8 @@ services:
       - BILBY_TELEGRAM_ALLOWED_CHATS=${BILBY_TELEGRAM_ALLOWED_CHATS:-}
     volumes:
       - ./workspace:/workspace
+      - ./benchmarks/scoreboard.json:/app/benchmarks/scoreboard.json:ro
+      - ./benchmarks/scoreboard.html:/app/benchmarks/scoreboard.html:ro
       - /tmp/actorii-llm-bridge:/llm-bridge
       - bilby_state_data:/home/bilby/.actorii
 

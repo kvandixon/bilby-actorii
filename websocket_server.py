@@ -1759,6 +1759,38 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             body = client_file.read_bytes()
             return _http_response(200, "OK", "text/html; charset=utf-8", body)
 
+    if req_path in ("/benchmarks", "/benchmarks.html", "/scoreboard.html"):
+        if not _is_request_authorized(request, allow_query_token=True):
+            return _http_response(
+                401,
+                "Unauthorized",
+                "text/plain; charset=utf-8",
+                b"Unauthorized: append ?token=<ACTORII_STUDIO_TOKEN> or supply Bearer token.",
+                extra_headers=[("WWW-Authenticate", 'Bearer realm="ActorII Studio"')],
+            )
+        sb_html = root_dir / "benchmarks" / "scoreboard.html"
+        if sb_html.is_file():
+            return _http_response(200, "OK", "text/html; charset=utf-8", sb_html.read_bytes())
+
+    if req_path == "/api/benchmarks":
+        if not _is_request_authorized(request, allow_query_token=True):
+            return _http_response(
+                401,
+                "Unauthorized",
+                "application/json; charset=utf-8",
+                json.dumps({"status": "error", "error": "Unauthorized"}).encode("utf-8"),
+                extra_headers=[("WWW-Authenticate", 'Bearer realm="ActorII Studio"')],
+            )
+        sb_json = root_dir / "benchmarks" / "scoreboard.json"
+        if sb_json.is_file():
+            return _http_response(200, "OK", "application/json; charset=utf-8", sb_json.read_bytes())
+        return _http_response(
+            404,
+            "Not Found",
+            "application/json; charset=utf-8",
+            json.dumps({"status": "error", "error": "scoreboard.json not found"}).encode("utf-8"),
+        )
+
     if req_path in ("/thermometer", "/thermometer_surface.html"):
         if not _is_request_authorized(request, allow_query_token=True):
             return _http_response(
