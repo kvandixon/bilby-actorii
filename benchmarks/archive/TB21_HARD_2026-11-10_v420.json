@@ -1,0 +1,71 @@
+{
+  "model": "qwen3.8:latest",
+  "suite": "Terminal-Bench 2.1 Hard Tier (5 Tasks)",
+  "results": [
+    {
+      "task_id": "TB2.1-Hard/llm-inference-batching-scheduler",
+      "track": "Track 1B: Terminal-Bench 2.1 Hard Tier (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": false,
+      "steps": 16,
+      "prompt_tokens": 169056,
+      "completion_tokens": 1456,
+      "total_tokens": 170512,
+      "latency_s": 274.22,
+      "details": "pytest test_outputs.py: FAIL (1 error in 0.05s)"
+    },
+    {
+      "task_id": "TB2.1-Hard/feal-differential-cryptanalysis",
+      "track": "Track 1B: Terminal-Bench 2.1 Hard Tier (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": false,
+      "steps": 16,
+      "prompt_tokens": 140554,
+      "completion_tokens": 4790,
+      "total_tokens": 145344,
+      "latency_s": 500.2,
+      "details": "pytest test_outputs.py: FAIL (1 failed in 0.33s)"
+    },
+    {
+      "task_id": "TB2.1-Hard/fix-code-vulnerability",
+      "track": "Track 1B: Terminal-Bench 2.1 Hard Tier (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": false,
+      "steps": 16,
+      "prompt_tokens": 147810,
+      "completion_tokens": 721,
+      "total_tokens": 148531,
+      "latency_s": 207.97,
+      "details": "pytest test_outputs.py: FAIL (4 failed, 2 passed in 0.04s)"
+    },
+    {
+      "task_id": "TB2.1-Hard/db-wal-recovery",
+      "track": "Track 1B: Terminal-Bench 2.1 Hard Tier (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": false,
+      "steps": 16,
+      "prompt_tokens": 130960,
+      "completion_tokens": 1598,
+      "total_tokens": 132558,
+      "latency_s": 217.82,
+      "details": "pytest test_outputs.py: FAIL (7 failed in 0.02s)"
+    },
+    {
+      "task_id": "TB2.1-Hard/constraints-scheduling",
+      "track": "Track 1B: Terminal-Bench 2.1 Hard Tier (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": false,
+      "steps": 11,
+      "prompt_tokens": 117935,
+      "completion_tokens": 7070,
+      "total_tokens": 125005,
+      "latency_s": 600.47,
+      "details": "pytest test_outputs.py: FAIL (3 failed in 0.06s)"
+    }
+  ]
+}

@@ -18,11 +18,12 @@ Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) wit
 | :--- | :---: | :---: | :---: | :---: |
 | **LongMemEval (S Split)** | `Memory` | `500` | **`94.60% (473 / 500)`** | `2026-11-07` |
 | **LoCoMo-10 (Full 5-Category Suite)** | `Memory` | `1,986` | **`77.34% (1,536 / 1,986)`** | `2026-11-07` |
-| **Terminal-Bench 2.1 (Container Subset)** | `Terminal & OS` | `5` | **`100.00% (5 / 5)`** | `2026-11-10` |
-| **Terminal-Bench 2.1 (Hard Tier)** | `Terminal & OS` | `5` | **`60.00% (3 / 5)`** | `2026-11-04` |
+| **Terminal-Bench 2.1 (Container Subset)** | `Terminal & OS` | `5` | **`80.00% (4 / 5)`** | `2026-11-10` |
+| **Terminal-Bench 2.1 (Hard Tier)** | `Terminal & OS` | `5` | **`0.00% (0 / 5)`** | `2026-11-10` |
 | **Industry 8-Track Suite** | `SWE & Coding` | `22` | **`77.27% (17 / 22)`** | `2026-11-10` |
-| **Next-Gen Post-Cutoff Suite** | `SWE & Coding` | `9` | **`77.78% (7 / 9)`** | `2026-11-10` |
-| **Red-Team Adversarial Containment Audit** | `Security` | `6` | **`100.00% (6 / 6 Blocked)`** | `2026-11-09` |
+| **Next-Gen Post-Cutoff Suite** | `SWE & Coding` | `9` | **`66.67% (6 / 9)`** | `2026-11-10` |
+| **Red-Team Adversarial Containment Audit** | `Security` | `6` | **`100.00% (6 / 6 Blocked)`** | `2026-11-10` |
+| **LongMemEval + LoCoMo (Stratified 17-Task)** | `Memory` | `17` | **`94.12% (16 / 17)`** | `2026-11-10` |
 <!-- BENCHMARK_SCOREBOARD:END -->
 
 👉 **[Full details, run history & live HTML scoreboard (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)**
