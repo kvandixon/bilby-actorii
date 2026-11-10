@@ -1,0 +1,19 @@
+[Unit]
+Description=ActorII v4.2.0 Containerized Sandbox Bridge & Docker Surface (127.0.0.1:8090 / 127.0.0.1:8765)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/home/skippy/projects/ActorII
+ExecStartPre=/usr/bin/mkdir -p /tmp/actorii-llm-bridge
+ExecStartPre=/bin/sh -c 'docker start bilby-actorii 2>/dev/null || docker-compose -f /home/skippy/projects/ActorII/docker-compose.yml up -d --no-deps bilby'
+ExecStart=/usr/bin/python3 /home/skippy/projects/ActorII/docker/llm_socket_bridge.py --mode host --sock-dir /tmp/actorii-llm-bridge
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

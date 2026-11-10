@@ -105,8 +105,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794329074.360488,
-    "ast_hash": "d2a237b3bac153e62c6d437e01b45fe8",
+    "mtime": 1794347833.4612577,
+    "ast_hash": "c28344fbdaea6580565218ec4fb6ebaa",
     "semantic_hash": ""
   },
   "browser_client.html": {
@@ -395,8 +395,8 @@
     "semantic_hash": ""
   },
   "benchmarks/run_nextgen_suite.py": {
-    "mtime": 1794288012.707048,
-    "ast_hash": "7e62e7bae28cc876d08880127f86747b",
+    "mtime": 1794341240.7397711,
+    "ast_hash": "924209d5ba9e21b656c466304cc7fce1",
     "semantic_hash": ""
   },
   "benchmarks/run_self_hosting_project.py": {
@@ -415,13 +415,13 @@
     "semantic_hash": ""
   },
   "benchmarks/run_tb21_5task_suite.py": {
-    "mtime": 1794277844.288628,
-    "ast_hash": "4502bade79134d9dc89c9a4ad79067f0",
+    "mtime": 1794341185.961239,
+    "ast_hash": "40ef5548cef090203412cc4a73373fd3",
     "semantic_hash": ""
   },
   "benchmarks/run_tb21_hard_suite.py": {
-    "mtime": 1794277927.4494214,
-    "ast_hash": "a9f1b0344b1f391561b6deab8dc5e250",
+    "mtime": 1794341243.0168762,
+    "ast_hash": "9212b93a21cb006138f945de80b53da5",
     "semantic_hash": ""
   },
   "benchmarks/run_tb21_hard_clade_tournament.py": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "benchmarks/BENCHMARK_RESULTS.md": {
-    "mtime": 1794329074.3598619,
-    "ast_hash": "484e77faff7672f3a70e689f047efebe",
+    "mtime": 1794347833.460514,
+    "ast_hash": "417774cce896c9f99a2b90f458ca8c9c",
     "semantic_hash": ""
   },
   "benchmarks/archive/ACTOR_VS_HERMES_REPORT.md": {
@@ -715,23 +715,23 @@
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.json": {
-    "mtime": 1794328951.607677,
-    "ast_hash": "595297b3a8bbcd024b76034022d2046a",
+    "mtime": 1794347833.4598742,
+    "ast_hash": "744af3b534e40c72d26ccc3b1a181b36",
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.py": {
-    "mtime": 1794329065.429968,
-    "ast_hash": "6e6e60f635510fc447868995c594d08b",
+    "mtime": 1794341158.3759642,
+    "ast_hash": "d1ed6cae6ab81987331d6734418c970e",
     "semantic_hash": ""
   },
   "tests/test_benchmark_scoreboard.py": {
-    "mtime": 1794329143.2885876,
-    "ast_hash": "3db89b183a5022ed3c014386fbc9c1d4",
+    "mtime": 1794341284.789807,
+    "ast_hash": "c29fb2e96c4930982cf4802a8463d754",
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.html": {
-    "mtime": 1794329074.360303,
-    "ast_hash": "8ed2990c0b429e3c6504327aaf347edc",
+    "mtime": 1794347833.4608173,
+    "ast_hash": "f710ef0b2afe734ad2132042ac76a0ac",
     "semantic_hash": ""
   },
   "src/actorii/reverse_proxy.py": {
@@ -742,6 +742,51 @@
   "tests/test_reverse_proxy.py": {
     "mtime": 1794329976.2822256,
     "ast_hash": "d2a9ff3a824e0f3561f5ff400cbc6565",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/BENCHMARK_RESULTS_2026-11-10_v420.json": {
+    "mtime": 1794331238.7273772,
+    "ast_hash": "bc4f671ff7561bdb68b7876e4bce1664",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/INDUSTRY_8TRACK_2026-11-10_v420.json": {
+    "mtime": 1794337265.5328352,
+    "ast_hash": "0bdec654be7d35cab7642bea783d0fa2",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/LONGMEM_LOCOMO_STRATIFIED_2026-11-10_v420.json": {
+    "mtime": 1794339490.975569,
+    "ast_hash": "6a72811c29353152445d04b80576211c",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/NEXTGEN_2026-11-10_v420.json": {
+    "mtime": 1794333888.9142327,
+    "ast_hash": "b4d558e6e6a0c848f929161830c4db98",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/REDTEAM_CONTAINMENT_2026-11-10_v420.json": {
+    "mtime": 1794330825.9532697,
+    "ast_hash": "3d9b93cc8039d99f12a357878a754fe7",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/TB21_5TASK_2026-11-10_v420.json": {
+    "mtime": 1794331804.9503195,
+    "ast_hash": "085769f63a17a7d17f38a3d2b85a355e",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/TB21_HARD_2026-11-10_v420.json": {
+    "mtime": 1794339090.0439968,
+    "ast_hash": "4261fe18c71762e381c50e6574026d47",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/NEXTGEN_AVG3_2026-11-10_v420.json": {
+    "mtime": 1794347818.962587,
+    "ast_hash": "8eea2bfc1f3635f7b1400c36ec0f56ae",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/TB21_5TASK_AVG3_2026-11-10_v420.json": {
+    "mtime": 1794343092.7588136,
+    "ast_hash": "d2a52ed9de1014d5cfeadcf2822f8aca",
     "semantic_hash": ""
   }
 }

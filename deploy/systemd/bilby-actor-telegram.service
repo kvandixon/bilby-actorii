@@ -1,0 +1,27 @@
+[Unit]
+Description=Bilby (ActorII v4.1 Metacircular Agent Harness) Telegram Gateway (@Skippy3000bot)
+After=network-online.target llama-primary.service
+Wants=network-online.target
+Conflicts=hermes-gateway.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/home/skippy/projects/ActorII
+Environment="PATH=/home/skippy/bin:/home/skippy/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONPATH=/home/skippy/projects/ActorII/src"
+Environment="PYTHONUNBUFFERED=1"
+Environment="ACTORII_MODEL=qwen3.8:latest"
+Environment="ACTORII_HOST_LOCKDOWN=1"
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadOnlyPaths=/home/skippy/projects/ActorII/src /home/skippy/projects/ActorII/actor_telegram.py /home/skippy/bin /home/skippy/.config/systemd /home/skippy/.hermes
+ReadWritePaths=/home/skippy/.actorii /tmp
+ExecStart=/usr/bin/python3 /home/skippy/projects/ActorII/actor_telegram.py --model qwen3.8:latest --startup-ping
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
