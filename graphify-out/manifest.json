@@ -350,8 +350,8 @@
     "semantic_hash": ""
   },
   "src/actorii/harness/twins.py": {
-    "mtime": 1794248943.5438612,
-    "ast_hash": "cdd49897d2e49549c12671dbc8123c0f",
+    "mtime": 1794310938.0455828,
+    "ast_hash": "6747f60c63745333d6a60af9c9bae648",
     "semantic_hash": ""
   },
   "src/actorii/tui.py": {

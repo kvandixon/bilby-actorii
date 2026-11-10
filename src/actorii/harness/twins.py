@@ -592,6 +592,8 @@ def load_telegram_credentials(env_path: Optional[str] = None) -> Dict[str, Any]:
     candidates = [
         env_path,
         os.path.join(os.getcwd(), ".env"),
+        os.path.expanduser("~/.hermes/profiles/bilby/.env"),
+        os.path.expanduser("~/.hermes/.env"),
     ]
     for path in candidates:
         if not path or not os.path.isfile(path):
