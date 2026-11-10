@@ -196,30 +196,60 @@ def main() -> int:
         default="all",
         help="Harness to evaluate (default: all)",
     )
+    parser.add_argument(
+        "--trials",
+        type=int,
+        default=3,
+        help="Independent trials per task at production temp=0.1 (default: 3 for avg@3 on N <= 10 suites)",
+    )
+    parser.add_argument("--results-json", default="", help="Override output JSON path")
+    parser.add_argument("--report-md", default="", help="Override output Markdown report path")
     args = parser.parse_args()
+
+    out_json = Path(args.results_json).resolve() if args.results_json else RESULTS_JSON
+    out_md = Path(args.report_md).resolve() if args.report_md else REPORT_MD
+    trials = max(1, int(args.trials))
 
     harnesses = HARNESS_ORDER if args.harness == "all" else (args.harness,)
     results: List[TaskMetrics] = []
-    print(f"\n================ TERMINAL-BENCH 2.1 HARD SUITE (5 TASKS x {len(harnesses)} HARNESS) ================", flush=True)
-    for tname in TB_HARD_5_TASKS:
-        for h in harnesses:
-            print(f"  -> Running TB2.1-Hard/{tname} on [{h}] ...", flush=True)
-            m = run_terminal_bench_hard_task(tname, h, args.model)
-            results.append(m)
-            status = "PASS" if m.passed else "FAIL"
-            print(
-                f"     [{h}] {status} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
-                flush=True,
-            )
+    result_dicts: list[dict] = []
+    print(
+        f"\n================ TERMINAL-BENCH 2.1 HARD SUITE (5 TASKS x {trials} TRIALS x {len(harnesses)} HARNESS) ================",
+        flush=True,
+    )
+    for trial_idx in range(1, trials + 1):
+        if trials > 1:
+            print(f"\n--- Trial {trial_idx} / {trials} ---", flush=True)
+        for tname in TB_HARD_5_TASKS:
+            for h in harnesses:
+                print(f"  -> [T{trial_idx}/{trials}] Running TB2.1-Hard/{tname} on [{h}] ...", flush=True)
+                m = run_terminal_bench_hard_task(tname, h, args.model)
+                results.append(m)
+                d_row = asdict(m)
+                d_row["trial"] = trial_idx
+                result_dicts.append(d_row)
+                status = "PASS" if m.passed else "FAIL"
+                print(
+                    f"     [{h}] {status} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
+                    flush=True,
+                )
+                payload = {
+                    "model": args.model,
+                    "suite": "Terminal-Bench 2.1 Hard Tier (5 Tasks)",
+                    "trials": trials,
+                    "results": result_dicts,
+                }
+                out_json.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 
     payload = {
         "model": args.model,
         "suite": "Terminal-Bench 2.1 Hard Tier (5 Tasks)",
-        "results": [asdict(r) for r in results],
+        "trials": trials,
+        "results": result_dicts,
     }
-    RESULTS_JSON.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
-    generate_markdown_report(results, args.model, REPORT_MD)
-    print(f"\nSaved JSON to {RESULTS_JSON} and report to {REPORT_MD}", flush=True)
+    out_json.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    generate_markdown_report(results, args.model, out_md)
+    print(f"\nSaved JSON to {out_json} and report to {out_md}", flush=True)
     return 0
 
 

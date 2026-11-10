@@ -40,7 +40,7 @@
 - **Breakdown**: `cat1-cat4 (non-adversarial)`: **1,168/1,540 (75.84%)** · `cat5 (adversarial abstention)`: **368/446 (82.51%)**
 
 ### Terminal-Bench 2.1 (Container Subset) (`v4.2.0` · `qwen3.8-27b` · `2026-11-10`)
-- **Scope**: Stanford / Laude Institute containerized Linux systems, data-pipeline merging, regex log forensics, and CLI repair tasks executed inside actorii-sandbox.
+- **Scope**: Stanford / Laude Institute containerized Linux systems, data-pipeline merging, regex log forensics, and CLI repair tasks executed inside actorii-sandbox (evaluated at avg@3 / pass^3).
 - **Notes**: git-leak-recovery PASS, log-summary PASS, fix-git PASS, multi-source-data-merger PASS; cancel-async-tasks 5/6 pytest checks.
 - **Breakdown**: `git-leak-recovery`: **PASS (5/5)** · `log-summary-date-ranges`: **PASS (2/2)** · `cancel-async-tasks`: **FAIL (5/6)** · `fix-git`: **PASS (2/2)** · `multi-source-data-merger`: **PASS (3/3)**
 
@@ -55,7 +55,7 @@
 - **Breakdown**: `SWE-bench Lite`: **2/6** · `OpenAI HumanEval`: **2/2** · `Google Research MBPP`: **2/2** · `OpenAI GSM8K`: **2/2** · `QuixBugs`: **2/2** · `AgentBench OS`: **2/2** · `CruxEval`: **2/2** · `BigCodeBench-Hard`: **3/4**
 
 ### Next-Gen Post-Cutoff Suite (`v4.2.0` · `qwen3.8-27b` · `2026-11-10`)
-- **Scope**: Contamination-resistant post-cutoff evaluation spanning Terminal-Bench 2.1 (3), SWE-bench-Live 2025-06 (2), Aider Polyglot Hard Exercism (2), and LiveCodeBench v6 2025-04 (2).
+- **Scope**: Contamination-resistant post-cutoff evaluation spanning Terminal-Bench 2.1 (3), SWE-bench-Live 2025-06 (2), Aider Polyglot Hard Exercism (2), and LiveCodeBench v6 2025-04 (2) (evaluated at avg@3 / pass^3).
 - **Notes**: TB2.1 3/3 (100%), SWE-Live 1/2 (pypdf-3317 PASS, networkx-8105 FAIL), Polyglot 1/2 (grep PASS, forth 51/54), LCB-v6 1/2 (3773 PASS, abc400_c FAIL).
 - **Breakdown**: `Terminal-Bench 2.1`: **3/3** · `SWE-bench-Live`: **1/2** · `Aider Polyglot`: **1/2** · `LiveCodeBench v6`: **1/2**
 

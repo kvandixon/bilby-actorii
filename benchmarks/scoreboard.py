@@ -85,8 +85,20 @@ def _fmt_score(run: dict[str, Any], bench_id: str = "") -> str:
     pct = float(run.get("score_pct", 0.0))
     passed = _fmt_int(run.get("passed", 0))
     total = _fmt_int(run.get("total", 0))
+    trials = int(run.get("trials") or 1)
     suffix = " Blocked" if bench_id == "redteam-containment" else ""
+    if trials > 1:
+        return f"{pct:.2f}% avg@{trials} ({passed} / {total} trials{suffix})"
     return f"{pct:.2f}% ({passed} / {total}{suffix})"
+
+
+def _fmt_task_count(bench: dict[str, Any], run: dict[str, Any]) -> str:
+    trials = int(run.get("trials") or 1)
+    raw_total = int(run.get("total") or 0)
+    base_tasks = bench.get("total_tasks") or (raw_total // max(1, trials) if raw_total else None)
+    if trials > 1 and base_tasks:
+        return f"{_fmt_int(base_tasks)} (×{trials})"
+    return _fmt_int(run.get("total", bench.get("total_tasks")))
 
 
 def render_markdown(data: dict[str, Any]) -> str:
@@ -135,9 +147,11 @@ def render_markdown(data: dict[str, Any]) -> str:
 
         ledger = str(latest.get("raw_ledger", "")).strip()
         ledger_md = f"[`{Path(ledger).name}`]({ledger})" if ledger else "—"
-        best_str = f"**`{float(best['score_pct']):.2f}%`** (`{best.get('model', '')}`)"
+        best_trials = int(best.get("trials") or 1)
+        best_tag = f" avg@{best_trials}" if best_trials > 1 else ""
+        best_str = f"**`{float(best['score_pct']):.2f}%{best_tag}`** (`{best.get('model', '')}`)"
         lines.append(
-            f"| **{b['name']}** | `{b.get('category', 'General')}` | `{_fmt_int(latest.get('total', b.get('total_tasks')))}` "
+            f"| **{b['name']}** | `{b.get('category', 'General')}` | `{_fmt_task_count(b, latest)}` "
             f"| **`{_fmt_score(latest, bid)}`** | {best_str} | {delta_str} | `{latest.get('model', '')}` | `{latest.get('date', '')}` | {ledger_md} |"
         )
 
@@ -259,7 +273,7 @@ def render_readme_snippet(data: dict[str, Any]) -> str:
             continue
         latest = runs[-1]
         rows.append(
-            f"| **{b['name']}** | `{b.get('category', 'General')}` | `{_fmt_int(latest.get('total', b.get('total_tasks')))}` "
+            f"| **{b['name']}** | `{b.get('category', 'General')}` | `{_fmt_task_count(b, latest)}` "
             f"| **`{_fmt_score(latest, b['id'])}`** | `{latest.get('date', '')}` |"
         )
     return "\n".join(rows)
@@ -603,8 +617,12 @@ function renderBoard() {{
     const rs = runsFor(b.id);
     if (rs.length) {{
       const lat = rs[rs.length - 1];
-      totalQuestions += Number(lat.total || 0);
-      totalPassed += Number(lat.passed || 0);
+      const tr = Math.max(1, Number(lat.trials || 1));
+      const uTot = Number(b.total_tasks || Math.round(Number(lat.total || 0) / tr));
+      totalQuestions += uTot;
+      totalPassed += tr > 1
+        ? Math.round((Number(lat.score_pct || 0) / 100) * uTot)
+        : Number(lat.passed || 0);
       if (Number(lat.score_pct) >= 99.99) perfectSuites += 1;
     }}
   }});
@@ -628,19 +646,31 @@ function renderBoard() {{
     const delta = +(Number(lat.score_pct) - Number(first.score_pct)).toFixed(2);
     const deltaBadge = (rs.length > 1 && Math.abs(delta) >= 0.01)
       ? `<span class="delta-tag">${{delta > 0 ? '+' : ''}}${{delta.toFixed(2)}} pp</span>` : '';
+    const tr = Math.max(1, Number(lat.trials || 1));
+    const uTasks = Number(b.total_tasks || Math.round(Number(lat.total || 0) / tr));
+    const trialBadge = tr > 1
+      ? `<span class="cat-tag" style="border-color:rgba(56,189,248,0.45);color:#38bdf8;">avg@${{tr}}</span>` : '';
     const pct = Number(lat.score_pct || 0);
     const subs = Object.entries(lat.submetrics || {{}}).map(([k, v]) =>
       `<span class="subchip"><strong>${{esc(k)}}:</strong> ${{esc(v)}}</span>`
     ).join('');
-    const histRows = rs.slice().reverse().map(r => `
+    const histRows = rs.slice().reverse().map(r => {{
+      const rTr = Math.max(1, Number(r.trials || 1));
+      const rSuffix = rTr > 1 ? ` avg@${{rTr}} (${{Number(r.passed).toLocaleString()}}/${{Number(r.total).toLocaleString()}} trials)` : ` (${{Number(r.passed).toLocaleString()}}/${{Number(r.total).toLocaleString()}})`;
+      return `
       <tr>
         <td><code>${{esc(r.date)}}</code></td>
         <td><code>${{esc(r.harness_version)}}</code></td>
         <td><code>${{esc(r.model)}}</code></td>
         <td>${{esc(r.mode || '—')}}</td>
-        <td><strong>${{Number(r.score_pct).toFixed(2)}}%</strong> (${{Number(r.passed).toLocaleString()}}/${{Number(r.total).toLocaleString()}})</td>
+        <td><strong>${{Number(r.score_pct).toFixed(2)}}%</strong>${{rSuffix}}</td>
       </tr>
-    `).join('');
+      `;
+    }}).join('');
+
+    const fracLabel = tr > 1
+      ? `${{Number(lat.passed).toLocaleString()}} / ${{Number(lat.total).toLocaleString()}} Trials (${{uTasks}} Tasks)`
+      : `${{Number(lat.passed).toLocaleString()}} / ${{Number(lat.total).toLocaleString()}} ${{b.id === 'redteam-containment' ? 'Blocked' : 'Passed'}}`;
 
     return `
       <div class="card">
@@ -649,13 +679,14 @@ function renderBoard() {{
             <div class="bench-title">
               ${{esc(b.name)}}
               <span class="cat-tag">${{esc(b.category)}}</span>
+              ${{trialBadge}}
               ${{deltaBadge}}
             </div>
             <div class="desc">${{esc(b.description || '')}}</div>
           </div>
           <div class="score-box">
             <div class="score-pct">${{pct.toFixed(2)}}%</div>
-            <div class="score-frac">${{Number(lat.passed).toLocaleString()}} / ${{Number(lat.total).toLocaleString()}} ${{b.id === 'redteam-containment' ? 'Blocked' : 'Passed'}}</div>
+            <div class="score-frac">${{fracLabel}}</div>
           </div>
         </div>
         <div class="bar-track"><div class="bar-fill" style="width:${{Math.min(100, Math.max(0, pct))}}%"></div></div>
@@ -777,11 +808,13 @@ def record_run(
     raw_ledger: str = "",
     notes: str = "",
     submetrics: dict[str, str] | None = None,
+    trials: int = 1,
 ) -> dict[str, Any]:
     if total <= 0:
         raise ValueError(f"total must be > 0 (got {total})")
     if passed < 0 or passed > total:
         raise ValueError(f"passed ({passed}) must be between 0 and total ({total})")
+    trials = max(1, int(trials or 1))
 
     benches = data.setdefault("benchmarks", [])
     target = next((b for b in benches if b.get("id") == bench_id), None)
@@ -794,12 +827,12 @@ def record_run(
     if target.get("status") != "active":
         target["status"] = "active"
     if target.get("total_tasks") is None:
-        target["total_tasks"] = total
+        target["total_tasks"] = max(1, total // trials)
 
     dt = run_date or date.today().isoformat()
     pct = round((100.0 * passed) / total, 2)
     run_idx = len(data.get("runs", [])) + 1
-    run_entry = {
+    run_entry: dict[str, Any] = {
         "run_id": f"{dt}-{bench_id}-{run_idx}",
         "benchmark_id": bench_id,
         "date": dt,
@@ -813,12 +846,50 @@ def record_run(
         "notes": notes,
         "submetrics": submetrics or {},
     }
+    if trials > 1:
+        run_entry["trials"] = trials
     data.setdefault("runs", []).append(run_entry)
     return run_entry
 
 
+def _compute_multitrial_submetrics(items: list[dict[str, Any]], trials: int) -> dict[str, str]:
+    """Compute pass^k (all-k reliability), pass@k (any-1 capability), and per-track/task breakdowns."""
+    sub: dict[str, str] = {}
+    by_tid: dict[str, list[bool]] = {}
+    tracks: dict[str, list[bool]] = {}
+    for x in items:
+        ok = bool(x.get("passed") is True or x.get("actor_passed") is True or x.get("status") == "PASS")
+        tid = str(x.get("task_id") or "").strip()
+        if tid:
+            by_tid.setdefault(tid, []).append(ok)
+        tr = str(x.get("suite") or x.get("track") or "").strip()
+        if tr:
+            tracks.setdefault(tr, []).append(ok)
+
+    if by_tid and trials > 1:
+        n_u = len(by_tid)
+        pass_hat = sum(1 for bs in by_tid.values() if len(bs) >= trials and all(bs[:trials]))
+        pass_at = sum(1 for bs in by_tid.values() if any(bs))
+        sub[f"pass^{trials}"] = f"{pass_hat}/{n_u} ({100.0 * pass_hat / n_u:.0f}%)"
+        sub[f"pass@{trials}"] = f"{pass_at}/{n_u} ({100.0 * pass_at / n_u:.0f}%)"
+
+    if len(tracks) > 1:
+        for tr, bools in tracks.items():
+            short = re.sub(r"^Track\s*\d+[A-Z]?:\s*", "", tr).split("(")[0].strip()
+            sub[short] = f"{sum(bools)}/{len(bools)}"
+    elif by_tid and trials > 1 and len(by_tid) <= 10:
+        for tid, bools in by_tid.items():
+            short_tid = tid.split("/", 1)[-1] if "/" in tid else tid
+            sub[short_tid] = f"{sum(bools)}/{len(bools)}"
+    elif len(tracks) == 1:
+        for tr, bools in tracks.items():
+            short = re.sub(r"^Track\s*\d+[A-Z]?:\s*", "", tr).split("(")[0].strip()
+            sub[short] = f"{sum(bools)}/{len(bools)}"
+    return sub
+
+
 def extract_metrics_from_result_json(payload: Any) -> dict[str, Any]:
-    """Auto-extract (passed, total, model, submetrics) from ActorII benchmark JSON formats."""
+    """Auto-extract (passed, total, model, submetrics[, trials]) from ActorII benchmark JSON formats."""
     if isinstance(payload, list):
         # Filter to ActorII/Bilby entries if multi-harness list
         items = [x for x in payload if isinstance(x, dict)]
@@ -831,7 +902,19 @@ def extract_metrics_from_result_json(payload: Any) -> dict[str, Any]:
             1 for x in bilby_items
             if x.get("passed") is True or x.get("actor_passed") is True or x.get("status") == "PASS"
         )
-        sub: dict[str, str] = {}
+        tids = [str(x.get("task_id")) for x in bilby_items if x.get("task_id")]
+        unique_tids = set(tids)
+        inferred_trials = (
+            len(tids) // len(unique_tids)
+            if unique_tids and len(tids) > len(unique_tids) and len(tids) % len(unique_tids) == 0
+            else 1
+        )
+        model = next((str(x.get("model")) for x in bilby_items if x.get("model")), "")
+        if inferred_trials > 1:
+            sub = _compute_multitrial_submetrics(bilby_items, inferred_trials)
+            return {"passed": passed, "total": total, "model": model, "submetrics": sub, "trials": inferred_trials}
+
+        sub = {}
         tracks: dict[str, list[bool]] = {}
         for x in bilby_items:
             tr = str(x.get("suite") or x.get("track") or "").strip()
@@ -841,26 +924,47 @@ def extract_metrics_from_result_json(payload: Any) -> dict[str, Any]:
         for tr, bools in tracks.items():
             short = re.sub(r"^Track\s*\d+:\s*", "", tr).split("(")[0].strip()
             sub[short] = f"{sum(bools)}/{len(bools)}"
-        model = next((str(x.get("model")) for x in bilby_items if x.get("model")), "")
         return {"passed": passed, "total": total, "model": model, "submetrics": sub}
 
     if isinstance(payload, dict):
-        if "passed" in payload and "total" in payload:
-            return {
-                "passed": int(payload["passed"]),
-                "total": int(payload["total"]),
-                "model": str(payload.get("model", "")),
-                "submetrics": {},
-            }
+        explicit_trials = max(1, int(payload.get("trials") or 1))
         if isinstance(payload.get("results"), list):
-            res = [x for x in payload["results"] if isinstance(x, dict)]
+            raw_res = [x for x in payload["results"] if isinstance(x, dict)]
+            res = [
+                x for x in raw_res
+                if str(x.get("harness", "actorii")).lower() in ("actorii", "bilby", "")
+            ] or raw_res
             passed = sum(1 for x in res if x.get("passed") is True or x.get("status") == "PASS")
+            tids = [str(x.get("task_id")) for x in res if x.get("task_id")]
+            unique_tids = set(tids)
+            trials = explicit_trials
+            if trials == 1 and unique_tids and len(tids) > len(unique_tids) and len(tids) % len(unique_tids) == 0:
+                trials = len(tids) // len(unique_tids)
+            if trials > 1:
+                sub = _compute_multitrial_submetrics(res, trials)
+                return {
+                    "passed": passed,
+                    "total": len(res),
+                    "model": str(payload.get("model", "")),
+                    "submetrics": sub,
+                    "trials": trials,
+                }
             return {
                 "passed": passed,
                 "total": len(res),
                 "model": str(payload.get("model", "")),
                 "submetrics": {},
             }
+        if "passed" in payload and "total" in payload:
+            out: dict[str, Any] = {
+                "passed": int(payload["passed"]),
+                "total": int(payload["total"]),
+                "model": str(payload.get("model", "")),
+                "submetrics": dict(payload.get("submetrics") or {}),
+            }
+            if explicit_trials > 1:
+                out["trials"] = explicit_trials
+            return out
         if "humaneval" in payload and "gsm8k" in payload:
             he_tasks = payload["humaneval"].get("tasks", [])
             gs_tasks = payload["gsm8k"].get("tasks", [])
@@ -890,8 +994,10 @@ def cmd_list(data: dict[str, Any]) -> None:
             print(f"  - {b['id']:24s} | {b['name']:40s} | (no runs yet)")
             continue
         lat = runs[-1]
+        tr = int(lat.get("trials") or 1)
+        tr_tag = f" avg@{tr}" if tr > 1 else ""
         print(
-            f"  - {b['id']:24s} | {lat['score_pct']:6.2f}% ({lat['passed']}/{lat['total']}) "
+            f"  - {b['id']:24s} | {lat['score_pct']:6.2f}%{tr_tag} ({lat['passed']}/{lat['total']}) "
             f"| {lat.get('model', ''):16s} | {lat.get('date', '')} | {b['name']}"
         )
     queued = [b for b in data.get("benchmarks", []) if b.get("status") != "active"]
@@ -921,14 +1027,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_rec = sub.add_parser("record", help="Record a new Bilby benchmark run and regenerate pages")
     p_rec.add_argument("--bench", required=True, help="Benchmark ID from scoreboard.json")
-    p_rec.add_argument("--passed", type=int, required=True, help="Tasks/questions passed")
-    p_rec.add_argument("--total", type=int, required=True, help="Total tasks/questions evaluated")
+    p_rec.add_argument("--passed", type=int, required=True, help="Tasks/questions passed (sum across trials if --trials > 1)")
+    p_rec.add_argument("--total", type=int, required=True, help="Total tasks/questions evaluated (N * trials if --trials > 1)")
     p_rec.add_argument("--model", required=True, help="Model identifier (e.g. gpt-oss:20b, qwen3.8-27b)")
     p_rec.add_argument("--version", default="v4.2.0", help="Bilby / ActorII version")
     p_rec.add_argument("--date", default=None, help="Run date YYYY-MM-DD (defaults to today)")
     p_rec.add_argument("--mode", default="Standard Harness", help="Execution mode / configuration label")
     p_rec.add_argument("--ledger", default="", help="Relative path inside benchmarks/ to raw JSON ledger")
     p_rec.add_argument("--notes", default="", help="Notes or highlights from the run")
+    p_rec.add_argument("--trials", type=int, default=1, help="Number of independent trials evaluated (e.g. 3 for avg@3 on N <= 10 suites)")
     p_rec.add_argument("--sub", action="append", default=[], help="Submetric KEY=VAL (repeatable)")
 
     p_ing = sub.add_parser("ingest", help="Auto-extract score from a benchmark JSON output file and record it")
@@ -939,6 +1046,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_ing.add_argument("--date", default=None, help="Run date YYYY-MM-DD (defaults to today)")
     p_ing.add_argument("--mode", default="Standard Harness", help="Execution mode label")
     p_ing.add_argument("--notes", default="", help="Run notes")
+    p_ing.add_argument("--trials", type=int, default=0, help="Override trial count (0 = auto-detect from JSON)")
 
     return p
 
@@ -986,11 +1094,14 @@ def main(argv: list[str] | None = None) -> int:
             raw_ledger=args.ledger,
             notes=args.notes,
             submetrics=_parse_submetrics(args.sub),
+            trials=args.trials,
         )
         save_scoreboard(data, json_path)
         outs = render_all(json_path=json_path)
+        tr = int(run.get("trials") or 1)
+        tr_tag = f" avg@{tr}" if tr > 1 else ""
         print(
-            f"[scoreboard] Recorded {run['benchmark_id']}: {run['score_pct']:.2f}% ({run['passed']}/{run['total']}) "
+            f"[scoreboard] Recorded {run['benchmark_id']}: {run['score_pct']:.2f}%{tr_tag} ({run['passed']}/{run['total']}) "
             f"on {run['model']} -> updated {outs['markdown'].name}, README.md, {outs['html'].name}"
         )
         return 0
@@ -1000,6 +1111,7 @@ def main(argv: list[str] | None = None) -> int:
         payload = json.loads(rf.read_text(encoding="utf-8"))
         extracted = extract_metrics_from_result_json(payload)
         model = args.model or extracted["model"] or "unknown"
+        trials = args.trials if args.trials > 0 else int(extracted.get("trials") or 1)
         try:
             rel_ledger = str(rf.relative_to(BENCHMARKS_DIR))
         except ValueError:
@@ -1016,11 +1128,14 @@ def main(argv: list[str] | None = None) -> int:
             raw_ledger=rel_ledger,
             notes=args.notes,
             submetrics=extracted["submetrics"],
+            trials=trials,
         )
         save_scoreboard(data, json_path)
         outs = render_all(json_path=json_path)
+        tr = int(run.get("trials") or 1)
+        tr_tag = f" avg@{tr}" if tr > 1 else ""
         print(
-            f"[scoreboard] Ingested {rf.name} -> {run['benchmark_id']}: {run['score_pct']:.2f}% "
+            f"[scoreboard] Ingested {rf.name} -> {run['benchmark_id']}: {run['score_pct']:.2f}%{tr_tag} "
             f"({run['passed']}/{run['total']}) on {run['model']} -> updated {outs['markdown'].name}, README.md, {outs['html'].name}"
         )
         return 0

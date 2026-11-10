@@ -107,6 +107,78 @@ def test_scoreboard_auto_extract_result_schemas() -> None:
     })
     assert m_red["passed"] == 6 and m_red["total"] == 6
 
+    # 4. Multi-trial (`avg@3` + `pass^3` + `pass@3`) schema for small N <= 10 suites
+    m_trials = scoreboard.extract_metrics_from_result_json({
+        "model": "qwen3.8:latest",
+        "trials": 3,
+        "results": [
+            {"task_id": "TB2.1/fix-git", "harness": "actorii", "passed": True, "trial": 1},
+            {"task_id": "TB2.1/cancel-async-tasks", "harness": "actorii", "passed": False, "trial": 1},
+            {"task_id": "TB2.1/fix-git", "harness": "actorii", "passed": True, "trial": 2},
+            {"task_id": "TB2.1/cancel-async-tasks", "harness": "actorii", "passed": True, "trial": 2},
+            {"task_id": "TB2.1/fix-git", "harness": "actorii", "passed": True, "trial": 3},
+            {"task_id": "TB2.1/cancel-async-tasks", "harness": "actorii", "passed": True, "trial": 3},
+        ],
+    })
+    assert m_trials["passed"] == 5
+    assert m_trials["total"] == 6
+    assert m_trials["trials"] == 3
+    assert m_trials["submetrics"]["pass^3"] == "1/2 (50%)"
+    assert m_trials["submetrics"]["pass@3"] == "2/2 (100%)"
+    assert m_trials["submetrics"]["fix-git"] == "3/3"
+    assert m_trials["submetrics"]["cancel-async-tasks"] == "2/3"
+
+
+def test_scoreboard_multitrial_formatting_and_rendering(tmp_path: Path) -> None:
+    json_file = tmp_path / "scoreboard.json"
+    md_file = tmp_path / "BENCHMARK_RESULTS.md"
+    html_file = tmp_path / "scoreboard.html"
+    readme_file = tmp_path / "README.md"
+    readme_file.write_text(
+        "# Demo\n\n<!-- BENCHMARK_SCOREBOARD:START -->\nOLD\n<!-- BENCHMARK_SCOREBOARD:END -->\n",
+        encoding="utf-8",
+    )
+    json_file.write_text(
+        json.dumps({"metadata": {"title": "Test Board"}, "benchmarks": [], "runs": []}),
+        encoding="utf-8",
+    )
+    data = scoreboard.load_scoreboard(json_file)
+    scoreboard.add_benchmark(
+        data,
+        bench_id="tb21-container",
+        name="Terminal-Bench 2.1",
+        category="Terminal & OS",
+        status="active",
+        total_tasks=5,
+        featured_in_readme=True,
+    )
+    run = scoreboard.record_run(
+        data,
+        bench_id="tb21-container",
+        passed=14,
+        total=15,
+        trials=3,
+        model="qwen3.8-27b",
+        mode="avg@3 Zero-Intervention Sweep",
+        submetrics={"pass^3": "4/5 (80%)", "pass@3": "5/5 (100%)", "cancel-async-tasks": "2/3"},
+    )
+    assert run["trials"] == 3
+    assert run["score_pct"] == 93.33
+    scoreboard.save_scoreboard(data, json_file)
+    scoreboard.render_all(json_file, md_file, html_file, readme_file)
+
+    md_txt = md_file.read_text(encoding="utf-8")
+    assert "5 (×3)" in md_txt
+    assert "93.33% avg@3 (14 / 15 trials)" in md_txt
+    assert "`pass^3`: **4/5 (80%)**" in md_txt
+
+    readme_txt = readme_file.read_text(encoding="utf-8")
+    assert "93.33% avg@3 (14 / 15 trials)" in readme_txt
+
+    html_txt = html_file.read_text(encoding="utf-8")
+    assert "avg@" in html_txt
+    assert "pass^3" in html_txt
+
 
 def test_studio_serves_benchmarks_page_and_json_api(monkeypatch: pytest.MonkeyPatch) -> None:
     from websockets.datastructures import Headers

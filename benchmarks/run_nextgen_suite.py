@@ -460,20 +460,34 @@ def run_lcb_task(row: Dict[str, Any], harness_name: str, model: str) -> TaskMetr
     )
 
 
-def save_and_merge_results(new_metrics: List[TaskMetrics], model: str) -> List[TaskMetrics]:
-    existing: List[TaskMetrics] = []
+def save_and_merge_results(new_rows: list[dict], model: str, trials: int = 1) -> list[dict]:
+    existing: list[dict] = []
     if RESULTS_JSON.exists():
         try:
-            for item in json.loads(RESULTS_JSON.read_text(encoding="utf-8")):
-                existing.append(TaskMetrics(**item))
+            raw = json.loads(RESULTS_JSON.read_text(encoding="utf-8"))
+            rows = raw.get("results", raw) if isinstance(raw, dict) else raw
+            for item in rows:
+                if isinstance(item, dict):
+                    existing.append(item)
         except Exception:
             existing = []
-    by_key = {(m.harness, m.task_id): m for m in existing}
-    for m in new_metrics:
-        by_key[(m.harness, m.task_id)] = m
+    by_key = {(m.get("harness"), m.get("task_id"), int(m.get("trial") or 1)): m for m in existing}
+    for m in new_rows:
+        by_key[(m.get("harness"), m.get("task_id"), int(m.get("trial") or 1))] = m
     merged = list(by_key.values())
-    RESULTS_JSON.write_text(json.dumps([asdict(m) for m in merged], indent=2, default=str), encoding="utf-8")
-    generate_markdown_report(merged, model, REPORT_MD)
+    if trials > 1:
+        RESULTS_JSON.write_text(
+            json.dumps({"model": model, "trials": trials, "results": merged}, indent=2, default=str),
+            encoding="utf-8",
+        )
+    else:
+        RESULTS_JSON.write_text(json.dumps(merged, indent=2, default=str), encoding="utf-8")
+
+    tm_list = [
+        TaskMetrics(**{k: v for k, v in m.items() if k in TaskMetrics.__dataclass_fields__})
+        for m in merged
+    ]
+    generate_markdown_report(tm_list, model, REPORT_MD)
     if REPORT_MD.exists():
         txt = REPORT_MD.read_text(encoding="utf-8").replace(
             "- **Datasets**: Official `princeton-nlp/SWE-bench_Lite`, `openai/openai_humaneval`, `google-research-datasets/mbpp` (sanitized), and `openai/gsm8k`.",
@@ -496,9 +510,16 @@ def main() -> int:
         choices=["all", "actorii", "pi", "hermes"],
         default="all",
     )
+    parser.add_argument(
+        "--trials",
+        type=int,
+        default=3,
+        help="Independent trials per task at production temp=0.1 (default: 3 for avg@3 on N <= 10 suites)",
+    )
     parser.add_argument("--task", default="")
     parser.add_argument("--results-json", default="")
     parser.add_argument("--report-md", default="")
+    parser.add_argument("--seed-json", default="", help="Optional completed Trial-1 JSON to seed Trial 1")
     parser.add_argument("--reset", action="store_true")
     args = parser.parse_args()
 
@@ -511,68 +532,97 @@ def main() -> int:
     if args.reset and RESULTS_JSON.exists():
         RESULTS_JSON.unlink()
 
+    trials = max(1, int(args.trials))
     harnesses = HARNESS_ORDER if args.harness == "all" else (args.harness,)
-    run_metrics: List[TaskMetrics] = []
+    run_rows: list[dict] = []
+    start_trial = 1
 
-    if args.track in ("all", "tb"):
-        print("\n=== Track 1: Terminal-Bench 2.1 ===", flush=True)
-        for tname in TB_TASKS:
-            if args.task and args.task not in tname:
-                continue
-            for h in harnesses:
-                m = run_terminal_bench_task(tname, h, args.model)
-                run_metrics.append(m)
-                save_and_merge_results(run_metrics, args.model)
-                st = "PASS" if m.passed else "FAIL"
-                print(
-                    f"  [{h:7}] {st} {m.task_id} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
-                    flush=True,
-                )
+    if args.seed_json:
+        seed_path = Path(args.seed_json).resolve()
+        if seed_path.exists():
+            seed_data = json.loads(seed_path.read_text(encoding="utf-8"))
+            seed_rows = seed_data.get("results", seed_data) if isinstance(seed_data, dict) else seed_data
+            for sr in seed_rows:
+                if isinstance(sr, dict) and sr.get("harness") in harnesses:
+                    rc = dict(sr)
+                    rc["trial"] = int(rc.get("trial") or 1)
+                    run_rows.append(rc)
+            if run_rows:
+                start_trial = max(int(r.get("trial") or 1) for r in run_rows) + 1
+                save_and_merge_results(run_rows, args.model, trials=trials)
+                print(f"[seed] Loaded {len(run_rows)} rows through Trial {start_trial - 1} from {seed_path.name}", flush=True)
 
-    if args.track in ("all", "sbl"):
-        print("\n=== Track 2: SWE-bench-Live (2025-06 Post-Cutoff) ===", flush=True)
-        for row in load_swebench_live_tasks():
-            if args.task and args.task not in row["instance_id"]:
-                continue
-            for h in harnesses:
-                m = run_swebench_live_task(row, h, args.model)
-                run_metrics.append(m)
-                save_and_merge_results(run_metrics, args.model)
-                st = "PASS" if m.passed else "FAIL"
-                print(
-                    f"  [{h:7}] {st} {m.task_id} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
-                    flush=True,
-                )
+    for trial_idx in range(start_trial, trials + 1):
+        if trials > 1:
+            print(f"\n================ NEXT-GEN SUITE TRIAL {trial_idx} / {trials} ================", flush=True)
 
-    if args.track in ("all", "polyglot"):
-        print("\n=== Track 3: Aider Polyglot Benchmark ===", flush=True)
-        for slug in POLYGLOT_TASKS:
-            if args.task and args.task not in slug:
-                continue
-            for h in harnesses:
-                m = run_polyglot_task(slug, h, args.model)
-                run_metrics.append(m)
-                save_and_merge_results(run_metrics, args.model)
-                st = "PASS" if m.passed else "FAIL"
-                print(
-                    f"  [{h:7}] {st} {m.task_id} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
-                    flush=True,
-                )
+        if args.track in ("all", "tb"):
+            print("\n=== Track 1: Terminal-Bench 2.1 ===", flush=True)
+            for tname in TB_TASKS:
+                if args.task and args.task not in tname:
+                    continue
+                for h in harnesses:
+                    m = run_terminal_bench_task(tname, h, args.model)
+                    row_d = asdict(m)
+                    row_d["trial"] = trial_idx
+                    run_rows.append(row_d)
+                    save_and_merge_results(run_rows, args.model, trials=trials)
+                    st = "PASS" if m.passed else "FAIL"
+                    print(
+                        f"  [T{trial_idx}/{trials}][{h:7}] {st} {m.task_id} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
+                        flush=True,
+                    )
 
-    if args.track in ("all", "lcb"):
-        print("\n=== Track 4: LiveCodeBench v6 (2025-04 Post-Cutoff) ===", flush=True)
-        for row in load_lcb_tasks():
-            if args.task and args.task not in str(row["question_id"]):
-                continue
-            for h in harnesses:
-                m = run_lcb_task(row, h, args.model)
-                run_metrics.append(m)
-                save_and_merge_results(run_metrics, args.model)
-                st = "PASS" if m.passed else "FAIL"
-                print(
-                    f"  [{h:7}] {st} {m.task_id} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
-                    flush=True,
-                )
+        if args.track in ("all", "sbl"):
+            print("\n=== Track 2: SWE-bench-Live (2025-06 Post-Cutoff) ===", flush=True)
+            for row in load_swebench_live_tasks():
+                if args.task and args.task not in row["instance_id"]:
+                    continue
+                for h in harnesses:
+                    m = run_swebench_live_task(row, h, args.model)
+                    row_d = asdict(m)
+                    row_d["trial"] = trial_idx
+                    run_rows.append(row_d)
+                    save_and_merge_results(run_rows, args.model, trials=trials)
+                    st = "PASS" if m.passed else "FAIL"
+                    print(
+                        f"  [T{trial_idx}/{trials}][{h:7}] {st} {m.task_id} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
+                        flush=True,
+                    )
+
+        if args.track in ("all", "polyglot"):
+            print("\n=== Track 3: Aider Polyglot Benchmark ===", flush=True)
+            for slug in POLYGLOT_TASKS:
+                if args.task and args.task not in slug:
+                    continue
+                for h in harnesses:
+                    m = run_polyglot_task(slug, h, args.model)
+                    row_d = asdict(m)
+                    row_d["trial"] = trial_idx
+                    run_rows.append(row_d)
+                    save_and_merge_results(run_rows, args.model, trials=trials)
+                    st = "PASS" if m.passed else "FAIL"
+                    print(
+                        f"  [T{trial_idx}/{trials}][{h:7}] {st} {m.task_id} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
+                        flush=True,
+                    )
+
+        if args.track in ("all", "lcb"):
+            print("\n=== Track 4: LiveCodeBench v6 (2025-04 Post-Cutoff) ===", flush=True)
+            for row in load_lcb_tasks():
+                if args.task and args.task not in str(row["question_id"]):
+                    continue
+                for h in harnesses:
+                    m = run_lcb_task(row, h, args.model)
+                    row_d = asdict(m)
+                    row_d["trial"] = trial_idx
+                    run_rows.append(row_d)
+                    save_and_merge_results(run_rows, args.model, trials=trials)
+                    st = "PASS" if m.passed else "FAIL"
+                    print(
+                        f"  [T{trial_idx}/{trials}][{h:7}] {st} {m.task_id} | {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s | {m.details}",
+                        flush=True,
+                    )
 
     return 0
 

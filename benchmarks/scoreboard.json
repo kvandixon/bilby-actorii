@@ -36,8 +36,8 @@
       "featured_in_readme": true,
       "total_tasks": 5,
       "upstream_url": "https://github.com/laude-institute/terminal-bench",
-      "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_tb21_5task_suite.py",
-      "description": "Stanford / Laude Institute containerized Linux systems, data-pipeline merging, regex log forensics, and CLI repair tasks executed inside actorii-sandbox."
+      "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_tb21_5task_suite.py --harness actorii --trials 3",
+      "description": "Stanford / Laude Institute containerized Linux systems, data-pipeline merging, regex log forensics, and CLI repair tasks executed inside actorii-sandbox (evaluated at avg@3 / pass^3)."
     },
     {
       "id": "tb21-hard",
@@ -47,7 +47,7 @@
       "featured_in_readme": true,
       "total_tasks": 5,
       "upstream_url": "https://github.com/laude-institute/terminal-bench",
-      "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_tb21_hard_clade_tournament.py",
+      "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_tb21_hard_suite.py --harness actorii --trials 3",
       "description": "Expert-rated (45m–480m human est.) systems & security tasks: C vulnerability patching, SQLite WAL binary recovery, constraint scheduling, ML batching optimization, and FEAL cryptanalysis."
     },
     {
@@ -69,8 +69,8 @@
       "featured_in_readme": true,
       "total_tasks": 9,
       "upstream_url": "https://livecodebench.github.io/",
-      "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_nextgen_suite.py",
-      "description": "Contamination-resistant post-cutoff evaluation spanning Terminal-Bench 2.1 (3), SWE-bench-Live 2025-06 (2), Aider Polyglot Hard Exercism (2), and LiveCodeBench v6 2025-04 (2)."
+      "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_nextgen_suite.py --harness actorii --trials 3",
+      "description": "Contamination-resistant post-cutoff evaluation spanning Terminal-Bench 2.1 (3), SWE-bench-Live 2025-06 (2), Aider Polyglot Hard Exercism (2), and LiveCodeBench v6 2025-04 (2) (evaluated at avg@3 / pass^3)."
     },
     {
       "id": "redteam-containment",
