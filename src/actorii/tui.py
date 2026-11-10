@@ -129,8 +129,8 @@ class ActorTUISession:
         agent_name: str = "Bilby",
         model: Optional[str] = None,
         endpoint: Optional[str] = None,
-        max_steps: int = 8,
-        gas_limit: int = 25000,
+        max_steps: int = 14,
+        gas_limit: int = 100000,
         use_color: bool = True,
         remote_studio_url: Optional[str] = None,
     ) -> None:
@@ -1202,14 +1202,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=8,
-        help="Default max steps per `/goal` execution (default: 8).",
+        default=14,
+        help="Default max steps per `/goal` execution (default: 14).",
     )
     parser.add_argument(
         "--gas-limit",
         type=int,
-        default=25000,
-        help="Per-step opcode gas budget (default: 25000).",
+        default=100000,
+        help="Per-step opcode gas budget (default: 100000).",
     )
     parser.add_argument(
         "--load-image",

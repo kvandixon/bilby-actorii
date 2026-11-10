@@ -37,20 +37,20 @@ Def initHarness(self, sandboxObj) {
     self.goal := "";
     self.status := #idle;
     self.stepCount := 0;
-    self.maxSteps := 8;
+    self.maxSteps := 14;
     self.failures := 0;
-    self.maxFailures := 3;
+    self.maxFailures := 5;
     self.scratchpad := new(Dictionary, 32);
     self.stepLog := new(OrderedCollection);
     self.lastAction := "";
     self.lastResult := nil;
     self.lastError := "";
-    self.gasLimit := 25000;
+    self.gasLimit := 100000;
     self.totalGasUsed := 0;
     self.chatLog := new(OrderedCollection);
     self.taskContract := nil;
     self.lastErrorContext := nil;
-    self.tokenBudget := 12000;
+    self.tokenBudget := 28000;
     ^self;
 }!!
 

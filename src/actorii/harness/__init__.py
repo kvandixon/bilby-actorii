@@ -1154,17 +1154,19 @@ class VMSandboxBridge:
         policy_str = str(policy_note or "").strip()
 
         prompt_lines = [
-            "You are executing inside the 1993 Whitewater Actor 4.1 bytecode virtual machine (`ActorII`).",
+            "You are executing inside `ActorII` (the modern Linux-ported, Actor-inspired bytecode virtual machine & metacircular harness).",
             f"GOAL: {goal}",
-            f"STEP: {step_count} of {max_steps}",
-            f"SCRATCHPAD (`Actor[#Harness].scratchpad`): {scratch_dict}",
-            f"LAST RESULT: {last_result!r}",
-            f"LIVE POOL SUMMARY: {pool_info}",
         ]
         if policy_str:
             prompt_lines.append(f"\n[HARNESS RUNTIME POLICY OVERRIDE]:\n{policy_str}")
         if engram_context:
             prompt_lines.append(f"\n{engram_context}")
+        if grammar_context:
+            prompt_lines.append(f"\n{grammar_context}")
+
+        inst_block = self.defaultInstructions()
+        if inst_block:
+            prompt_lines.append(f"\n{inst_block}")
 
         # 1. Include Multi-Turn Conversation History (last 6 turns) so follow-up questions work naturally
         recent_turns = self.getChatHistory(harness_obj)[-6:]
@@ -1179,66 +1181,23 @@ class VMSandboxBridge:
                     )
             prompt_lines.extend(turn_lines)
 
-        # 2. Include steps executed so far in the current goal turn so Step 2+ sees Step 1's output
-        step_log = harness_obj._fields.get("stepLog")
-        if isinstance(step_log, ActorOrderedCollection) and len(step_log) > 0:
-            cur_step_lines = ["\nSTEPS EXECUTED IN CURRENT TURN SO FAR:"]
-            for s_entry in list(step_log)[-6:]:
-                if isinstance(s_entry, dict):
-                    st = s_entry.get("status", "ok")
-                    act = s_entry.get("action", "")
-                    if st == "error":
-                        cur_step_lines.append(
-                            f"- Step {s_entry.get('step')} [ERROR]: `{act}` -> {s_entry.get('error')}"
-                        )
-                    else:
-                        cur_step_lines.append(
-                            f"- Step {s_entry.get('step')} [OK | gas={s_entry.get('gas_used', 0)}]: `{act}` -> {s_entry.get('result')!r}"
-                        )
-            prompt_lines.extend(cur_step_lines)
-
-        if grammar_context:
-            prompt_lines.append(f"\n{grammar_context}")
-        if last_error:
-            prev_bad = ""
-            if isinstance(step_log, ActorOrderedCollection) and len(step_log) > 0:
-                last_entry = list(step_log)[-1]
-                if isinstance(last_entry, dict) and last_entry.get("status") == "error":
-                    prev_bad = str(last_entry.get("action", ""))
-            diag = (
-                self.grammar_graph.diagnoseError(last_error)
-                if self.grammar_graph is not None
-                else ""
-            )
-            prompt_lines.append(
-                "\n[PREVIOUS STEP FAILED — SELF-CORRECT THIS ERROR]:\n"
-                + (f"Previous failed code: `{prev_bad}`\n" if prev_bad else "")
-                + f"Error: {last_error}\n"
-                + (f"{diag}\n" if diag else "")
-                + "Fix the Actor 4.1 syntax, ivar declaration, or logic error in your next chunk."
-            )
+        # 2. Include steps executed so far in the current goal turn (append-only for prefix KV-cache reuse)
+        steps_txt = self.formatStepHistory(harness_obj)
+        if steps_txt:
+            prompt_lines.append(f"\n{steps_txt}")
 
         prompt_lines.extend(
             [
-                "\nINSTRUCTIONS:",
-                "1. Never emit XML tool-call wrappers or markdown code fences! Do NOT wrap your response in backticks. Output raw 1993 Actor 4.1 code ending in `!!` or a `COMPLETE:` response directly.",
-                "2. If the user's goal is a pure conversational greeting or follow-up that requires NO math computation, NO file I/O, and NO new code execution (or if `LAST RESULT` / `STEPS EXECUTED IN CURRENT TURN SO FAR` already has the verified output), respond immediately with:",
-                "   COMPLETE: <clear, helpful conversational answer to the user>",
-                "   (NEVER guess math word-problem answers in prose on Step 1 — always compute the arithmetic in Actor 4.1 bytecode and write any requested output files first!)",
-                "3. If you need to inspect Valkyrie system health, check services/VRAM, or run a command, execute ONE concise Actor 4.1 expression ending in `!!` (e.g. `summary(Actor[#Valkyrie])!!`, `stackHealth(Actor[#Valkyrie])!!`, or inside the Docker sandbox `discoverLighting(Actor[#Valkyrie])!!`). As soon as the step outputs give you enough details to answer the user's question, stop running commands and reply with `COMPLETE: <your detailed conversational answer>`.",
-                "4. If the user asks you to build, query a Digital Twin, modify UI, compute, test, or set up something, respond ONLY with valid 1993 Actor 4.1 code ending in `!!`:",
-                "   - Store key results in the harness scratchpad via `storeScratch(Actor[#Harness], #key, value)!!` or in `Actor[#Key] := value!!`.",
-                "   - To search, read, write, patch, or test files in `/workspace` (`Actor[#Host]`): call `searchFile(Actor[#Host], \"/workspace\", \"pattern\", 15)!!` (searches a whole directory or a single file!), `readFile(Actor[#Host], \"/workspace/file.py\", 1, 120)!!`, `editFile(Actor[#Host], \"/workspace/file.py\", \"old\", \"new\")!!`, `writeFile(Actor[#Host], \"/workspace/file.py\", \"full text\")!!`, or `execShell(Actor[#Host], \"python3 -m pytest -q\", 15)!!`. When fixing inheritance/attribute bugs across a repo, use `searchFile` on `/workspace` to inspect the base classes too.",
-                "   - To read or search local or remote PDF documents (`Actor[#PDF]`): call `fetchUrl(Actor[#PDF], \"https://.../doc.pdf\")!!`, `info(Actor[#PDF], pathOrUrl)!!`, `readPages(Actor[#PDF], pathOrUrl, 1, 5, 6000)!!`, or `searchText(Actor[#PDF], pathOrUrl, \"keyword\", 8, 6000)!!`. Never use `execShell` to `curl` PDFs when `Actor[#PDF]` is available!",
-                "   - To add a button to the ThermoPro UI (`Actor[#ThermoUI]`): call `addButton(Actor[#ThermoUI], \"← Back to Studio\", \"/\")!!`.",
-                "   - To set up or run the built-in benchmark suite in `Actor[#Bench]`: call `setupTask(Actor[#Bench], #bugfix_hotpatch)!!`, `runTask(Actor[#Bench], #alg_primes)!!`, or `runAll(Actor[#Bench])!!`.",
-                "   - To search archived multi-session conversation episodes in Neo4j (`:ActorEpisode` + `:8084` vector hybrid): passive top-K episodes are hydrated automatically above, and you can actively run targeted keyword/semantic searches via `recallEpisodes(Actor[#Memory], \"specific keyword or topic\", 8)!!`.",
-                "   - When defining a class: prefer subclassing `GraphService` (for Neo4j queries/aggregations), `MetricEvaluator` (for polymorphic `evaluateRow(self, row)` scoring), `DomainEntity`, or an existing `:ActorEngram` (`inherit(GraphService, #ClassName, #(#ivar1 #ivar2), 2, nil)!! now(ClassName)!! Def init(self, a, b) { initService(self, \"Domain\"); self.ivar1 := a; self.ivar2 := b; ^self; }!! Def compute(self) { ^(self.ivar1 * self.ivar2); }!!`).",
-                "   - Instantiate user classes with `Actor[#Inst] := init(new(ClassName), arg1, arg2)!!` and call methods with prefix syntax `compute(Actor[#Inst])` (NEVER `inst.compute()`).",
-                "5. Once the goal is achieved and verified in the scratchpad, `LAST RESULT`, or pool (or on a new line immediately after an Actor `!!` chunk that stores the final result in `storeScratch`), respond with:",
-                "   COMPLETE: <concise final answer and summary>",
+                f"\nLIVE POOL SUMMARY: {pool_info}",
+                f"STEP: {step_count} of {max_steps}",
+                f"SCRATCHPAD (`Actor[#Harness].scratchpad`): {scratch_dict}",
+                f"LAST RESULT: {self.formatLastResult(harness_obj)}",
             ]
         )
+        if last_error:
+            err_txt = self.formatErrorDiagnostic(harness_obj)
+            if err_txt:
+                prompt_lines.append(f"\n{err_txt}")
         full_prompt = "\n".join(prompt_lines)
 
         # Temporarily clear `_history` during `ask(full_prompt)` so `full_prompt` boilerplate isn't duplicated,
@@ -1720,8 +1679,8 @@ def bootstrap_agent_harness(
     name: str = "Bilby",
     model: Optional[str] = None,
     endpoint: Optional[str] = None,
-    max_steps: int = 8,
-    gas_limit: int = 25000,
+    max_steps: int = 14,
+    gas_limit: int = 100000,
     enable_guardrails: bool = True,
     fileout_dir: Optional[str] = None,
     enable_memory_graph: bool = True,

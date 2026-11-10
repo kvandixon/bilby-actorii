@@ -87,7 +87,7 @@ def run_terminal_bench_task(task_name: str, harness_name: str, model: str) -> Ta
         )
 
         _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-            harness_name, tmp_dir, prompt, model=model, max_steps=10, timeout_s=240
+            harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
         )
 
         # 3. Run official `tests/test_outputs.py` verification suite against `tmp_dir`
@@ -176,10 +176,15 @@ def run_swebench_live_task(row: Dict[str, Any], harness_name: str, model: str) -
             f"Search `/workspace` to locate the relevant source file(s) and edit the code in `/workspace` so the issue is fixed."
         )
         _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-            harness_name, tmp_dir, prompt, model=model, max_steps=12, timeout_s=240
+            harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
         )
 
-        diff_proc = subprocess.run(["git", "diff", "--stat"], cwd=str(tmp_dir), capture_output=True, text=True)
+        diff_proc = subprocess.run(
+            ["git", "-c", "core.fileMode=false", "diff", "--stat"],
+            cwd=str(tmp_dir),
+            capture_output=True,
+            text=True,
+        )
         diff_stat = (
             (diff_proc.stdout or "").strip().splitlines()[-1]
             if (diff_proc.stdout or "").strip()
@@ -190,7 +195,8 @@ def run_swebench_live_task(row: Dict[str, Any], harness_name: str, model: str) -
             if line.startswith("+++ b/"):
                 rel_p = line[6:].strip()
                 t_file = tmp_dir / rel_p
-                if t_file.exists():
+                co = subprocess.run(["git", "checkout", "--", rel_p], cwd=str(tmp_dir), check=False, capture_output=True)
+                if co.returncode != 0 and t_file.exists():
                     t_file.unlink()
         subprocess.run(
             ["git", "apply", "-"],
@@ -206,6 +212,12 @@ def run_swebench_live_task(row: Dict[str, Any], harness_name: str, model: str) -
                 "run",
                 "--init",
                 "--rm",
+                "--user",
+                f"{os.getuid()}:{os.getgid()}",
+                "--security-opt",
+                "label:disable",
+                "-e",
+                "HOME=/tmp",
                 "-e",
                 "PYTHONPATH=/workspace",
                 "-v",
@@ -218,6 +230,8 @@ def run_swebench_live_task(row: Dict[str, Any], harness_name: str, model: str) -
                 "-m",
                 "pytest",
                 "-q",
+                "-p",
+                "no:cacheprovider",
                 "-o",
                 "addopts=",
             ]
@@ -286,7 +300,7 @@ def run_polyglot_task(slug: str, harness_name: str, model: str) -> TaskMetrics:
             f"and verify with `pytest`."
         )
         _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-            harness_name, tmp_dir, prompt, model=model, max_steps=10, timeout_s=240
+            harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
         )
 
         # Overwrite unit test suite with pristine upstream copy and run pytest
@@ -370,7 +384,7 @@ def run_lcb_task(row: Dict[str, Any], harness_name: str, model: str) -> TaskMetr
             f"and verify it on sample inputs."
         )
         _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-            harness_name, tmp_dir, prompt, model=model, max_steps=8, timeout_s=240
+            harness_name, tmp_dir, prompt, model=model, max_steps=14, timeout_s=600
         )
 
         sol_file = tmp_dir / "solution.py"

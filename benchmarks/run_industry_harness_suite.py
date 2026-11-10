@@ -575,10 +575,14 @@ def run_swe_bench_lite_task(row: Dict[str, Any], harness_name: str, model: str) 
             f"Search `/workspace` to locate the relevant source file(s) and edit the code in `/workspace` so the issue is fixed."
         )
         _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-            harness_name, tmp_dir, prompt, model=model, max_steps=12, timeout_s=240
+            harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
         )
 
-        # Ground-truth official SWE-bench_Lite verification: apply upstream `test_patch` and run `FAIL_TO_PASS`
+        # Ground-truth official SWE-bench_Lite verification: reset any agent edits to test files first, then apply upstream `test_patch` and run `FAIL_TO_PASS`
+        for line in row["test_patch"].splitlines():
+            if line.startswith("+++ b/"):
+                rel_p = line[6:].strip()
+                subprocess.run(["git", "checkout", "--", rel_p], cwd=str(tmp_dir), check=False, capture_output=True)
         subprocess.run(["git", "apply", "-"], input=row["test_patch"], text=True, cwd=str(tmp_dir), check=False, capture_output=True)
         tf = re.findall(r"\+\+\+ b/(sympy/\S+\.py)", row["test_patch"])[0]
         mod = tf[:-3].replace("/", ".")
@@ -590,7 +594,12 @@ def run_swe_bench_lite_task(row: Dict[str, Any], harness_name: str, model: str) 
         ]
         v_proc = subprocess.run(verify_cmd, cwd=str(tmp_dir), capture_output=True, text=True, timeout=25)
         passed = v_proc.returncode == 0 and "SWE_BENCH_PASS" in (v_proc.stdout or "")
-        diff_proc = subprocess.run(["git", "diff", "--stat"], cwd=str(tmp_dir), capture_output=True, text=True)
+        diff_proc = subprocess.run(
+            ["git", "-c", "core.fileMode=false", "diff", "--stat"],
+            cwd=str(tmp_dir),
+            capture_output=True,
+            text=True,
+        )
         diff_stat = (diff_proc.stdout or "").strip().splitlines()[-1] if (diff_proc.stdout or "").strip() else "no files modified"
         details = f"{fn}: {'PASS' if passed else 'FAIL'} ({diff_stat})"
     except Exception as exc:

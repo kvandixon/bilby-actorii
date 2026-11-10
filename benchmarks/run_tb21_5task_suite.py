@@ -129,7 +129,7 @@ def run_terminal_bench_5task(task_name: str, harness_name: str, model: str) -> T
         )
 
         _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-            harness_name, tmp_dir, prompt, model=model, max_steps=10, timeout_s=240
+            harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
         )
 
         # 3. Run official `tests/test_outputs.py` verification suite against `tmp_dir`

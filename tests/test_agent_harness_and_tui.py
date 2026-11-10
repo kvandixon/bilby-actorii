@@ -106,8 +106,8 @@ class TestActorNativeAgentHarness:
 
         vm.eval_chunk('runGoal(Actor[#Harness], "Run broken infinite loop", 6)!!')
         assert vm.eval_chunk("status(Actor[#Harness])!!") == Symbol("blocked")
-        assert vm.eval_chunk("failures(Actor[#Harness])!!") == 3
-        assert vm.eval_chunk("stepCount(Actor[#Harness])!!") == 3
+        assert vm.eval_chunk("failures(Actor[#Harness])!!") == 5
+        assert vm.eval_chunk("stepCount(Actor[#Harness])!!") == 5
         assert "OpcodeBudgetExceededError" in vm.eval_chunk("lastError(Actor[#Harness])!!")
 
         # Resetting circuit breaker restores `#ready` and clears failures

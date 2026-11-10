@@ -19,6 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends git file ca-cer
         pandas \
         pyarrow \
         pypdf \
+        pyyaml \
+        scipy \
         cryptography \
         trafilatura \
         duckduckgo-search
