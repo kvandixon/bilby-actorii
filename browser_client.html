@@ -830,7 +830,10 @@ sieve(Sam, 100)!!</textarea>
         }
 
         function connect() {
-            const url = document.getElementById('ws-url').value.trim() || 'ws://localhost:8765/';
+            let url = document.getElementById('ws-url').value.trim() || 'ws://localhost:8765/';
+            if (window.location.search && window.location.search.includes('token=') && !url.includes('token=')) {
+                url += (url.includes('?') ? '&' : '?') + window.location.search.replace(/^\?/, '');
+            }
             addLog(`Connecting to ${url}...`);
 
             try {

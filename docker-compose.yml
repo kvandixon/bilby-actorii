@@ -4,8 +4,8 @@ services:
     container_name: bilby-neo4j
     restart: unless-stopped
     ports:
-      - "7474:7474"
-      - "7687:7687"
+      - "${NEO4J_BIND_IP:-127.0.0.1}:7474:7474"
+      - "${NEO4J_BIND_IP:-127.0.0.1}:7687:7687"
     environment:
       - NEO4J_AUTH=${NEO4J_AUTH:-none}
       - NEO4J_server_memory_heap_initial__size=512m
@@ -23,8 +23,8 @@ services:
     depends_on:
       - neo4j
     ports:
-      - "8090:8090"
-      - "8765:8765"
+      - "${ACTOR_BIND_IP:-127.0.0.1}:8090:8090"
+      - "${ACTOR_BIND_IP:-127.0.0.1}:8765:8765"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     cap_drop:
@@ -34,6 +34,8 @@ services:
       - label:disable
     environment:
       - ACTORII_IN_DOCKER=1
+      - ACTORII_STUDIO_TOKEN=${ACTORII_STUDIO_TOKEN:-}
+      - ACTOR_ALLOWED_ORIGINS=${ACTOR_ALLOWED_ORIGINS:-}
       - ACTORII_HOST_LOCKDOWN=${ACTORII_HOST_LOCKDOWN:-1}
       - ACTORII_DISABLE_SELF_EVOLVE=${ACTORII_DISABLE_SELF_EVOLVE:-0}
       - ACTORII_LLM_PROVIDER=${ACTORII_LLM_PROVIDER:-llamacpp}

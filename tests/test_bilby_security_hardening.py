@@ -246,3 +246,159 @@ def test_capability_vs_containment_matrix_and_multi_provider_config(monkeypatch:
     assert str(session.vm.eval_chunk("getNamespace(Actor[#Memory])!!")) == "custom_ns"
     assert session.harness._fields.get("maxSteps") == 6
 
+
+def test_studio_http_and_websocket_csrf_origin_and_token_hardening(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify `websocket_server.py` blocks GET eval/CSRF, cross-origin WS/HTTP, enforces Bearer tokens, and supports multi-client broadcast."""
+    import asyncio
+    import json
+    import sys
+    import urllib.error
+    import urllib.request
+
+    import websockets
+    from websockets.datastructures import Headers
+    from websockets.http11 import Request
+
+    repo_root = str(Path(__file__).resolve().parents[1])
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
+    import websocket_server
+
+    ws_app = websocket_server.ActorWorkspace()
+    monkeypatch.setattr(websocket_server, "get_shared_workspace", lambda: ws_app)
+    monkeypatch.delenv("ACTORII_STUDIO_TOKEN", raising=False)
+    monkeypatch.delenv("ACTOR_ALLOW_NULL_ORIGIN", raising=False)
+
+    async def _run_unit_checks() -> None:
+        # 1. GET on mutating `/api/eval`, `/api/goal`, `/api/chat/clear`, `/api/harness/evolve` -> 405 Method Not Allowed
+        for mut_path in ("/api/eval?code=1%2B1!!", "/api/goal?q=hi", "/api/chat/clear", "/api/harness/evolve?patch=x"):
+            req_get = Request(mut_path, Headers([("Host", "127.0.0.1:8090")]), method="GET")
+            resp = await websocket_server.process_http_request(None, req_get)
+            assert resp is not None and resp.status_code == 405, (mut_path, resp)
+            assert resp.headers.get("Allow") == "POST"
+
+        # 2. POST without `X-Actor-Request: 1` (e.g. HTML <form method="POST"> CSRF) -> 403 Forbidden
+        req_form_csrf = Request("/api/eval?code=1%2B1!!", Headers([("Host", "127.0.0.1:8090")]), method="POST")
+        resp_csrf = await websocket_server.process_http_request(None, req_form_csrf)
+        assert resp_csrf is not None and resp_csrf.status_code == 403
+
+        # 3. Cross-origin HTTP & WebSocket Upgrade (including sandboxed iframe `Origin: null`) -> 403 Forbidden
+        for bad_origin in ("https://evil.example", "http://attacker.lan:8080", "null"):
+            req_bad_http = Request(
+                "/api/eval?code=1%2B1!!",
+                Headers([("Host", "127.0.0.1:8090"), ("Origin", bad_origin), ("X-Actor-Request", "1")]),
+                method="POST",
+            )
+            resp_bad_http = await websocket_server.process_http_request(None, req_bad_http)
+            assert resp_bad_http is not None and resp_bad_http.status_code == 403
+
+            req_bad_ws = Request(
+                "/",
+                Headers([("Host", "127.0.0.1:8765"), ("Upgrade", "websocket"), ("Origin", bad_origin)]),
+                method="GET",
+            )
+            resp_bad_ws = await websocket_server.process_http_request(None, req_bad_ws)
+            assert resp_bad_ws is not None and resp_bad_ws.status_code == 403
+
+        # 4. Bearer token enforcement (`ACTORII_STUDIO_TOKEN`) on HTTP and WebSocket Upgrade
+        monkeypatch.setenv("ACTORII_STUDIO_TOKEN", "s3cr3t-studio-tok")
+        req_no_tok = Request(
+            "/api/eval?code=6*7!!",
+            Headers([("Host", "127.0.0.1:8090"), ("X-Actor-Request", "1")]),
+            method="POST",
+        )
+        resp_no_tok = await websocket_server.process_http_request(None, req_no_tok)
+        assert resp_no_tok is not None and resp_no_tok.status_code == 401
+
+        req_ws_no_tok = Request(
+            "/",
+            Headers([("Host", "127.0.0.1:8765"), ("Upgrade", "websocket"), ("Origin", "http://127.0.0.1:8090")]),
+            method="GET",
+        )
+        resp_ws_no_tok = await websocket_server.process_http_request(None, req_ws_no_tok)
+        assert resp_ws_no_tok is not None and resp_ws_no_tok.status_code == 401
+
+        req_ws_query_tok = Request(
+            "/?token=s3cr3t-studio-tok",
+            Headers([("Host", "127.0.0.1:8765"), ("Upgrade", "websocket"), ("Origin", "http://127.0.0.1:8090")]),
+            method="GET",
+        )
+        assert await websocket_server.process_http_request(None, req_ws_query_tok) is None
+
+        # 5. Live loopback socket E2E check: POST with Bearer + X-Actor-Request succeeds; GET fails with 405
+        async with websockets.serve(
+            lambda ws: websocket_server.handler(ws, workspace=ws_app),
+            "127.0.0.1",
+            0,
+            process_request=websocket_server.process_http_request,
+        ) as srv:
+            port = srv.sockets[0].getsockname()[1]
+
+            def _do_post() -> dict:
+                r = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/eval?code=6*7!!",
+                    data=b"",
+                    headers={
+                        "X-Actor-Request": "1",
+                        "Authorization": "Bearer s3cr3t-studio-tok",
+                    },
+                    method="POST",
+                )
+                with urllib.request.urlopen(r, timeout=5.0) as res:
+                    return json.loads(res.read().decode("utf-8"))
+
+            out = await asyncio.to_thread(_do_post)
+            assert out["success"] is True and out["result"] == 42
+
+            def _do_get_405() -> int:
+                r = urllib.request.Request(
+                    f"http://127.0.0.1:{port}/api/eval?code=6*7!!",
+                    headers={"Authorization": "Bearer s3cr3t-studio-tok"},
+                    method="GET",
+                )
+                try:
+                    urllib.request.urlopen(r, timeout=5.0)
+                    return 200
+                except urllib.error.HTTPError as he:
+                    return he.code
+
+            assert await asyncio.to_thread(_do_get_405) == 405
+
+            # Multi-client WebSocket registration & clean unregistration without clobbering
+            url_ws = f"ws://127.0.0.1:{port}/?token=s3cr3t-studio-tok"
+            async with websockets.connect(url_ws) as c1, websockets.connect(url_ws) as c2:
+                await c1.send(json.dumps({"type": "eval", "source": "20 + 22!!"}))
+                r1 = json.loads(await c1.recv())
+                assert r1["result"] == 42
+                assert len(ws_app.driver._clients) == 2
+                await c2.send(json.dumps({"type": "eval", "source": "100 - 58!!"}))
+                r2 = json.loads(await c2.recv())
+                assert r2["result"] == 42
+            await asyncio.sleep(0.05)
+            assert len(ws_app.driver._clients) == 0
+
+    asyncio.run(_run_unit_checks())
+
+
+def test_persona_overlay_decoupling(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Verify `DEFAULT_HARNESS_SYSTEM_PROMPT` is host-agnostic while `load_harness_system_prompt` loads optional overlays."""
+    from actorii.harness import DEFAULT_HARNESS_SYSTEM_PROMPT, load_harness_system_prompt
+
+    # Base tracked system prompt must not hardcode personal host OS or internal lore
+    assert "Fedora Linux 44" not in DEFAULT_HARNESS_SYSTEM_PROMPT
+    assert "Google Argon" not in DEFAULT_HARNESS_SYSTEM_PROMPT
+    assert "2026-10-18" not in DEFAULT_HARNESS_SYSTEM_PROMPT
+
+    # Custom persona file appends cleanly
+    monkeypatch.delenv("ACTORII_DISABLE_PERSONA_OVERLAY", raising=False)
+    p_file = tmp_path / "custom_persona.md"
+    p_file.write_text("- Custom GPU Rack Node Alpha (24 GB VRAM)", encoding="utf-8")
+    merged = load_harness_system_prompt(persona_path=p_file)
+    assert "HOST ENVIRONMENT & PERSONA OVERLAY:" in merged
+    assert "Custom GPU Rack Node Alpha (24 GB VRAM)" in merged
+
+    # Explicit disable flag suppresses overlay
+    monkeypatch.setenv("ACTORII_DISABLE_PERSONA_OVERLAY", "1")
+    assert load_harness_system_prompt(persona_path=p_file) == DEFAULT_HARNESS_SYSTEM_PROMPT
+
+

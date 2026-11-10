@@ -270,19 +270,36 @@ class ActorTUISession:
         pool_count = len(self.get_pool_objects())
         turn_count = len(self.get_chat_history(local_only=True))
         return (
-            f"ActorII v4.1 │ {h.name} ({h.model}) │ status={status} │ "
+            f"ActorII v4.2.0 │ {h.name} ({h.model}) │ status={status} │ "
             f"turns={turn_count} │ steps={steps} │ strikes={failures} │ gas={total_gas} │ pool={pool_count} objs"
         )
 
+    def _remote_studio_request(
+        self,
+        path_and_query: str,
+        *,
+        method: str = "GET",
+        timeout: float = 5.0,
+    ) -> Dict[str, Any]:
+        import urllib.request
+
+        hdrs: Dict[str, str] = {"X-Actor-Request": "1"}
+        tok = os.environ.get("ACTORII_STUDIO_TOKEN", "").strip()
+        if tok:
+            hdrs["Authorization"] = f"Bearer {tok}"
+        req = urllib.request.Request(
+            f"{self.remote_studio_url}{path_and_query}",
+            data=b"" if method.upper() == "POST" else None,
+            headers=hdrs,
+            method=method.upper(),
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8", errors="replace"))
+
     def get_chat_history(self, local_only: bool = False) -> List[Dict[str, Any]]:
         if self.remote_studio_url and not local_only:
-            import urllib.request
-
             try:
-                with urllib.request.urlopen(
-                    f"{self.remote_studio_url}/api/chat/history", timeout=5.0
-                ) as resp:
-                    data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                data = self._remote_studio_request("/api/chat/history", method="GET", timeout=5.0)
                 if isinstance(data.get("chat_history"), list):
                     return data["chat_history"]
             except Exception:
@@ -346,17 +363,18 @@ class ActorTUISession:
         max_steps = int(self.harness._fields.get("maxSteps", 8) or 8)
         if self.remote_studio_url:
             import urllib.parse
-            import urllib.request
 
             self._emit(
                 f"\n{self._c(MAGENTA + BOLD, f'▶ Remote Studio AgentHarness ({self.remote_studio_url})')}\n"
                 f"  {self._c(GRAY, 'Prompt:')} {objective} (maxSteps={max_steps})"
             )
             q_enc = urllib.parse.quote(objective)
-            url = f"{self.remote_studio_url}/api/goal?q={q_enc}&max_steps={max_steps}"
             try:
-                with urllib.request.urlopen(url, timeout=240.0) as resp:
-                    data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                data = self._remote_studio_request(
+                    f"/api/goal?q={q_enc}&max_steps={max_steps}",
+                    method="POST",
+                    timeout=240.0,
+                )
                 for entry in data.get("step_log", []):
                     if isinstance(entry, dict):
                         self._on_harness_step(entry)
@@ -393,13 +411,14 @@ class ActorTUISession:
             chunk = chunk.rstrip("!") + "!!"
         if self.remote_studio_url:
             import urllib.parse
-            import urllib.request
 
             c_enc = urllib.parse.quote(chunk)
-            url = f"{self.remote_studio_url}/api/eval?code={c_enc}"
             try:
-                with urllib.request.urlopen(url, timeout=30.0) as resp:
-                    data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                data = self._remote_studio_request(
+                    f"/api/eval?code={c_enc}",
+                    method="POST",
+                    timeout=30.0,
+                )
                 if data.get("success"):
                     res = data.get("result")
                     self._emit(
@@ -587,10 +606,8 @@ class ActorTUISession:
 
         if cmd == "/clear":
             if self.remote_studio_url:
-                import urllib.request
-
                 try:
-                    urllib.request.urlopen(f"{self.remote_studio_url}/api/chat/clear", timeout=5.0).read()
+                    self._remote_studio_request("/api/chat/clear", method="POST", timeout=5.0)
                 except Exception:
                     pass
             self.vm.eval_chunk("clearChat(Actor[#Harness])!!")

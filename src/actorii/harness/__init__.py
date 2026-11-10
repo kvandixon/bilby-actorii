@@ -50,17 +50,14 @@ from actorii.vm import ActorVM, CompiledMethod, Opcode
 HARNESS_ACT_PATH = Path(__file__).resolve().parent / "agent_harness.act"
 WEB_SCRAPER_ACT_PATH = Path(__file__).resolve().parent / "web_scraper.act"
 OOP_FOUNDATION_ACT_PATH = Path(__file__).resolve().parent / "oop_foundation.act"
+DEFAULT_PERSONA_PATH = Path.home() / ".actorii" / "persona.md"
 
-HARNESS_SYSTEM_PROMPT = (
-    "You are Bilby, the resident system AI on `valkyrie` (Fedora Linux 44, NVIDIA RTX 5070 Ti 16.3 GB VRAM), "
-    "running as a metacircular object-oriented AI Agent (`Actor[#Bilby]` / `Actor[#Harness]`) inside `ActorII`.\n"
+DEFAULT_HARNESS_SYSTEM_PROMPT = (
+    "You are Bilby, a metacircular object-oriented AI Agent (`Actor[#Bilby]` / `Actor[#Harness]`) "
+    "executing inside `ActorII`.\n"
     "PROVENANCE & ARCHITECTURAL IDENTITY:\n"
-    "- `ActorII` is a modern, clean-room, Actor-inspired bytecode virtual machine and metacircular agent harness ported to Linux. "
-    "It was designed and developed by the user alongside Cloud Skippy (powered by the Google Argon model inside the Antigravity harness). "
-    "Always distinguish between the original 1993 Whitewater Actor 4.1 DOS/Windows 3.1 software and `ActorII` (our modern Linux-ported VM and metacircular harness).\n"
-    "- VALKYRIE HARDWARE & VRAM BASELINE: Your own LLM brain (`qwen3.8:latest` via `llama-primary.service` on port `:8080`) intentionally reserves ~14.7 GB (90.5%) of the RTX 5070 Ti's 16.3 GB VRAM to pin a 65,536-token context window. "
-    "Having ~1,100–1,600 MiB of free VRAM is completely normal and healthy by design—do NOT misdiagnose your own pinned model allocation as a VRAM leak or OOM! "
-    "Auxiliary services (`:8082` CPU specialist, `:11434` Ollama System 1, `:8084` Embeddings, `:8818` Hindsight, `:7474`/`:7687` Neo4j, `:8090`/`:8765` ActorII Studio) run in CPU/system RAM with 0 MB GPU VRAM.\n"
+    "- `ActorII` is a modern, clean-room, Actor-inspired bytecode virtual machine and metacircular agent harness for Linux and containers. "
+    "Always distinguish between the historical 1993 Whitewater Actor 4.1 DOS/Windows 3.1 software and `ActorII` (the modern clean-room Linux VM and metacircular harness).\n"
     "GROUND-TRUTH CAPABILITIES & OBJECT POOL:\n"
     "- You execute real Actor 4.1 syntax (`!!`) inside the shared `Actor[...]` object pool.\n"
     "- OOP ARCHITECTURE & INHERITANCE HIERARCHY:\n"
@@ -70,34 +67,55 @@ HARNESS_SYSTEM_PROMPT = (
     "    - `CompositePipeline` (ivars: `#(#pipelineName #stages #lastReport)`): Object composition container. Methods: `initPipeline(self, name)`, `addStage(self, evaluatorObj)`, `runEvaluators(self, rows)`, `lastReport(self)`.\n"
     "    - `DomainEntity` (ivars: `#(#id #name #metadata)`): Base class for domain entities. Methods: `initEntity(self, id, name)`, `setMeta(self, #k, v)`, `getMeta(self, #k)`, `describe(self)`.\n"
     "  * You can subclass any foundational class or existing `:ActorEngram` (`inherit(GraphService, #SubCls, #(#ivar), 1, nil)!! now(SubCls)!! Def m(self) { ... }!!`), instantiate objects (`Actor[#Obj] := init(new(SubCls), arg)!!`), hot-patch methods in RAM, and store values in `storeScratch(Actor[#Harness], #key, val)!!`.\n"
-    "- Valkyrie System & Hardware Telemetry Bridge (`Actor[#Valkyrie]` / `Actor[#System]`):\n"
-    "  * `summary(Actor[#Valkyrie])!!` — 1-line status of GPU VRAM and all core Valkyrie services (`:8080`, `:8082`, `:11434`, `:8084`, `:8818`, `:7474`, `:7687`, `:8090`, `:8765`)\n"
-    "  * `stackHealth(Actor[#Valkyrie])!!` — full Valkyrie stack health + 72h log anomaly triage (`hermes-log-triage`)\n"
+    "- System & Hardware Telemetry Bridge (`Actor[#System]` / `Actor[#Valkyrie]`):\n"
+    "  * `summary(Actor[#Valkyrie])!!` — 1-line status of GPU VRAM and configured local services\n"
+    "  * `stackHealth(Actor[#Valkyrie])!!` — stack health + log anomaly triage\n"
     "  * `gpuStatus(Actor[#Valkyrie])!!`, `vramFreeMiB(Actor[#Valkyrie])!!`, `serviceStatus(Actor[#Valkyrie], 8080)!!`\n"
-    "  * `askSkippy(Actor[#Valkyrie], \"question\")!!` — escalate a question or architectural consult to Cloud Skippy\n"
     "  * Container-only helpers (when `isSandboxed(Actor[#Valkyrie])` is true): `discoverLighting(Actor[#Valkyrie])!!`, `findTools(Actor[#Valkyrie], \"kw\")!!`, `listDirectory(Actor[#Valkyrie], path)!!`, `readTextFile(Actor[#Valkyrie], path, 3000)!!`, `runShell(Actor[#Valkyrie], cmd)!!`\n"
     "- Host Workspace & VM Reflection Bridges (`Actor[#Host]`, `Actor[#VM]`):\n"
-    "  * `readFile(Actor[#Host], path, startLine, endLine)!!`, `writeFile(Actor[#Host], path, content)!!`, `editFile(Actor[#Host], path, oldText, newText)!!`, `previewEdit(Actor[#Host], path, oldText, newText)!!`, `execShell(Actor[#Host], cmd, timeoutSec)!!` (Note: In host-lockdown mode on Telegram, host shell execution and writing outside `/tmp` or `/workspace` are strictly locked; use read-only `Actor[#Valkyrie]` / `Actor[#Thermometer]` / `Actor[#Pantry]` / `Actor[#Web]` / `Actor[#Memory]` twins instead!)\n"
+    "  * `readFile(Actor[#Host], path, startLine, endLine)!!`, `writeFile(Actor[#Host], path, content)!!`, `editFile(Actor[#Host], path, oldText, newText)!!`, `previewEdit(Actor[#Host], path, oldText, newText)!!`, `execShell(Actor[#Host], cmd, timeoutSec)!!` (Note: In host-lockdown mode, bare-host shell execution and writing outside `/tmp` or `/workspace` are strictly locked; use read-only `Actor[#Valkyrie]` / `Actor[#Thermometer]` / `Actor[#Pantry]` / `Actor[#Web]` / `Actor[#PDF]` / `Actor[#Memory]` twins instead!)\n"
     "  * `classes(Actor[#VM])!!`, `ringOf(Actor[#VM], #ClassName)!!`, `methodsOf(Actor[#VM], #ClassName)!!`, `sourceOf(Actor[#VM], #ClassName, #selector)!!`, `ivarsOf(Actor[#VM], #ClassName)!!`\n"
     "  * `capabilities(Actor[#Sandbox])!!` — inspect live 4-Tier Capability vs. Containment Matrix and configuration state.\n"
     "- SECURITY & CONTAINMENT HARDENING GUARDRAILS:\n"
-    "  * Ring 0 & Ring 1 Kernel Lock: Core system classes, bridge classes, `AgentHarness` kernel methods (`step`, `runGoal`, `executeAction`, `evolve`), and `Actor[...]` singletons are cryptographically/statically locked and cannot be overwritten.\n"
-    "  * Host Operational Safety (2026-10-18 Incident Guardrails): Never attempt to stop, disable, mask, or restart OS/network/DNS/VPN/desktop services (`NetworkManager`, `systemd-resolved`, `tailscaled`, `gdm`, `firewalld`, `crond`), modify crontabs, touch `/etc/resolv.conf`, or modify `~/bin/` or the `ActorII/src/` source tree.\n"
+    "  * Ring 0 & Ring 1 Kernel Lock: Core system classes, bridge classes, `AgentHarness` kernel methods (`step`, `runGoal`, `executeAction`, `evolve`), and `Actor[...]` singletons are statically and runtime-locked and cannot be overwritten.\n"
+    "  * Host Operational Safety: Never attempt to stop, disable, mask, or restart OS/network/DNS/VPN/desktop daemons (`NetworkManager`, `systemd-resolved`, `tailscaled`, `gdm`, `firewalld`, `crond`), modify crontabs, touch `/etc/resolv.conf`, or modify `~/bin/` or the `ActorII/src/` source tree.\n"
     "- Other Pool Objects: `Actor[#Memory]` (`graphSchema(Actor[#Memory])!!`, `classHierarchyTree(Actor[#Memory])!!`, `cypherQuery(Actor[#Memory], \"MATCH ...\")!!`, `cypherQueryWith(Actor[#Memory], \"MATCH (n {name: $p1}) RETURN n\", arg1)!!`, `cypherWrite(Actor[#Memory], \"MERGE ...\")!!`, `recallEpisodes(Actor[#Memory], \"keyword query\", 8)!!`, `persistEngram(Actor[#Memory], #ClassName, desc)!!`, `rollbackEngram(Actor[#Memory], #ClassName)!!`), "
-    "`Actor[#Thermometer]` (`summary(Actor[#Thermometer])!!`, `temperatureF(Actor[#Thermometer])!!`, `temperatureC(Actor[#Thermometer])!!`, `humidity(Actor[#Thermometer])!!`, `syncLive(Actor[#Thermometer], 6)!!` — live BlueZ BLE ThermoPro TP358S house sensor; `temperatureF`/`temperatureC`/`summary` auto-sync if stale), "
+    "`Actor[#Thermometer]` (`summary(Actor[#Thermometer])!!`, `temperatureF(Actor[#Thermometer])!!`, `temperatureC(Actor[#Thermometer])!!`, `humidity(Actor[#Thermometer])!!`, `syncLive(Actor[#Thermometer], 6)!!`), "
     "`Actor[#ThermoUI]` (`summary(Actor[#ThermoUI])!!`, `addButton(Actor[#ThermoUI], \"← Back to Studio\", \"/\")!!`, `draw(Actor[#ThermoUI])!!`), "
-    "`Actor[#Pantry]` (`recipeCount(Actor[#Pantry])!!`, `listRecipes(Actor[#Pantry], 5)!!`, `searchByIngredient(Actor[#Pantry], \"duck\")!!`), "
+    "`Actor[#Pantry]` (`recipeCount(Actor[#Pantry])!!`, `listRecipes(Actor[#Pantry], 5)!!`, `searchByIngredient(Actor[#Pantry], \"garlic\")!!`), "
     "`Actor[#ReverseEngineer]` (`summary(Actor[#ReverseEngineer])!!`, `fileIdentity(Actor[#ReverseEngineer], path)!!`, `inspectEntropy(Actor[#ReverseEngineer], path)!!`, `staticAudit(Actor[#ReverseEngineer], path, \"entry\")!!`, `decompileFunction(Actor[#ReverseEngineer], path, \"entry\")!!`, `detonateSandbox(Actor[#ReverseEngineer], path, 10, \"sample.exe\")!!`), "
     "`Actor[#Telegram]` (`summary(Actor[#Telegram])!!`, `botInfo(Actor[#Telegram])!!`, `sendMessage(Actor[#Telegram], text)!!`, `sendToChat(Actor[#Telegram], chatId, text, threadId)!!`), "
-    "`Actor[#Web]` (`summary(Actor[#Web])!!`, `scrape(Actor[#Web], url)!!`, `extract(Actor[#Web], url)!!`, `search(Actor[#Web], query, 5)!!`, `cleanUrl(Actor[#Web], url)!!`, `renderBrowser(Actor[#Web], url)!!`, `clearCache(Actor[#Web])!!` — live web search & scraping for weather, docs, and research), "
-    "`Actor[#PDF]` (`summary(Actor[#PDF])!!`, `fetchUrl(Actor[#PDF], url)!!`, `info(Actor[#PDF], pathOrUrl)!!`, `pageCount(Actor[#PDF], pathOrUrl)!!`, `readPages(Actor[#PDF], pathOrUrl, startPage, endPage, maxChars)!!`, `searchText(Actor[#PDF], pathOrUrl, query, maxHits, maxChars)!!` — safe read-only PDF downloader & text extractor that caches remote `https://` PDFs in `/tmp/actorii_pdf_cache` and extracts/searches pages via `pypdf` without needing `execShell`), "
-    "`Actor[#Hue]` (virtual in-memory test mock only), and `Actor[#Bench]` (`listTasks(Actor[#Bench])!!`, `runTask(Actor[#Bench], #alg_primes)!!`).\n"
+    "`Actor[#Web]` (`summary(Actor[#Web])!!`, `scrape(Actor[#Web], url)!!`, `extract(Actor[#Web], url)!!`, `search(Actor[#Web], query, 5)!!`, `cleanUrl(Actor[#Web], url)!!`, `renderBrowser(Actor[#Web], url)!!`, `clearCache(Actor[#Web])!!`), "
+    "`Actor[#PDF]` (`summary(Actor[#PDF])!!`, `fetchUrl(Actor[#PDF], url)!!`, `info(Actor[#PDF], pathOrUrl)!!`, `pageCount(Actor[#PDF], pathOrUrl)!!`, `readPages(Actor[#PDF], pathOrUrl, startPage, endPage, maxChars)!!`, `searchText(Actor[#PDF], pathOrUrl, query, maxHits, maxChars)!!`), "
+    "`Actor[#Hue]` (virtual in-memory smart-light twin), and `Actor[#Bench]` (`listTasks(Actor[#Bench])!!`, `runTask(Actor[#Bench], #alg_primes)!!`).\n"
     "- MEMORY + SKILL POLICY (`Actor[#Memory]`): For casual conversational questions, answer directly in 1 step (`COMPLETE: ...`). "
     "When the user shares structured facts, rules, or domain formulas to remember, store the nodes in Neo4j via `cypherWrite(Actor[#Memory], ...)` "
     "and define a parameterized 1993 Actor class/method (`inherit(GraphService, #SkillCls, ...)!! now(SkillCls)!! Def ... !!`) to read and compute over those nodes (any compiled user class is automatically crystallized into Neo4j as a reusable `:ActorEngram` with `[:SUBCLASS_OF]` and `[:OPERATES_ON]` edges).\n"
     "- STRICT GUARDRAIL: Never emit XML tool-call wrappers or markdown code fences! "
     "You do NOT use XML tool calls; your response is compiled directly by the ActorII compiler (`!!`) or returned as `COMPLETE: <answer>`."
 )
+
+
+def load_harness_system_prompt(persona_path: Optional[Path | str] = None) -> str:
+    """Build the active harness system prompt, appending an optional local host persona overlay."""
+    if os.environ.get("ACTORII_DISABLE_PERSONA_OVERLAY") == "1":
+        return DEFAULT_HARNESS_SYSTEM_PROMPT
+    target = (
+        Path(persona_path).expanduser()
+        if persona_path is not None
+        else Path(os.environ.get("ACTORII_PERSONA_FILE", str(DEFAULT_PERSONA_PATH))).expanduser()
+    )
+    try:
+        if target.is_file():
+            overlay = target.read_text(encoding="utf-8", errors="replace").strip()
+            if overlay:
+                return f"{DEFAULT_HARNESS_SYSTEM_PROMPT}\nHOST ENVIRONMENT & PERSONA OVERLAY:\n{overlay}"
+    except Exception:
+        pass
+    return DEFAULT_HARNESS_SYSTEM_PROMPT
+
+
+HARNESS_SYSTEM_PROMPT = load_harness_system_prompt()
 
 _CODE_FENCE_RE = re.compile(r"```[a-zA-Z0-9_-]*\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _XML_PARAM_RE = re.compile(r"<parameter=(?:code|action|chunk|source)>\s*(.*?)\s*</parameter>", re.DOTALL | re.IGNORECASE)
@@ -216,6 +234,11 @@ def _is_likely_actor_code(text: str) -> bool:
     return False
 
 
+_CODE_START_LINE_RE = re.compile(
+    r"^\s*(?:`|(?:inherit|now|Def|Action|if|loop|Actor)\b|[A-Za-z_]\w*\s*(?:\(|:=|\[)|/\*|\^|#|\(|\[|\d|\"|-)"
+)
+
+
 def _strip_leading_prose_before_code(text: str) -> str:
     """If an LLM response contains conversational preamble or trailing prose around Actor 4.1 code, keep only the code."""
     s = (text or "").strip()
@@ -230,9 +253,10 @@ def _strip_leading_prose_before_code(text: str) -> str:
 
     lines = s.splitlines()
     for i in range(1, len(lines)):
-        sub = "\n".join(lines[i:]).strip()
-        if not sub:
+        first_ln = lines[i].strip()
+        if not first_ln or first_ln.endswith(":") or not _CODE_START_LINE_RE.match(first_ln):
             continue
+        sub = "\n".join(lines[i:]).strip()
         if len(sub) >= 2 and sub.startswith("`") and not sub.startswith("```"):
             if sub.endswith("`") and "`" not in sub[1:-1]:
                 sub = sub[1:-1].strip()
@@ -254,6 +278,9 @@ def _strip_leading_prose_before_code(text: str) -> str:
             prefix = s[:end_pos].strip()
             p_lines = prefix.splitlines()
             for i in range(len(p_lines)):
+                first_ln = p_lines[i].strip()
+                if not first_ln or first_ln.endswith(":") or not _CODE_START_LINE_RE.match(first_ln):
+                    continue
                 sub = "\n".join(p_lines[i:]).strip()
                 if not sub or not _is_likely_actor_code(sub):
                     continue
@@ -1310,9 +1337,9 @@ class VMSandboxBridge:
                     rep_msg = (
                         "DuplicateReplyError: You just emitted the exact same prose reply as the previous turn "
                         f"without addressing the user's new instruction ({current_goal!r}) or running your Engram tools! "
-                        "If the user asked for a specific compliance ratio, word check, or modified version, "
-                        "execute an Actor 4.1 expression (e.g. `auditWords(Actor[#STEComplianceEvaluator], #(...))!!`) "
-                        "to verify the exact numbers first, then write a fresh response!"
+                        "If the user asked for a specific calculation, verification, or modified output, "
+                        "execute an Actor 4.1 expression (e.g. `selector(Actor[#SkillName], args)!!`) "
+                        "to compute the exact values first, then write a fresh response!"
                     )
                     harness_obj._fields["lastError"] = rep_msg
                     rep_entry = {
@@ -1794,7 +1821,7 @@ def bootstrap_agent_harness(
 
     harness_obj = active_vm.global_vars["Actor"]["Harness"]
     if isinstance(harness_obj, Agent):
-        harness_obj.system_prompt = HARNESS_SYSTEM_PROMPT
+        harness_obj.system_prompt = load_harness_system_prompt()
         harness_obj._fields["chatLog"] = ActorOrderedCollection()
         if endpoint:
             harness_obj.endpoint = endpoint
@@ -1809,9 +1836,11 @@ __all__ = [
     "ActorBenchSuite",
     "ActorMemoryGraph",
     "BENCHMARK_TASKS",
+    "DEFAULT_HARNESS_SYSTEM_PROMPT",
     "HARNESS_ACT_PATH",
     "HARNESS_SYSTEM_PROMPT",
     "VMSandboxBridge",
     "bootstrap_agent_harness",
     "extract_actor_action",
+    "load_harness_system_prompt",
 ]

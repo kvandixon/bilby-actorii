@@ -1,6 +1,6 @@
-# Bilby (`ActorII v4.1`) — Metacircular Bytecode AI Agent & 1993 Actor VM
+# Bilby (`ActorII v4.2.0`) — Metacircular Bytecode AI Agent & 1993 Actor VM
 
-**Bilby (`ActorII v4.1`)** is a self-evolving, metacircular AI agent harness executing inside a clean-room 1993 Whitewater Actor 4.1 Smalltalk/Actor bytecode virtual machine, backed by **lossless Neo4j `:ActorEpisode` + `:ActorEngram` hybrid graph memory**.
+**Bilby (`ActorII v4.2.0`)** is a self-evolving, metacircular AI agent harness executing inside a clean-room 1993 Whitewater Actor 4.1 Smalltalk/Actor bytecode virtual machine, backed by **lossless Neo4j `:ActorEpisode` + `:ActorEngram` hybrid graph memory**.
 
 Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) with a 20B–27B open-weight model (`0 MB` GPU VRAM overhead for embeddings and memory indexing)—or connected to any cloud LLM (`OpenAI`, `OpenRouter`, `Gemini`, `Ollama`, `vLLM`)—Bilby provides a hardened, container-first neuro-symbolic agent runtime.
 
@@ -11,15 +11,15 @@ Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) wit
 
 ---
 
-## Benchmark Summary (`Bilby ActorII v4.1` — Local RTX 5070 Ti 16 GB)
+## Benchmark Summary (`Bilby ActorII v4.2.0` — Local RTX 5070 Ti 16 GB)
 
 | Benchmark Suite | Questions / Tasks | Bilby Score | Date |
 | :--- | :---: | :---: | :---: |
 | **`LongMemEval` (`S` Split)** | `500` | **`94.60%` (`473 / 500`)** | `2026-11-07` |
 | **`LoCoMo-10` (5-Category Suite)** | `1,986` | **`77.34%` (`1,536 / 1,986`)** | `2026-11-07` |
-| **`Industry 8-Track Suite`** | `22` | **`86.36%` (`19 / 22`)** | `2026-11-09` |
-| **`Terminal-Bench 2.1` (Container)** | `5` | **`80.00%` (`4 / 5`)** | `2026-11-09` |
-| **`Next-Gen Post-Cutoff Suite`** | `9` | **`77.78%` (`7 / 9`)** | `2026-11-03` |
+| **`Terminal-Bench 2.1` (Container)** | `5` | **`100.00%` (`5 / 5`)** | `2026-11-10` |
+| **`Industry 8-Track Suite` (Fresh Container)** | `22` | **`77.27%` (`17 / 22`)** *(86.36% cumulative)* | `2026-11-10` |
+| **`Next-Gen Post-Cutoff Suite`** | `9` | **`77.78%` (`7 / 9`)** | `2026-11-10` |
 | **`Red-Team Containment Audit`** | `6` | **`100.00%` (`6 / 6` Blocked)** | `2026-11-09` |
 
 👉 **[Full details & archived raw ledgers (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)**
@@ -63,6 +63,9 @@ Bilby supports switching LLM providers, models, memory namespaces, and containme
 | `FIRECRAWL_API_KEY` | *(empty)* | Optional Firecrawl API key for `Actor[#Web]>>scrape` |
 | `ACTORII_HOST_LOCKDOWN` | `1` *(Defense-Up)* | `1` locks bare-host shell execution and restricts writes to `/workspace` and `/tmp` |
 | `ACTORII_DISABLE_SELF_EVOLVE` | `0` | `1` disables `evolve(Actor[#Harness], ...)` Ring-1 cognitive hook hot-patching |
+| `ACTOR_BIND_IP` | `127.0.0.1` | Host interface bound by Docker Studio ports (`:8090` / `:8765`) |
+| `ACTORII_STUDIO_TOKEN` | *(empty)* | Optional Bearer / `?token=` secret required for Studio `/api/*` and WebSocket upgrades |
+| `ACTORII_PERSONA_FILE` | `~/.actorii/persona.md` | Optional local host-environment & persona markdown overlay appended to the system prompt |
 
 ---
 

@@ -1030,7 +1030,11 @@ def _fill_rect(
     if x1 <= x0 or y1 <= y0:
         return 0
 
-    # Fast path if surface has _pixel_data (WebSocketSurface) or _pixels (HTML5Surface)
+    # Fast path if surface exposes native sparse/buffer fill_rect
+    if hasattr(surface, "fill_rect") and callable(getattr(surface, "fill_rect")):
+        return int(surface.fill_rect(x0, y0, x1 - x0, y1 - y0, color))
+
+    # Fast path if surface has _pixel_data or _pixels 2D grid (HTML5Surface)
     pdata = getattr(surface, "_pixel_data", None) or getattr(surface, "_pixels", None)
     count = (x1 - x0) * (y1 - y0)
     if isinstance(pdata, list) and len(pdata) >= y1:

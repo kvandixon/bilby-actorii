@@ -38,7 +38,7 @@ from actorii.vm import ActorVM, Opcode
 
 
 class WebSocketSurface:
-    """HTML5 canvas surface driven via WebSocket commands."""
+    """HTML5 canvas surface driven via WebSocket commands (sparse pixel store)."""
 
     def __init__(
         self, width: int = 800, height: int = 600, title: str = "Actor Application"
@@ -49,7 +49,8 @@ class WebSocketSurface:
         self._canvas_id = f"actor_canvas_{id(self)}"
         self._commands: list[dict] = []
         self._dirty = True
-        self._pixel_data = [["#FFFFFF"] * width for _ in range(height)]
+        self._bg_color: str = "#FFFFFF"
+        self._sparse_pixels: dict[tuple[int, int], str] = {}
         self._event_queue: list[dict] = []
 
     @property
@@ -77,14 +78,47 @@ class WebSocketSurface:
             return self._event_queue.pop(0)
         return None
 
+    def clear_pixels(self, color: str = "#FFFFFF") -> None:
+        self._bg_color = color
+        self._sparse_pixels.clear()
+        self._dirty = True
+
+    def fill_rect(self, x: int, y: int, w: int, h: int, color: str) -> int:
+        x0 = max(0, int(x))
+        y0 = max(0, int(y))
+        x1 = min(self._width, int(x + w))
+        y1 = min(self._height, int(y + h))
+        if x1 <= x0 or y1 <= y0:
+            return 0
+        count = (x1 - x0) * (y1 - y0)
+        if x0 == 0 and y0 == 0 and x1 == self._width and y1 == self._height:
+            self._bg_color = color
+            self._sparse_pixels.clear()
+            self._dirty = True
+            return count
+        if color == self._bg_color:
+            if self._sparse_pixels:
+                for py in range(y0, y1):
+                    for px in range(x0, x1):
+                        self._sparse_pixels.pop((px, py), None)
+        else:
+            for py in range(y0, y1):
+                for px in range(x0, x1):
+                    self._sparse_pixels[(px, py)] = color
+        self._dirty = True
+        return count
+
     def get_pixel(self, x: int, y: int) -> str:
         if 0 <= x < self._width and 0 <= y < self._height:
-            return self._pixel_data[y][x]
+            return self._sparse_pixels.get((x, y), self._bg_color)
         return "#000000"
 
     def set_pixel(self, x: int, y: int, color: str) -> None:
         if 0 <= x < self._width and 0 <= y < self._height:
-            self._pixel_data[y][x] = color
+            if color == self._bg_color:
+                self._sparse_pixels.pop((x, y), None)
+            else:
+                self._sparse_pixels[(x, y)] = color
             self._commands.append({"type": "pixel", "x": x, "y": y, "color": color})
             self._dirty = True
 
@@ -143,24 +177,66 @@ class WebSocketSurface:
 
 
 class WebSocketDriver:
-    """Concrete WebSocket display driver for ActorII."""
+    """Concrete WebSocket display driver for ActorII supporting multi-client broadcast."""
 
     def __init__(self, surface: WebSocketSurface, websocket: Any = None):
         self._surface = surface
-        self._ws = websocket
+        self._clients: set[Any] = set()
+        self._primary_ws: Any = websocket
+        if websocket is not None:
+            self._clients.add(websocket)
         self._command_buffer: list[dict] = []
 
+    @property
+    def _ws(self) -> Any:
+        if self._primary_ws is not None and (not self._clients or self._primary_ws in self._clients):
+            return self._primary_ws
+        if self._clients:
+            return next(iter(self._clients))
+        return None
+
+    @_ws.setter
+    def _ws(self, websocket: Any) -> None:
+        self._primary_ws = websocket
+        if websocket is not None:
+            self._clients.add(websocket)
+        else:
+            self._clients.clear()
+
+    def register_client(self, websocket: Any) -> None:
+        if websocket is not None:
+            self._clients.add(websocket)
+            self._primary_ws = websocket
+
+    def unregister_client(self, websocket: Any) -> None:
+        self._clients.discard(websocket)
+        if self._primary_ws is websocket:
+            self._primary_ws = next(iter(self._clients), None)
+
+    def _active_targets(self) -> list[Any]:
+        if self._clients:
+            return list(self._clients)
+        return [self._primary_ws] if self._primary_ws is not None else []
+
     def _schedule_send(self, msg: str) -> None:
-        if self._ws is None:
+        targets = self._active_targets()
+        if not targets:
             return
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(self._ws.send(msg))
+            for client in targets:
+                async def _safe_send(ws_client: Any) -> None:
+                    try:
+                        await ws_client.send(msg)
+                    except Exception:
+                        self.unregister_client(ws_client)
+
+                loop.create_task(_safe_send(client))
         except RuntimeError:
             pass
 
     def present(self) -> None:
-        if self._ws is not None:
+        if self._active_targets():
             cmd = self._surface._serialize_commands()
             msg = json.dumps({"type": "flush", "commands": cmd})
             self._schedule_send(msg)
@@ -170,7 +246,7 @@ class WebSocketDriver:
     def resize(self, width: int, height: int) -> None:
         self._surface._width = width
         self._surface._height = height
-        self._surface._pixel_data = [["#FFFFFF"] * width for _ in range(height)]
+        self._surface.clear_pixels("#FFFFFF")
         self._surface._commands.append(
             {"type": "resize", "width": width, "height": height}
         )
@@ -207,14 +283,12 @@ class WebSocketDriver:
         return False
 
     def clear(self, color: str = "#FFFFFF") -> None:
-        self._surface._pixel_data = [
-            [color] * self._surface.width for _ in range(self._surface.height)
-        ]
+        self._surface.clear_pixels(color)
         self._surface._commands.append({"type": "clear", "color": color})
         self._surface._dirty = True
 
     def send_commands(self, commands: Any) -> None:
-        if self._ws is None:
+        if not self._active_targets():
             return
         if isinstance(commands, list):
             by_type: dict[str, list] = {}
@@ -354,6 +428,7 @@ class ActorWorkspace:
         )
         self.driver: WebSocketDriver = WebSocketDriver(self.surface)
         self.widgets: dict[str, Any] = {}
+        self._vm_lock: asyncio.Lock = asyncio.Lock()
 
     def _resolve_widget(self, widget_or_window: Any) -> Any:
         """Resolve a widget identifier or instance across workspace and VM scopes."""
@@ -404,12 +479,17 @@ class ActorWorkspace:
     async def handle_message(
         self, message: Union[str, dict], websocket: Any = None
     ) -> dict:
-        """Dispatch an incoming JSON protocol message and return structured response."""
+        """Dispatch an incoming JSON protocol message serialized under `_vm_lock`."""
         if isinstance(message, str):
             raw = json.loads(message)
         else:
             raw = message
+        async with self._vm_lock:
+            return await self._handle_message_unlocked(raw, websocket=websocket)
 
+    async def _handle_message_unlocked(
+        self, raw: dict, websocket: Any = None
+    ) -> dict:
         msg_type = raw.get("type", "")
         payload = raw.get("data") if isinstance(raw.get("data"), dict) else raw
         print(f"[WS-MSG] {msg_type}", flush=True)
@@ -1313,7 +1393,10 @@ class ActorWorkspace:
             return {"type": "echo", "received": raw}
 
 
-LISTEN_HOST = os.environ.get("ACTOR_SURFACE_HOST", "0.0.0.0")
+_DEFAULT_LISTEN_HOST = (
+    "0.0.0.0" if os.environ.get("ACTORII_IN_DOCKER") == "1" else "127.0.0.1"
+)
+LISTEN_HOST = os.environ.get("ACTOR_SURFACE_HOST", _DEFAULT_LISTEN_HOST)
 LISTEN_PORT = int(os.environ.get("ACTOR_SURFACE_PORT", "8765"))
 _SHARED_WORKSPACE: Optional[ActorWorkspace] = None
 
@@ -1434,7 +1517,7 @@ def _build_mobile_thermometer_page(ws_app: ActorWorkspace) -> str:
   <div id="thermo-mount">{card_html}</div>
   <script>
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${{proto}}//${{window.location.host}}/`;
+    const wsUrl = `${{proto}}//${{window.location.host}}/${{window.location.search || ''}}`;
     let ws = null;
 
     function bindThermoControls() {{
@@ -1507,47 +1590,187 @@ def _http_response(
     reason: str,
     content_type: str,
     body: bytes,
+    extra_headers: Optional[List[tuple[str, str]]] = None,
 ) -> Any:
     from websockets.datastructures import Headers
     from websockets.http11 import Response
 
-    headers = Headers(
-        [
-            ("Content-Type", content_type),
-            ("Content-Length", str(len(body))),
-            ("Cache-Control", "no-cache, no-store, must-revalidate"),
-            ("Connection", "close"),
-        ]
-    )
-    return Response(status_code, reason, headers, body)
+    hdrs = [
+        ("Content-Type", content_type),
+        ("Content-Length", str(len(body))),
+        ("Cache-Control", "no-cache, no-store, must-revalidate"),
+        ("X-Content-Type-Options", "nosniff"),
+        ("X-Frame-Options", "SAMEORIGIN"),
+        ("Connection", "close"),
+    ]
+    if extra_headers:
+        hdrs.extend(extra_headers)
+    return Response(status_code, reason, Headers(hdrs), body)
 
 
-def process_http_request(connection: Any, request: Any) -> Any:
-    """Serve HTML5 Actor Surface over HTTP on the same port as WebSocket."""
+def _is_request_origin_allowed(request: Any) -> bool:
+    """Validate HTTP/WebSocket `Origin` and `Sec-Fetch-Site` headers against cross-site CSRF."""
+    import urllib.parse
+
+    allowed_extra = {
+        o.strip().rstrip("/")
+        for o in os.environ.get("ACTOR_ALLOWED_ORIGINS", "").split(",")
+        if o.strip()
+    }
+    origin = (request.headers.get("Origin") or "").strip()
+    sec_site = (request.headers.get("Sec-Fetch-Site") or "").strip().lower()
+
+    if sec_site == "cross-site" and origin.rstrip("/") not in allowed_extra:
+        return False
+
+    if not origin:
+        return True
+
+    norm_origin = origin.rstrip("/")
+    if norm_origin in allowed_extra:
+        return True
+    if origin.startswith("file://"):
+        return True
+    if origin.lower() == "null":
+        return os.environ.get("ACTOR_ALLOW_NULL_ORIGIN") == "1"
+
+    try:
+        parsed = urllib.parse.urlparse(origin)
+    except Exception:
+        return False
+
+    if parsed.scheme not in ("http", "https"):
+        return False
+
+    host_only = (parsed.hostname or "").lower()
+    if host_only in ("127.0.0.1", "localhost", "::1"):
+        return True
+
+    req_host = (request.headers.get("Host") or "").strip().lower()
+    if req_host and parsed.netloc.lower() == req_host:
+        return True
+
+    return False
+
+
+def _is_request_authorized(request: Any, *, allow_query_token: bool = False) -> bool:
+    """Verify `ACTORII_STUDIO_TOKEN` via `Authorization: Bearer <token>` (or `?token=` on WS/HTML)."""
+    import hmac
+    import urllib.parse
+
+    expected = os.environ.get("ACTORII_STUDIO_TOKEN", "").strip()
+    if not expected:
+        return True
+
+    auth_hdr = (request.headers.get("Authorization") or "").strip()
+    if auth_hdr.lower().startswith("bearer "):
+        provided = auth_hdr[7:].strip()
+        if hmac.compare_digest(provided, expected):
+            return True
+
+    if allow_query_token and "?" in (request.path or ""):
+        qs = urllib.parse.parse_qs((request.path or "").split("?", 1)[1])
+        q_tok = (qs.get("token") or [""])[0].strip()
+        if q_tok and hmac.compare_digest(q_tok, expected):
+            return True
+
+    return False
+
+
+def _has_csrf_proof_header(request: Any) -> bool:
+    """Require a non-CORS-safelisted header (`X-Actor-Request: 1` or `Authorization`) on mutating HTTP calls."""
+    x_hdr = (request.headers.get("X-Actor-Request") or "").strip()
+    if x_hdr == "1" or x_hdr.lower() == "true":
+        return True
+    auth_hdr = (request.headers.get("Authorization") or "").strip()
+    return auth_hdr.lower().startswith("bearer ")
+
+
+_MUTATING_HTTP_PATHS = frozenset(
+    {
+        "/api/eval",
+        "/api/goal",
+        "/api/chat",
+        "/api/chat/clear",
+        "/api/harness/evolve",
+    }
+)
+
+
+async def process_http_request(connection: Any, request: Any) -> Any:
+    """Serve HTML5 Actor Surface and hardened HTTP API on the same port as WebSocket."""
+    import urllib.parse
     from pathlib import Path
 
     remote = getattr(connection, "remote_address", "?")
+    method = (getattr(request, "method", "GET") or "GET").upper()
     upgrade = request.headers.get("Upgrade", "")
+
     if upgrade.lower() == "websocket":
+        if not _is_request_origin_allowed(request):
+            print(f"[WS-REJECT-ORIGIN] {request.path} from {remote}", flush=True)
+            return _http_response(
+                403,
+                "Forbidden",
+                "application/json; charset=utf-8",
+                json.dumps({"status": "error", "error": "Forbidden cross-origin WebSocket upgrade"}).encode("utf-8"),
+            )
+        if not _is_request_authorized(request, allow_query_token=True):
+            print(f"[WS-REJECT-AUTH] {request.path} from {remote}", flush=True)
+            return _http_response(
+                401,
+                "Unauthorized",
+                "application/json; charset=utf-8",
+                json.dumps({"status": "error", "error": "Missing or invalid ACTORII_STUDIO_TOKEN"}).encode("utf-8"),
+                extra_headers=[("WWW-Authenticate", 'Bearer realm="ActorII Studio"')],
+            )
         print(f"[WS-UPGRADE] {request.path} from {remote}", flush=True)
         return None
 
     req_path = (request.path or "/").split("?", 1)[0]
-    print(f"[HTTP] {getattr(request, 'method', 'GET')} {req_path} from {remote}", flush=True)
+    print(f"[HTTP] {method} {req_path} from {remote}", flush=True)
     root_dir = Path(__file__).resolve().parent
+
+    if method == "OPTIONS":
+        return _http_response(403, "Forbidden", "text/plain; charset=utf-8", b"CORS preflight rejected")
+
+    if not _is_request_origin_allowed(request):
+        return _http_response(
+            403,
+            "Forbidden",
+            "application/json; charset=utf-8",
+            json.dumps({"status": "error", "error": "Forbidden cross-origin request"}).encode("utf-8"),
+        )
 
     if req_path == "/favicon.ico":
         return _http_response(204, "No Content", "image/x-icon", b"")
 
     if req_path in ("/", "/index.html", "/browser_client.html"):
+        if not _is_request_authorized(request, allow_query_token=True):
+            return _http_response(
+                401,
+                "Unauthorized",
+                "text/plain; charset=utf-8",
+                b"Unauthorized: append ?token=<ACTORII_STUDIO_TOKEN> or supply Bearer token.",
+                extra_headers=[("WWW-Authenticate", 'Bearer realm="ActorII Studio"')],
+            )
         client_file = root_dir / "browser_client.html"
         if client_file.is_file():
             body = client_file.read_bytes()
             return _http_response(200, "OK", "text/html; charset=utf-8", body)
 
     if req_path in ("/thermometer", "/thermometer_surface.html"):
+        if not _is_request_authorized(request, allow_query_token=True):
+            return _http_response(
+                401,
+                "Unauthorized",
+                "text/plain; charset=utf-8",
+                b"Unauthorized",
+                extra_headers=[("WWW-Authenticate", 'Bearer realm="ActorII Studio"')],
+            )
         ws_app = get_shared_workspace()
-        html = _build_mobile_thermometer_page(ws_app)
+        async with ws_app._vm_lock:
+            html = _build_mobile_thermometer_page(ws_app)
         return _http_response(
             200, "OK", "text/html; charset=utf-8", html.encode("utf-8")
         )
@@ -1561,6 +1784,7 @@ def process_http_request(connection: Any, request: Any) -> Any:
             "status": "ok",
             "host": LISTEN_HOST,
             "ports": [LISTEN_PORT, 8090],
+            "auth_required": bool(os.environ.get("ACTORII_STUDIO_TOKEN", "").strip()),
             "harness_model": getattr(harness, "model", None) if harness else None,
             "temperature_c": twin.temperatureC() if twin else None,
             "temperature_f": twin.temperatureF() if twin else None,
@@ -1574,14 +1798,52 @@ def process_http_request(connection: Any, request: Any) -> Any:
             json.dumps(status).encode("utf-8"),
         )
 
+    # All `/api/*` routes enforce Bearer auth (when configured) and mutating routes enforce POST + anti-CSRF header
+    if req_path.startswith("/api/"):
+        if not _is_request_authorized(request, allow_query_token=False):
+            return _http_response(
+                401,
+                "Unauthorized",
+                "application/json; charset=utf-8",
+                json.dumps({"status": "error", "error": "Missing or invalid Authorization Bearer token"}).encode("utf-8"),
+                extra_headers=[("WWW-Authenticate", 'Bearer realm="ActorII Studio"')],
+            )
+        if req_path in _MUTATING_HTTP_PATHS:
+            if method != "POST":
+                return _http_response(
+                    405,
+                    "Method Not Allowed",
+                    "application/json; charset=utf-8",
+                    json.dumps(
+                        {
+                            "status": "error",
+                            "error": f"Endpoint {req_path} requires HTTP POST with X-Actor-Request: 1 header",
+                        }
+                    ).encode("utf-8"),
+                    extra_headers=[("Allow", "POST")],
+                )
+            if not _has_csrf_proof_header(request):
+                return _http_response(
+                    403,
+                    "Forbidden",
+                    "application/json; charset=utf-8",
+                    json.dumps(
+                        {
+                            "status": "error",
+                            "error": "Missing required X-Actor-Request: 1 anti-CSRF header",
+                        }
+                    ).encode("utf-8"),
+                )
+
     if req_path == "/api/pool":
         ws_app = get_shared_workspace()
-        sandbox = getattr(ws_app, "sandbox", None)
-        summary_str = (
-            sandbox.poolSummary()
-            if sandbox and hasattr(sandbox, "poolSummary")
-            else ""
-        )
+        async with ws_app._vm_lock:
+            sandbox = getattr(ws_app, "sandbox", None)
+            summary_str = (
+                sandbox.poolSummary()
+                if sandbox and hasattr(sandbox, "poolSummary")
+                else ""
+            )
         return _http_response(
             200,
             "OK",
@@ -1590,18 +1852,17 @@ def process_http_request(connection: Any, request: Any) -> Any:
         )
 
     if req_path == "/api/eval":
-        import urllib.parse
-
         qs = urllib.parse.parse_qs(
             (request.path or "").split("?", 1)[1] if "?" in (request.path or "") else ""
         )
         code = (qs.get("code") or [""])[0]
         ws_app = get_shared_workspace()
-        try:
-            res = ws_app._eval_source(code)
-            payload = {"status": "ok", "success": True, "result": _serialize_value(res)}
-        except Exception as exc:
-            payload = {"status": "error", "success": False, "error": f"{type(exc).__name__}: {exc}"}
+        async with ws_app._vm_lock:
+            try:
+                res = ws_app._eval_source(code)
+                payload = {"status": "ok", "success": True, "result": _serialize_value(res)}
+            except Exception as exc:
+                payload = {"status": "error", "success": False, "error": f"{type(exc).__name__}: {exc}"}
         return _http_response(
             200,
             "OK",
@@ -1610,47 +1871,46 @@ def process_http_request(connection: Any, request: Any) -> Any:
         )
 
     if req_path in ("/api/goal", "/api/chat"):
-        import urllib.parse
-
         qs = urllib.parse.parse_qs(
             (request.path or "").split("?", 1)[1] if "?" in (request.path or "") else ""
         )
         goal_q = (qs.get("q") or qs.get("goal") or qs.get("message") or [""])[0]
         max_steps = int((qs.get("max_steps") or ["6"])[0] or 6)
         ws_app = get_shared_workspace()
-        try:
-            from actorii.harness import bootstrap_agent_harness
+        async with ws_app._vm_lock:
+            try:
+                from actorii.harness import bootstrap_agent_harness
 
-            if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
-                _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(ws_app.vm)
-            harness_obj = ws_app.vm.global_vars["Actor"]["Harness"]
-            sb = getattr(ws_app, "sandbox", None)
-            escaped = goal_q.replace("\\", "\\\\").replace('"', '\\"')
-            res = ws_app._eval_source(f'runGoal(Actor[#Harness], "{escaped}", {max_steps})!!')
-            status_str = str(harness_obj._fields.get("status", "#complete"))
-            step_count = int(harness_obj._fields.get("stepCount", 0) or 0)
-            last_res = _serialize_value(harness_obj._fields.get("lastResult"))
-            raw_logs = _serialize_value(list(harness_obj._fields.get("stepLog", [])))
-            chat_hist = _serialize_value(
-                sb.getChatHistory(harness_obj)
-                if sb is not None and hasattr(sb, "getChatHistory")
-                else []
-            )
-            payload = {
-                "status": "ok",
-                "success": "complete" in status_str.lower(),
-                "goal": goal_q,
-                "harness_status": status_str,
-                "steps_count": step_count,
-                "gas_used": int(harness_obj._fields.get("totalGasUsed", 0) or 0),
-                "result": _serialize_value(res),
-                "last_result": last_res,
-                "final_summary": str(last_res or _serialize_value(res)),
-                "step_log": raw_logs,
-                "chat_history": chat_hist,
-            }
-        except Exception as exc:
-            payload = {"status": "error", "success": False, "error": f"{type(exc).__name__}: {exc}"}
+                if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
+                    _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(ws_app.vm)
+                harness_obj = ws_app.vm.global_vars["Actor"]["Harness"]
+                sb = getattr(ws_app, "sandbox", None)
+                escaped = goal_q.replace("\\", "\\\\").replace('"', '\\"')
+                res = ws_app._eval_source(f'runGoal(Actor[#Harness], "{escaped}", {max_steps})!!')
+                status_str = str(harness_obj._fields.get("status", "#complete"))
+                step_count = int(harness_obj._fields.get("stepCount", 0) or 0)
+                last_res = _serialize_value(harness_obj._fields.get("lastResult"))
+                raw_logs = _serialize_value(list(harness_obj._fields.get("stepLog", [])))
+                chat_hist = _serialize_value(
+                    sb.getChatHistory(harness_obj)
+                    if sb is not None and hasattr(sb, "getChatHistory")
+                    else []
+                )
+                payload = {
+                    "status": "ok",
+                    "success": "complete" in status_str.lower(),
+                    "goal": goal_q,
+                    "harness_status": status_str,
+                    "steps_count": step_count,
+                    "gas_used": int(harness_obj._fields.get("totalGasUsed", 0) or 0),
+                    "result": _serialize_value(res),
+                    "last_result": last_res,
+                    "final_summary": str(last_res or _serialize_value(res)),
+                    "step_log": raw_logs,
+                    "chat_history": chat_hist,
+                }
+            except Exception as exc:
+                payload = {"status": "error", "success": False, "error": f"{type(exc).__name__}: {exc}"}
         return _http_response(
             200,
             "OK",
@@ -1662,21 +1922,22 @@ def process_http_request(connection: Any, request: Any) -> Any:
         from actorii.harness import bootstrap_agent_harness
 
         ws_app = get_shared_workspace()
-        if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
-            _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(ws_app.vm)
-        harness_obj = ws_app.vm.global_vars["Actor"]["Harness"]
-        sb = getattr(ws_app, "sandbox", None)
-        chat_hist = _serialize_value(
-            sb.getChatHistory(harness_obj)
-            if sb is not None and hasattr(sb, "getChatHistory")
-            else []
-        )
-        payload = {
-            "status": "ok",
-            "harness_status": str(harness_obj._fields.get("status", "#idle")),
-            "chat_history": chat_hist,
-            "turns_count": len(chat_hist),
-        }
+        async with ws_app._vm_lock:
+            if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
+                _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(ws_app.vm)
+            harness_obj = ws_app.vm.global_vars["Actor"]["Harness"]
+            sb = getattr(ws_app, "sandbox", None)
+            chat_hist = _serialize_value(
+                sb.getChatHistory(harness_obj)
+                if sb is not None and hasattr(sb, "getChatHistory")
+                else []
+            )
+            payload = {
+                "status": "ok",
+                "harness_status": str(harness_obj._fields.get("status", "#idle")),
+                "chat_history": chat_hist,
+                "turns_count": len(chat_hist),
+            }
         return _http_response(
             200,
             "OK",
@@ -1688,10 +1949,11 @@ def process_http_request(connection: Any, request: Any) -> Any:
         from actorii.harness import bootstrap_agent_harness
 
         ws_app = get_shared_workspace()
-        if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
-            _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(ws_app.vm)
-        ws_app._eval_source("clearChat(Actor[#Harness])!!")
-        ws_app._eval_source("resetBreaker(Actor[#Harness])!!")
+        async with ws_app._vm_lock:
+            if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
+                _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(ws_app.vm)
+            ws_app._eval_source("clearChat(Actor[#Harness])!!")
+            ws_app._eval_source("resetBreaker(Actor[#Harness])!!")
         payload = {"status": "ok", "cleared": True, "chat_history": []}
         return _http_response(
             200,
@@ -1701,37 +1963,36 @@ def process_http_request(connection: Any, request: Any) -> Any:
         )
 
     if req_path in ("/api/engrams", "/api/schema", "/api/harness/source", "/api/harness/evolve"):
-        import urllib.parse
-
         from actorii.guardrails.fileout import ActorFileOutManager
         from actorii.harness import bootstrap_agent_harness
 
         ws_app = get_shared_workspace()
-        if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
-            _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(ws_app.vm)
-        if req_path == "/api/engrams":
-            out = ws_app._eval_source("listEngrams(Actor[#Memory])!!")
-            payload = {"status": "ok", "engrams": str(out)}
-        elif req_path == "/api/schema":
-            out = ws_app._eval_source("graphSchema(Actor[#Memory])!!")
-            payload = {"status": "ok", "schema": str(out)}
-        elif req_path == "/api/harness/source":
-            mgr = ActorFileOutManager("/tmp/actorii_harness_inspect")
-            src = mgr.format_class_source(ws_app.vm, "AgentHarness")
-            payload = {"status": "ok", "class_name": "AgentHarness", "source": src}
-        else:
-            qs = urllib.parse.parse_qs(
-                (request.path or "").split("?", 1)[1] if "?" in (request.path or "") else ""
-            )
-            patch_code = (qs.get("patch") or qs.get("code") or [""])[0]
-            val_code = (qs.get("validate") or qs.get("validation") or [""])[0]
-            p_esc = patch_code.replace("\\", "\\\\").replace('"', '\\"')
-            v_esc = val_code.replace("\\", "\\\\").replace('"', '\\"')
-            out = ws_app._eval_source(f'evolve(Actor[#Harness], "{p_esc}", "{v_esc}")!!')
-            payload = {
-                "status": "ok" if str(out).startswith("EVOLVE_COMMITTED") else "rejected",
-                "result": str(out),
-            }
+        async with ws_app._vm_lock:
+            if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
+                _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(ws_app.vm)
+            if req_path == "/api/engrams":
+                out = ws_app._eval_source("listEngrams(Actor[#Memory])!!")
+                payload = {"status": "ok", "engrams": str(out)}
+            elif req_path == "/api/schema":
+                out = ws_app._eval_source("graphSchema(Actor[#Memory])!!")
+                payload = {"status": "ok", "schema": str(out)}
+            elif req_path == "/api/harness/source":
+                mgr = ActorFileOutManager("/tmp/actorii_harness_inspect")
+                src = mgr.format_class_source(ws_app.vm, "AgentHarness")
+                payload = {"status": "ok", "class_name": "AgentHarness", "source": src}
+            else:
+                qs = urllib.parse.parse_qs(
+                    (request.path or "").split("?", 1)[1] if "?" in (request.path or "") else ""
+                )
+                patch_code = (qs.get("patch") or qs.get("code") or [""])[0]
+                val_code = (qs.get("validate") or qs.get("validation") or [""])[0]
+                p_esc = patch_code.replace("\\", "\\\\").replace('"', '\\"')
+                v_esc = val_code.replace("\\", "\\\\").replace('"', '\\"')
+                out = ws_app._eval_source(f'evolve(Actor[#Harness], "{p_esc}", "{v_esc}")!!')
+                payload = {
+                    "status": "ok" if str(out).startswith("EVOLVE_COMMITTED") else "rejected",
+                    "result": str(out),
+                }
         return _http_response(
             200,
             "OK",
@@ -1747,9 +2008,9 @@ async def handler(
     path: Optional[str] = None,
     workspace: Optional[ActorWorkspace] = None,
 ):
-    """Main WebSocket connection loop."""
+    """Main WebSocket connection loop with multi-client driver registration."""
     ws_app = workspace if workspace is not None else get_shared_workspace()
-    ws_app.driver._ws = websocket
+    ws_app.driver.register_client(websocket)
 
     try:
         async for message in websocket:
@@ -1764,6 +2025,8 @@ async def handler(
                 await websocket.send(json.dumps({"type": "error", "message": str(e)}))
     except Exception:
         pass
+    finally:
+        ws_app.driver.unregister_client(websocket)
     print("Client disconnected", flush=True)
 
 
@@ -1772,17 +2035,19 @@ async def main():
 
     get_shared_workspace()
     ports = sorted({LISTEN_PORT, 8090})
+    bind_host = None if LISTEN_HOST in ("", "0.0.0.0", "::") else LISTEN_HOST
     servers = []
     for port in ports:
         srv = await websockets.serve(
             handler,
-            None,
+            bind_host,
             port,
             process_request=process_http_request,
         )
         servers.append(srv)
+        host_desc = "dual-stack [::] / 0.0.0.0" if bind_host is None else bind_host
         print(
-            f"ActorII HTML5 & WebSocket Surface listening on dual-stack [::]:{port} / 0.0.0.0:{port}",
+            f"ActorII HTML5 & WebSocket Surface listening on {host_desc}:{port}",
             flush=True,
         )
     await asyncio.Future()

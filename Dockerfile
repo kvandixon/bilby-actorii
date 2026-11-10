@@ -37,8 +37,8 @@ RUN groupadd -g 10001 bilby && \
     cp /app/docker/valkyrie-rgb-ctl /usr/local/bin/valkyrie-rgb-ctl && \
     ln -sf /app/actor_tui.py /usr/local/bin/actor-tui && \
     ln -sf /app/actor_tui.py /usr/local/bin/bilby && \
-    mkdir -p /etc/valkyrie-rgb /data /workspace /home/bilby/.actorii && \
-    chown -R bilby:bilby /etc/valkyrie-rgb /data /workspace /home/bilby && \
+    mkdir -p /etc/valkyrie-rgb /data /workspace /home/bilby/.actorii /app/examples/fileout && \
+    chown -R bilby:bilby /etc/valkyrie-rgb /data /workspace /home/bilby /app/examples/fileout && \
     chmod -R a-w /app/src /app/docker && \
     /usr/local/bin/valkyrie-rgb-ctl status
 
