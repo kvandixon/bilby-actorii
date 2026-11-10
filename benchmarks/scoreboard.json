@@ -631,6 +631,51 @@
         "LoCoMo": "100.0% (5/5)",
         "Avg Latency": "21.1s"
       }
+    },
+    {
+      "run_id": "2026-11-10-tb21-container-26",
+      "benchmark_id": "tb21-container",
+      "date": "2026-11-10",
+      "harness_version": "v4.2.0",
+      "model": "qwen3.8-27b",
+      "passed": 12,
+      "total": 15,
+      "score_pct": 80.0,
+      "mode": "avg@3 Zero-Intervention Container Sweep (temp=0.1)",
+      "raw_ledger": "archive/TB21_5TASK_AVG3_2026-11-10_v420.json",
+      "notes": "3 independent trials (15 runs, zero hints): Trial 1 4/5 (80%), Trial 2 5/5 (100% clean sweep), Trial 3 3/5 (60%). pass@3=5/5 (100% capability ceiling), pass^3=2/5 (40% strict all-3: fix-git 3/3, multi-source-data-merger 3/3; git-leak-recovery, log-summary, cancel-async-tasks 2/3 each).",
+      "submetrics": {
+        "pass^3": "2/5 (40%)",
+        "pass@3": "5/5 (100%)",
+        "git-leak-recovery": "2/3",
+        "log-summary-date-ranges": "2/3",
+        "cancel-async-tasks": "2/3",
+        "fix-git": "3/3",
+        "multi-source-data-merger": "3/3"
+      },
+      "trials": 3
+    },
+    {
+      "run_id": "2026-11-10-nextgen-postcutoff-27",
+      "benchmark_id": "nextgen-postcutoff",
+      "date": "2026-11-10",
+      "harness_version": "v4.2.0",
+      "model": "qwen3.8-27b",
+      "passed": 16,
+      "total": 27,
+      "score_pct": 59.26,
+      "mode": "avg@3 Post-Cutoff Multi-Track Sweep (temp=0.1)",
+      "raw_ledger": "archive/NEXTGEN_AVG3_2026-11-10_v420.json",
+      "notes": "3 independent trials (27 runs, zero hints): Trial 1 6/9 (66.7%), Trial 2 6/9 (66.7%), Trial 3 4/9 (44.4%). pass@3=7/9 (77.8% capability ceiling — matches/exceeds prior 7/9 peak with LCB-v6/abc400_c solved in Trial 2), pass^3=4/9 (44.4% strict all-3: git-leak-recovery 3/3, log-summary 3/3, Polyglot/grep 3/3, LCB-v6/3773 3/3).",
+      "submetrics": {
+        "pass^3": "4/9 (44%)",
+        "pass@3": "7/9 (78%)",
+        "Terminal-Bench 2.1": "7/9",
+        "SWE-bench-Live": "2/6",
+        "Aider Polyglot": "3/6",
+        "LiveCodeBench v6": "4/6"
+      },
+      "trials": 3
     }
   ]
 }

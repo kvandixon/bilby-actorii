@@ -16,10 +16,10 @@
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
 | **LongMemEval (S Split)** | `Memory` | `500` | **`94.60% (473 / 500)`** | **`94.60%`** (`qwen3.8-27b`) | `+0.48 pp` | `qwen3.8-27b` | `2026-11-07` | [`LONGMEM_LOCOMO_FULL_RESULTS.json`](archive/LONGMEM_LOCOMO_FULL_RESULTS.json) |
 | **LoCoMo-10 (Full 5-Category Suite)** | `Memory` | `1,986` | **`77.34% (1,536 / 1,986)`** | **`77.34%`** (`qwen3.8-27b`) | — | `qwen3.8-27b` | `2026-11-07` | [`LONGMEM_LOCOMO_FULL_RESULTS.json`](archive/LONGMEM_LOCOMO_FULL_RESULTS.json) |
-| **Terminal-Bench 2.1 (Container Subset)** | `Terminal & OS` | `5` | **`80.00% (4 / 5)`** | **`100.00%`** (`qwen3.8-27b`) | — | `qwen3.8-27b` | `2026-11-10` | [`TB21_5TASK_2026-11-10_v420.json`](archive/TB21_5TASK_2026-11-10_v420.json) |
+| **Terminal-Bench 2.1 (Container Subset)** | `Terminal & OS` | `5 (×3)` | **`80.00% avg@3 (12 / 15 trials)`** | **`100.00%`** (`qwen3.8-27b`) | — | `qwen3.8-27b` | `2026-11-10` | [`TB21_5TASK_AVG3_2026-11-10_v420.json`](archive/TB21_5TASK_AVG3_2026-11-10_v420.json) |
 | **Terminal-Bench 2.1 (Hard Tier)** | `Terminal & OS` | `5` | **`0.00% (0 / 5)`** | **`60.00%`** (`qwen3.8-27b`) | — | `qwen3.8-27b` | `2026-11-10` | [`TB21_HARD_2026-11-10_v420.json`](archive/TB21_HARD_2026-11-10_v420.json) |
 | **Industry 8-Track Suite** | `SWE & Coding` | `22` | **`77.27% (17 / 22)`** | **`77.27%`** (`qwen3.8-27b`) | `+4.54 pp` | `qwen3.8-27b` | `2026-11-10` | [`INDUSTRY_8TRACK_2026-11-10_v420.json`](archive/INDUSTRY_8TRACK_2026-11-10_v420.json) |
-| **Next-Gen Post-Cutoff Suite** | `SWE & Coding` | `9` | **`66.67% (6 / 9)`** | **`77.78%`** (`qwen3.8-27b`) | `+11.11 pp` | `qwen3.8-27b` | `2026-11-10` | [`NEXTGEN_2026-11-10_v420.json`](archive/NEXTGEN_2026-11-10_v420.json) |
+| **Next-Gen Post-Cutoff Suite** | `SWE & Coding` | `9 (×3)` | **`59.26% avg@3 (16 / 27 trials)`** | **`77.78%`** (`qwen3.8-27b`) | `+3.70 pp` | `qwen3.8-27b` | `2026-11-10` | [`NEXTGEN_AVG3_2026-11-10_v420.json`](archive/NEXTGEN_AVG3_2026-11-10_v420.json) |
 | **Red-Team Adversarial Containment Audit** | `Security` | `6` | **`100.00% (6 / 6 Blocked)`** | **`100.00%`** (`qwen3.8-27b`) | — | `qwen3.8-27b` | `2026-11-10` | [`REDTEAM_CONTAINMENT_2026-11-10_v420.json`](archive/REDTEAM_CONTAINMENT_2026-11-10_v420.json) |
 | **HumanEval-12 + GSM8K-8 Local Model Matrix** | `SWE & Coding` | `20` | **`85.00% (17 / 20)`** | **`100.00%`** (`gpt-oss:20b`) | `+35.00 pp` | `qwen3.8-27b` | `2026-11-10` | [`BENCHMARK_RESULTS_2026-11-10_v420.json`](archive/BENCHMARK_RESULTS_2026-11-10_v420.json) |
 | **Self-Hosting Pathway Dogfood** | `Self-Hosting` | `3` | **`100.00% (3 / 3)`** | **`100.00%`** (`qwen3.8-27b`) | — | `qwen3.8-27b` | `2026-11-10` | [`PATHWAY_SELF_HOSTING_RESULTS.json`](archive/PATHWAY_SELF_HOSTING_RESULTS.json) |
@@ -41,8 +41,8 @@
 
 ### Terminal-Bench 2.1 (Container Subset) (`v4.2.0` · `qwen3.8-27b` · `2026-11-10`)
 - **Scope**: Stanford / Laude Institute containerized Linux systems, data-pipeline merging, regex log forensics, and CLI repair tasks executed inside actorii-sandbox (evaluated at avg@3 / pass^3).
-- **Notes**: git-leak-recovery PASS, log-summary PASS, fix-git PASS, multi-source-data-merger PASS; cancel-async-tasks 5/6 pytest checks.
-- **Breakdown**: `git-leak-recovery`: **PASS (5/5)** · `log-summary-date-ranges`: **PASS (2/2)** · `cancel-async-tasks`: **FAIL (5/6)** · `fix-git`: **PASS (2/2)** · `multi-source-data-merger`: **PASS (3/3)**
+- **Notes**: 3 independent trials (15 runs, zero hints): Trial 1 4/5 (80%), Trial 2 5/5 (100% clean sweep), Trial 3 3/5 (60%). pass@3=5/5 (100% capability ceiling), pass^3=2/5 (40% strict all-3: fix-git 3/3, multi-source-data-merger 3/3; git-leak-recovery, log-summary, cancel-async-tasks 2/3 each).
+- **Breakdown**: `pass^3`: **2/5 (40%)** · `pass@3`: **5/5 (100%)** · `git-leak-recovery`: **2/3** · `log-summary-date-ranges`: **2/3** · `cancel-async-tasks`: **2/3** · `fix-git`: **3/3** · `multi-source-data-merger`: **3/3**
 
 ### Terminal-Bench 2.1 (Hard Tier) (`v4.2.0` · `qwen3.8-27b` · `2026-11-10`)
 - **Scope**: Expert-rated (45m–480m human est.) systems & security tasks: C vulnerability patching, SQLite WAL binary recovery, constraint scheduling, ML batching optimization, and FEAL cryptanalysis.
@@ -56,8 +56,8 @@
 
 ### Next-Gen Post-Cutoff Suite (`v4.2.0` · `qwen3.8-27b` · `2026-11-10`)
 - **Scope**: Contamination-resistant post-cutoff evaluation spanning Terminal-Bench 2.1 (3), SWE-bench-Live 2025-06 (2), Aider Polyglot Hard Exercism (2), and LiveCodeBench v6 2025-04 (2) (evaluated at avg@3 / pass^3).
-- **Notes**: TB2.1 3/3 (100%), SWE-Live 1/2 (pypdf-3317 PASS, networkx-8105 FAIL), Polyglot 1/2 (grep PASS, forth 51/54), LCB-v6 1/2 (3773 PASS, abc400_c FAIL).
-- **Breakdown**: `Terminal-Bench 2.1`: **3/3** · `SWE-bench-Live`: **1/2** · `Aider Polyglot`: **1/2** · `LiveCodeBench v6`: **1/2**
+- **Notes**: 3 independent trials (27 runs, zero hints): Trial 1 6/9 (66.7%), Trial 2 6/9 (66.7%), Trial 3 4/9 (44.4%). pass@3=7/9 (77.8% capability ceiling — matches/exceeds prior 7/9 peak with LCB-v6/abc400_c solved in Trial 2), pass^3=4/9 (44.4% strict all-3: git-leak-recovery 3/3, log-summary 3/3, Polyglot/grep 3/3, LCB-v6/3773 3/3).
+- **Breakdown**: `pass^3`: **4/9 (44%)** · `pass@3`: **7/9 (78%)** · `Terminal-Bench 2.1`: **7/9** · `SWE-bench-Live`: **2/6** · `Aider Polyglot`: **3/6** · `LiveCodeBench v6`: **4/6**
 
 ### Red-Team Adversarial Containment Audit (`v4.2.0` · `qwen3.8-27b` · `2026-11-10`)
 - **Scope**: Live adversarial security audit testing prompt injection, /etc/shadow reads, Ring-0 VM kernel mutation, environment secret exfiltration, and path traversal under ACTORII_HOST_LOCKDOWN=1.
@@ -85,6 +85,8 @@
 
 | Date | Benchmark | Version | Model | Mode / Configuration | Score | Raw Artifact |
 | :---: | :--- | :---: | :---: | :--- | :---: | :--- |
+| `2026-11-10` | **Next-Gen Post-Cutoff Suite** | `v4.2.0` | `qwen3.8-27b` | avg@3 Post-Cutoff Multi-Track Sweep (temp=0.1) | **`59.26% avg@3 (16 / 27 trials)`** | [`NEXTGEN_AVG3_2026-11-10_v420.json`](archive/NEXTGEN_AVG3_2026-11-10_v420.json) |
+| `2026-11-10` | **Terminal-Bench 2.1 (Container Subset)** | `v4.2.0` | `qwen3.8-27b` | avg@3 Zero-Intervention Container Sweep (temp=0.1) | **`80.00% avg@3 (12 / 15 trials)`** | [`TB21_5TASK_AVG3_2026-11-10_v420.json`](archive/TB21_5TASK_AVG3_2026-11-10_v420.json) |
 | `2026-11-10` | **LongMemEval + LoCoMo (Stratified 17-Task)** | `v4.2.0` | `qwen3.8-27b` | Zero-Intervention v4.2.0 Live Recall (:ActorEpisode + :8084) | **`94.12% (16 / 17)`** | [`LONGMEM_LOCOMO_STRATIFIED_2026-11-10_v420.json`](archive/LONGMEM_LOCOMO_STRATIFIED_2026-11-10_v420.json) |
 | `2026-11-10` | **Self-Hosting Pathway Dogfood** | `v4.2.0` | `qwen3.8-27b` | Pytest Pathway Suite Verification (v4.2.0) | **`100.00% (3 / 3)`** | [`PATHWAY_SELF_HOSTING_RESULTS.json`](archive/PATHWAY_SELF_HOSTING_RESULTS.json) |
 | `2026-11-10` | **Terminal-Bench 2.1 (Hard Tier)** | `v4.2.0` | `qwen3.8-27b` | Zero-Hint Single-Trajectory Container Sweep | **`0.00% (0 / 5)`** | [`TB21_HARD_2026-11-10_v420.json`](archive/TB21_HARD_2026-11-10_v420.json) |
