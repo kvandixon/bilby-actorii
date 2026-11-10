@@ -4,18 +4,25 @@
 
 Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) with a 20B–27B open-weight model (`0 MB` GPU VRAM overhead for embeddings and memory indexing)—or connected to any cloud LLM (`OpenAI`, `OpenRouter`, `Gemini`, `Ollama`, `vLLM`)—Bilby provides a hardened, container-first neuro-symbolic agent runtime.
 
-[![Master Benchmark Grid](https://img.shields.io/badge/Benchmarks-Master%20Results%20Grid-brightgreen.svg)](benchmarks/BENCHMARK_RESULTS.md)
+[![Benchmarks](https://img.shields.io/badge/Benchmarks-Bilby%20Results-brightgreen.svg)](benchmarks/BENCHMARK_RESULTS.md)
 [![Test Suite](https://img.shields.io/badge/tests-600%2B%20passed-brightgreen.svg)](tests/)
 [![Containment](https://img.shields.io/badge/containment-Defense--Up%20Docker%20%2B%203--Ring%20VM-orange.svg)](src/actorii/harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## Benchmark Results
+## Benchmark Summary (`Bilby ActorII v4.1` — Local RTX 5070 Ti 16 GB)
 
-All benchmark results are maintained in a single, up-to-date Master Head-to-Head Grid (comparing harnesses only on identical question sets, identical question counts, and identical instructions):
+| Benchmark Suite | Questions / Tasks | Bilby Score | Date |
+| :--- | :---: | :---: | :---: |
+| **`LongMemEval` (`S` Split)** | `500` | **`94.60%` (`473 / 500`)** | `2026-11-07` |
+| **`LoCoMo-10` (5-Category Suite)** | `1,986` | **`77.34%` (`1,536 / 1,986`)** | `2026-11-07` |
+| **`Industry 8-Track Suite`** | `22` | **`86.36%` (`19 / 22`)** | `2026-11-09` |
+| **`Terminal-Bench 2.1` (Container)** | `5` | **`80.00%` (`4 / 5`)** | `2026-11-09` |
+| **`Next-Gen Post-Cutoff Suite`** | `9` | **`77.78%` (`7 / 9`)** | `2026-11-03` |
+| **`Red-Team Containment Audit`** | `6` | **`100.00%` (`6 / 6` Blocked)** | `2026-11-09` |
 
-👉 **[View the Master Benchmark Results Grid (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)** *(Historical raw reports and JSON ledgers are archived in [`benchmarks/archive/`](benchmarks/archive/).)*
+👉 **[Full details & archived raw ledgers (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)**
 
 ---
 
