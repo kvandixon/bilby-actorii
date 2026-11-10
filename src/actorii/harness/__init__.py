@@ -997,10 +997,18 @@ class VMSandboxBridge:
         cur_step_lines = ["STEPS EXECUTED IN CURRENT TURN SO FAR:"]
         recent_steps = list(step_log)[-12:]
         n_recent = len(recent_steps)
+        consec_readonly = 0
+        has_mutated = False
         for idx_s, s_entry in enumerate(recent_steps):
             if isinstance(s_entry, dict):
                 st = s_entry.get("status", "ok")
-                act = self._compact_step_action_for_history(str(s_entry.get("action", "")))
+                raw_act = str(s_entry.get("action", ""))
+                act = self._compact_step_action_for_history(raw_act)
+                if any(m in raw_act for m in ("editFile", "writeFile", "execShell", "storeScratch", "Def ", "inherit(")):
+                    has_mutated = True
+                    consec_readonly = 0
+                elif any(r in raw_act for r in ("searchFile", "readFile")):
+                    consec_readonly += 1
                 if st == "error":
                     cur_step_lines.append(
                         f"- Step {s_entry.get('step')} [ERROR]: `{act}` -> {s_entry.get('error')}"
@@ -1014,6 +1022,12 @@ class VMSandboxBridge:
                     cur_step_lines.append(
                         f"- Step {s_entry.get('step')} [OK | gas={s_entry.get('gas_used', 0)}]: `{act}` -> {res_repr}"
                     )
+        if consec_readonly >= 4 and not has_mutated:
+            cur_step_lines.append(
+                f"\n[ACTION REQUIRED — {consec_readonly} CONSECUTIVE READ-ONLY STEPS WITHOUT EDITING]: "
+                "Stop searching/reading! Apply your fix NOW using `editFile(Actor[#Host], \"/workspace/...\", \"\"\"old\"\"\", \"\"\"new\"\"\")!!` "
+                "(or `writeFile` / `execShell`), then verify it with `execShell`."
+            )
         return "\n".join(cur_step_lines)
 
     @actor_query

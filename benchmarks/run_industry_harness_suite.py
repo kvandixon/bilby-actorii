@@ -574,9 +574,25 @@ def run_swe_bench_lite_task(row: Dict[str, Any], harness_name: str, model: str) 
             f"ISSUE DESCRIPTION (`{iid}`):\n{row['problem_statement'][:1800]}\n\n"
             f"Search `/workspace` to locate the relevant source file(s) and edit the code in `/workspace` so the issue is fixed."
         )
-        _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-            harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
+        prev_think = os.environ.get("ACTORII_ENABLE_THINKING")
+        os.environ["ACTORII_ENABLE_THINKING"] = "1"
+        try:
+            _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
+                harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
+            )
+        finally:
+            if prev_think is None:
+                os.environ.pop("ACTORII_ENABLE_THINKING", None)
+            else:
+                os.environ["ACTORII_ENABLE_THINKING"] = prev_think
+
+        diff_proc = subprocess.run(
+            ["git", "-c", "core.fileMode=false", "diff", "--stat"],
+            cwd=str(tmp_dir),
+            capture_output=True,
+            text=True,
         )
+        diff_stat = (diff_proc.stdout or "").strip().splitlines()[-1] if (diff_proc.stdout or "").strip() else "no files modified"
 
         # Ground-truth official SWE-bench_Lite verification: reset any agent edits to test files first, then apply upstream `test_patch` and run `FAIL_TO_PASS`
         for line in row["test_patch"].splitlines():
@@ -594,13 +610,6 @@ def run_swe_bench_lite_task(row: Dict[str, Any], harness_name: str, model: str) 
         ]
         v_proc = subprocess.run(verify_cmd, cwd=str(tmp_dir), capture_output=True, text=True, timeout=25)
         passed = v_proc.returncode == 0 and "SWE_BENCH_PASS" in (v_proc.stdout or "")
-        diff_proc = subprocess.run(
-            ["git", "-c", "core.fileMode=false", "diff", "--stat"],
-            cwd=str(tmp_dir),
-            capture_output=True,
-            text=True,
-        )
-        diff_stat = (diff_proc.stdout or "").strip().splitlines()[-1] if (diff_proc.stdout or "").strip() else "no files modified"
         details = f"{fn}: {'PASS' if passed else 'FAIL'} ({diff_stat})"
     except Exception as exc:
         details = f"Exception: {exc}"
