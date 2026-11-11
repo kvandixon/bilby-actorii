@@ -20,7 +20,8 @@ import shutil
 import socket
 import subprocess
 import urllib.request
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from actorii.bridge import actor_bridge, actor_command, actor_query
 
@@ -1552,7 +1553,383 @@ class ReverseProxyTwin:
         return f"Recent Proxy Access Log ({len(rows)} entries):\n" + "\n".join(rows)
 
 
+JETSON_FORBIDDEN_PATTERNS: Tuple[str, ...] = (
+    "do-release-upgrade",
+    "nvidia-l4t-initrd",
+    "nvidia-l4t-bootloader",
+    "/boot/initrd",
+    "extlinux.conf",
+    "/dev/mmcblk0",
+    "/dev/mmcblk2",
+    "mkfs",
+    "fdisk",
+    "parted",
+    "sfdisk",
+    "dd if=",
+    "rm -rf /",
+    "rm -rf /*",
+    "shutdown",
+    "poweroff",
+    "halt",
+    "reboot",
+    "init 0",
+    "init 6",
+    "iptables -f",
+    "ufw reset",
+)
+
+
+@actor_bridge(name="JetsonEdgeTwin")
+class JetsonEdgeTwin:
+    """Guarded Edge Digital Twin (`Actor[#Jetson]`) for the NVIDIA Jetson dev board on the local LAN.
+
+    Uses a dedicated single-purpose SSH key (`~/.actorii/jetson/id_ed25519`), list-argv `ssh` invocation
+    (never invoking a shell on `valkyrie`), dynamic mDNS/LAN discovery (`discover` / `scanLan`), and
+    hard guardrails protecting the dual-boot SD/eMMC failsafe bootloader (`jetson-tx1-edge-ops`).
+    """
+
+    def __init__(self, state_dir: Optional[Path] = None) -> None:
+        self._state_dir = state_dir or (Path.home() / ".actorii" / "jetson")
+        self._host_file = self._state_dir / "host.json"
+        self._key_file = self._state_dir / "id_ed25519"
+        self._known_hosts = self._state_dir / "known_hosts"
+
+    def _load_cfg(self) -> Dict[str, Any]:
+        default_cfg: Dict[str, Any] = {
+            "host": os.environ.get("ACTORII_JETSON_HOST", "192.168.68.60"),
+            "mdns": os.environ.get("ACTORII_JETSON_MDNS", "jetson.local"),
+            "user": os.environ.get("ACTORII_JETSON_USER", "kilog"),
+            "port": int(os.environ.get("ACTORII_JETSON_PORT", "22") or 22),
+        }
+        try:
+            if self._host_file.is_file():
+                raw = json.loads(self._host_file.read_text(encoding="utf-8"))
+                if isinstance(raw, dict):
+                    default_cfg.update({k: v for k, v in raw.items() if v is not None})
+        except Exception:
+            pass
+        return default_cfg
+
+    def _save_cfg(self, cfg: Dict[str, Any]) -> None:
+        try:
+            self._state_dir.mkdir(parents=True, exist_ok=True)
+            self._host_file.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+        except Exception:
+            pass
+
+    @staticmethod
+    def _probe_tcp_banner(ip: str, port: int = 22, timeout: float = 1.2) -> Optional[str]:
+        try:
+            with socket.create_connection((ip, int(port)), timeout=timeout) as sock:
+                if int(port) == 22:
+                    sock.settimeout(min(1.5, timeout + 0.3))
+                    banner = sock.recv(128).decode("utf-8", errors="replace").strip()
+                    return banner or "OPEN"
+                return "OPEN"
+        except Exception:
+            return None
+
+    def _resolve_live_host(self, auto_discover: bool = True) -> Tuple[str, Dict[str, Any], Optional[str]]:
+        cfg = self._load_cfg()
+        port = int(cfg.get("port", 22) or 22)
+        cur_host = str(cfg.get("host", "192.168.68.60")).strip()
+        banner = self._probe_tcp_banner(cur_host, port=port, timeout=1.4)
+        if banner:
+            return cur_host, cfg, banner
+
+        mdns_name = str(cfg.get("mdns", "jetson.local")).strip()
+        if mdns_name:
+            try:
+                resolved_ip = socket.gethostbyname(mdns_name)
+                if resolved_ip and resolved_ip != cur_host:
+                    b2 = self._probe_tcp_banner(resolved_ip, port=port, timeout=1.5)
+                    if b2:
+                        cfg["host"] = resolved_ip
+                        self._save_cfg(cfg)
+                        return resolved_ip, cfg, b2
+            except Exception:
+                pass
+
+        if auto_discover:
+            found_ip, b3 = self._scan_for_jetson_ip(port=port)
+            if found_ip:
+                cfg["host"] = found_ip
+                self._save_cfg(cfg)
+                return found_ip, cfg, b3
+
+        return cur_host, cfg, None
+
+    def _scan_for_jetson_ip(self, port: int = 22) -> Tuple[Optional[str], Optional[str]]:
+        import concurrent.futures
+
+        candidates = [f"192.168.68.{h}" for h in range(1, 255)]
+        hits: List[Tuple[str, str]] = []
+
+        def _check(ip: str) -> Optional[Tuple[str, str]]:
+            b = self._probe_tcp_banner(ip, port=port, timeout=0.9)
+            return (ip, b) if b else None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=64) as pool:
+            for item in pool.map(_check, candidates):
+                if item:
+                    hits.append(item)
+
+        for ip, banner in hits:
+            if "Ubuntu" in banner or "OpenSSH_7." in banner or "OpenSSH_8." in banner:
+                return ip, banner
+        return (hits[0][0], hits[0][1]) if len(hits) == 1 and hits[0][0] != "192.168.68.56" else (None, None)
+
+    def _ssh_exec_raw(self, remote_cmd: str, timeout_sec: float = 15.0) -> Dict[str, Any]:
+        host, cfg, banner = self._resolve_live_host(auto_discover=True)
+        if banner is None:
+            return {
+                "ok": False,
+                "host": host,
+                "exitCode": -1,
+                "stdout": "",
+                "stderr": f"Jetson unreachable on {host}:{cfg.get('port', 22)} (SSH offline or asleep).",
+            }
+        ssh_bin = shutil.which("ssh") or "/usr/bin/ssh"
+        if not os.path.isfile(ssh_bin):
+            return {
+                "ok": False,
+                "host": host,
+                "exitCode": -1,
+                "stdout": "",
+                "stderr": "Local `ssh` client binary not installed.",
+            }
+        user = str(cfg.get("user", "kilog")).strip() or "kilog"
+        port = int(cfg.get("port", 22) or 22)
+        argv = [
+            ssh_bin,
+            "-p",
+            str(port),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=5",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-o",
+            f"UserKnownHostsFile={self._known_hosts}",
+        ]
+        if self._key_file.is_file():
+            argv.extend(["-i", str(self._key_file), "-o", "IdentitiesOnly=yes"])
+        argv.extend([f"{user}@{host}", remote_cmd])
+
+        try:
+            self._state_dir.mkdir(parents=True, exist_ok=True)
+            proc = subprocess.run(
+                argv,
+                capture_output=True,
+                text=True,
+                timeout=max(2.0, min(120.0, float(timeout_sec or 15.0))),
+            )
+            return {
+                "ok": proc.returncode == 0,
+                "host": host,
+                "exitCode": int(proc.returncode),
+                "stdout": (proc.stdout or "").strip()[:8000],
+                "stderr": (proc.stderr or "").strip()[:4000],
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "ok": False,
+                "host": host,
+                "exitCode": 124,
+                "stdout": "",
+                "stderr": f"SSH command timed out after {timeout_sec}s on {user}@{host}.",
+            }
+        except Exception as exc:
+            return {
+                "ok": False,
+                "host": host,
+                "exitCode": -1,
+                "stdout": "",
+                "stderr": f"{type(exc).__name__}: {exc}",
+            }
+
+    @staticmethod
+    def _validate_jetson_command(cmd: str) -> Optional[str]:
+        low = " ".join((cmd or "").lower().split())
+        if not low:
+            return "Empty command."
+        for pat in JETSON_FORBIDDEN_PATTERNS:
+            if pat in low:
+                return (
+                    f"JETSON_GUARDRAIL_BLOCKED: Command matches forbidden pattern `{pat}` "
+                    "(protects Tegra L4T R32.7.6 OS, dual-boot SD/eMMC failsafe `/boot/initrd`, and power state)."
+                )
+        return None
+
+    @actor_query
+    def scanLan(self) -> Any:
+        """Scan `192.168.68.0/22` for reachable SSH (`:22`) and RTSP (`:8554`) edge devices without host shell."""
+        import concurrent.futures
+
+        subnets = [f"192.168.{b}.{h}" for b in (68, 69, 70, 71) for h in range(1, 255)]
+        found: List[Any] = []
+
+        def _probe_host(ip: str) -> Optional[Dict[str, Any]]:
+            ssh_b = self._probe_tcp_banner(ip, port=22, timeout=0.8)
+            rtsp_b = self._probe_tcp_banner(ip, port=8554, timeout=0.45) if ssh_b else None
+            if ssh_b or rtsp_b:
+                return {
+                    "ip": ip,
+                    "sshPort22": bool(ssh_b),
+                    "sshBanner": ssh_b or "",
+                    "rtspPort8554": bool(rtsp_b),
+                }
+            return None
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=96) as pool:
+            for res in pool.map(_probe_host, subnets):
+                if res:
+                    found.append(_to_actor_dict(res))
+        from actorii.classes.collections import ActorArray
+
+        arr = ActorArray(len(found))
+        for idx, item in enumerate(found):
+            arr.atPut(idx, item)
+        return arr
+
+    @actor_command
+    def discover(self) -> str:
+        """Locate the Jetson board via mDNS / LAN SSH banner scan and update `Actor[#Jetson]` host config."""
+        host, cfg, banner = self._resolve_live_host(auto_discover=True)
+        if banner:
+            return f"✔ Jetson reachable at {cfg.get('user', 'kilog')}@{host}:{cfg.get('port', 22)} ({banner})"
+        return f"✖ Jetson not currently reachable on LAN (last known host={host})."
+
+    @actor_command
+    def setHost(self, host: str, user: str = "kilog") -> str:
+        """Point `Actor[#Jetson]` at a specific LAN IP/hostname (e.g. when switching between TX1 and TX2)."""
+        clean_h = str(host or "").strip()
+        clean_u = str(user or "kilog").strip() or "kilog"
+        if not clean_h or any(ch in clean_h for ch in (" ", ";", "&", "|", "`", "$")):
+            return f"ERROR: Invalid hostname or IP {host!r}"
+        cfg = self._load_cfg()
+        cfg["host"] = clean_h
+        cfg["user"] = clean_u
+        self._save_cfg(cfg)
+        banner = self._probe_tcp_banner(clean_h, int(cfg.get("port", 22) or 22), timeout=1.5)
+        state = f"ONLINE ({banner})" if banner else "OFFLINE / SSH closed"
+        return f"✔ Updated `Actor[#Jetson]` target to `{clean_u}@{clean_h}` -> {state}"
+
+    @actor_query
+    def telemetry(self) -> Any:
+        """Query live hardware, thermal, memory, storage, boot-source, and RTSP camera telemetry from the Jetson."""
+        probe_script = (
+            "echo MODEL=$(tr -d '\\0' </proc/device-tree/model 2>/dev/null || uname -m); "
+            "echo HOSTNAME=$(hostname); "
+            "echo KERNEL=$(uname -r); "
+            "echo BOOT=$(cat /etc/jetson-boot-source 2>/dev/null || findmnt -n -o SOURCE / 2>/dev/null || echo unknown); "
+            "echo UPTIME=$(uptime -p 2>/dev/null || uptime); "
+            "echo MEM=$(free -m | awk '/^Mem:/ {print $2\",\"$3\",\"$7}'); "
+            "echo DISK=$(df -h / | awk 'NR==2 {print $1\",\"$2\",\"$4\",\"$5}'); "
+            "echo TEMP=$(cat /sys/devices/virtual/thermal/thermal_zone1/temp 2>/dev/null || echo 0); "
+            "echo RTSP=$(systemctl is-active jetson-rtsp.service 2>/dev/null || echo inactive)"
+        )
+        res = self._ssh_exec_raw(probe_script, timeout_sec=10.0)
+        host = res["host"]
+        rtsp_open = bool(self._probe_tcp_banner(host, port=8554, timeout=0.8))
+        if not res["ok"]:
+            return _to_actor_dict(
+                {
+                    "online": False,
+                    "ip": host,
+                    "error": res["stderr"],
+                    "rtspPort8554": rtsp_open,
+                }
+            )
+
+        kv: Dict[str, str] = {}
+        for ln in res["stdout"].splitlines():
+            if "=" in ln:
+                k, v = ln.split("=", 1)
+                kv[k.strip()] = v.strip()
+
+        mem_parts = (kv.get("MEM") or "0,0,0").split(",")
+        mem_total = int(mem_parts[0]) if len(mem_parts) > 0 and mem_parts[0].isdigit() else 0
+        mem_used = int(mem_parts[1]) if len(mem_parts) > 1 and mem_parts[1].isdigit() else 0
+        mem_avail = int(mem_parts[2]) if len(mem_parts) > 2 and mem_parts[2].isdigit() else 0
+        raw_temp = int(kv.get("TEMP") or 0) if (kv.get("TEMP") or "").isdigit() else 0
+        temp_c = round(raw_temp / 1000.0, 1) if raw_temp > 200 else float(raw_temp)
+
+        return _to_actor_dict(
+            {
+                "online": True,
+                "ip": host,
+                "hostname": kv.get("HOSTNAME", "jetson"),
+                "model": kv.get("MODEL", "Jetson"),
+                "kernel": kv.get("KERNEL", ""),
+                "bootSource": kv.get("BOOT", ""),
+                "uptime": kv.get("UPTIME", ""),
+                "memTotalMiB": mem_total,
+                "memUsedMiB": mem_used,
+                "memAvailMiB": mem_avail,
+                "diskRoot": kv.get("DISK", ""),
+                "tempC": temp_c,
+                "rtspService": kv.get("RTSP", "unknown"),
+                "rtspPort8554": rtsp_open,
+                "rtspUrl1080p": f"rtsp://{host}:8554/cam",
+                "rtspUrl720p": f"rtsp://{host}:8554/cam720",
+            }
+        )
+
+    @actor_query
+    def summary(self) -> str:
+        """Return a 1-line live status summary of `Actor[#Jetson]`."""
+        t = self.telemetry()
+        if not t.at("online"):
+            return f"JetsonEdgeTwin[OFFLINE @ {t.at('ip')}] ({t.at('error')})"
+        return (
+            f"JetsonEdgeTwin[ONLINE @ {t.at('ip')}] {t.at('model')} ({t.at('hostname')}, {t.at('kernel')}) | "
+            f"RAM: {t.at('memAvailMiB')}/{t.at('memTotalMiB')} MiB avail | Disk(/): {t.at('diskRoot')} | "
+            f"Temp: {t.at('tempC')}°C | RTSP(:8554): {t.at('rtspService')} ({'OPEN' if t.at('rtspPort8554') else 'CLOSED'})"
+        )
+
+    @actor_query
+    def cameraStatus(self) -> str:
+        """Inspect the onboard OV5693 MIPI-CSI camera (`/dev/video0`) and `jetson-rtsp.service`."""
+        res = self._ssh_exec_raw(
+            "ls -l /dev/video* 2>/dev/null || echo 'no /dev/video*'; systemctl is-active jetson-rtsp.service 2>/dev/null || true",
+            timeout_sec=8.0,
+        )
+        host = res["host"]
+        rtsp_open = bool(self._probe_tcp_banner(host, port=8554, timeout=0.8))
+        if not res["ok"]:
+            return f"Jetson camera check failed ({host}): {res['stderr']}"
+        return (
+            f"Jetson Camera @ {host} | port :8554={'OPEN' if rtsp_open else 'CLOSED'} | "
+            f"streams: rtsp://{host}:8554/cam (1080p30), rtsp://{host}:8554/cam720 (720p60)\n{res['stdout']}"
+        )
+
+    @actor_command
+    def exec(self, command: str, timeout_sec: int = 20) -> Any:
+        """Execute a guarded shell command on the Jetson over SSH (never runs on `valkyrie`)."""
+        violation = self._validate_jetson_command(command)
+        if violation:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": self._load_cfg().get("host", "192.168.68.60"),
+                    "exitCode": 126,
+                    "stdout": "",
+                    "stderr": violation,
+                }
+            )
+        raw = self._ssh_exec_raw(str(command), timeout_sec=float(timeout_sec or 20))
+        return _to_actor_dict(raw)
+
+    @actor_command
+    def runCommand(self, command: str, timeout_sec: int = 20) -> Any:
+        """Alias for `exec(Actor[#Jetson], command, timeout_sec)`."""
+        return self.exec(command, timeout_sec)
+
+
 __all__ = [
+    "JetsonEdgeTwin",
     "NetTransportBridge",
     "PDFDocumentTwin",
     "PantryGraphTwin",

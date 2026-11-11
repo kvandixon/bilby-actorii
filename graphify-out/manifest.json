@@ -270,8 +270,8 @@
     "semantic_hash": "569b23ea44feb2a3eae4fae3a5b800e2"
   },
   "src/actorii/guardrails/linter.py": {
-    "mtime": 1794329789.269557,
-    "ast_hash": "8b6c18cfaf3356e38937a3f4b7a8cb64",
+    "mtime": 1794437369.2668657,
+    "ast_hash": "641ce2cf9f354317bd3ba52156cec2a6",
     "semantic_hash": ""
   },
   "tests/test_guardrails_and_bridge.py": {
@@ -325,8 +325,8 @@
     "semantic_hash": "0e9c86c32fcc21efeb8d34aef3550f01"
   },
   "src/actorii/harness/__init__.py": {
-    "mtime": 1794436100.63162,
-    "ast_hash": "99dc05c83d88ca5113949be2bb1b8f19",
+    "mtime": 1794437375.611157,
+    "ast_hash": "349240b30282c993b7a921fd322c0fcf",
     "semantic_hash": ""
   },
   "src/actorii/harness/benchmark.py": {
@@ -335,13 +335,13 @@
     "semantic_hash": "da8483fdd0045a01f931b9ebcd256f30"
   },
   "src/actorii/harness/grammar_graph.py": {
-    "mtime": 1794436103.2287395,
-    "ast_hash": "b0f3a27919ebf0e00af285200fe593a2",
+    "mtime": 1794437376.8522139,
+    "ast_hash": "1cdd4c45d371344d182d1a2eba90f6a3",
     "semantic_hash": ""
   },
   "src/actorii/harness/host_bridge.py": {
-    "mtime": 1794329786.8694458,
-    "ast_hash": "51e33909cf50acf16412ad0ed8dd779b",
+    "mtime": 1794437370.8059363,
+    "ast_hash": "e4b225f725ac896fc9df4aa7512a9b3d",
     "semantic_hash": ""
   },
   "src/actorii/harness/memory_graph.py": {
@@ -350,18 +350,18 @@
     "semantic_hash": ""
   },
   "src/actorii/harness/twins.py": {
-    "mtime": 1794329751.4428036,
-    "ast_hash": "fcc8ddf71652f3dbe63b2cd84159cf5e",
+    "mtime": 1794437433.0837903,
+    "ast_hash": "334a2055ee1d517bc4d8db86aae91d6f",
     "semantic_hash": ""
   },
   "src/actorii/tui.py": {
-    "mtime": 1794436148.3068135,
-    "ast_hash": "c5c0e26202a77d84f9c083c72bec5f4b",
+    "mtime": 1794437378.7162993,
+    "ast_hash": "73ef545e69a9375b15ec23dd6c96d18d",
     "semantic_hash": ""
   },
   "tests/test_agent_harness_and_tui.py": {
-    "mtime": 1794436437.5791116,
-    "ast_hash": "aa121cc265f8ff0e2a6fba5c8585f193",
+    "mtime": 1794437400.8403137,
+    "ast_hash": "b67f617ff6e033fac088285c6c7b0833",
     "semantic_hash": ""
   },
   "tests/test_memory_engrams.py": {
@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "src/actorii/telegram_gateway.py": {
-    "mtime": 1794436235.0788054,
-    "ast_hash": "44c4a275a5ad66edaf6cb63d370f428f",
+    "mtime": 1794437399.4672508,
+    "ast_hash": "99bec7ddcad02978f34bd9fe176dc37b",
     "semantic_hash": ""
   },
   "benchmarks/run_longmem_locomo_suite.py": {

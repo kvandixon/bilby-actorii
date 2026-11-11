@@ -66,6 +66,7 @@ PROTECTED_SYSTEM_CLASSES: Set[str] = {
     "ThermometerUI",
     "ReverseEngineeringTwin",
     "ReverseProxyTwin",
+    "JetsonEdgeTwin",
     "TelegramBotTwin",
     "NetTransportBridge",
     "PDFDocumentTwin",

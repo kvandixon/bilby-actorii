@@ -357,7 +357,7 @@ class BilbyTelegramGateway:
                     "• /freeze | /unlock — Emergency kill-switch to freeze/unfreeze Bilby\n"
                     "• /eval <code!!> — Direct Actor 4.1 bytecode evaluation (Ring 0/1 & Host-Lockdown enforced)\n"
                     "• /status — VM, GPU VRAM, and Harness status\n"
-                    "• /twins — Live Digital Twins (Valkyrie, Proxy, ReverseEngineer, Thermometer, Pantry, Telegram)\n"
+                    "• /twins — Live Digital Twins (Valkyrie, Jetson, Proxy, ReverseEngineer, Thermometer, Pantry, Telegram)\n"
                     "• /engrams — List crystallized Neo4j ActorEngrams\n"
                     "• /scratch — Inspect `Actor[#Bilby]` scratchpad\n"
                     "• /history — Recent multi-turn conversation history\n"

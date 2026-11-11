@@ -612,6 +612,17 @@ class TestActorTUIWorkflow:
         assert session.harness._fields.get("status") == Symbol("halted")
         assert loop_calls["n"] == 3
 
+    def test_jetson_edge_twin_guardrails_and_pool_exposure(self):
+        session = ActorTUISession(use_color=False)
+        assert "Jetson" in session.get_pool_objects()
+        blocked1 = session.vm.eval_chunk('exec(Actor[#Jetson], "sudo do-release-upgrade")!!')
+        assert blocked1.at("ok") is False
+        assert "JETSON_GUARDRAIL_BLOCKED" in str(blocked1.at("stderr"))
+        blocked2 = session.vm.eval_chunk('exec(Actor[#Jetson], "cp foo /boot/initrd")!!')
+        assert blocked2.at("ok") is False
+        assert "JETSON_GUARDRAIL_BLOCKED" in str(blocked2.at("stderr"))
+
+
 
 
 

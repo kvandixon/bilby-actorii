@@ -36,6 +36,7 @@ from actorii.harness.grammar_graph import ActorGrammarGraph
 from actorii.harness.host_bridge import HostWorkspaceBridge, VMReflectionBridge, is_host_lockdown
 from actorii.harness.memory_graph import ActorMemoryGraph
 from actorii.harness.twins import (
+    JetsonEdgeTwin,
     NetTransportBridge,
     PDFDocumentTwin,
     PantryGraphTwin,
@@ -87,6 +88,7 @@ DEFAULT_HARNESS_SYSTEM_PROMPT = (
     "`Actor[#ReverseEngineer]` (`summary(Actor[#ReverseEngineer])!!`, `fileIdentity(Actor[#ReverseEngineer], path)!!`, `inspectEntropy(Actor[#ReverseEngineer], path)!!`, `staticAudit(Actor[#ReverseEngineer], path, \"entry\")!!`, `decompileFunction(Actor[#ReverseEngineer], path, \"entry\")!!`, `detonateSandbox(Actor[#ReverseEngineer], path, 10, \"sample.exe\")!!`), "
     "`Actor[#Telegram]` (`summary(Actor[#Telegram])!!`, `botInfo(Actor[#Telegram])!!`, `sendMessage(Actor[#Telegram], text)!!`, `sendToChat(Actor[#Telegram], chatId, text, threadId)!!`), "
     "`Actor[#Proxy]` (`summary(Actor[#Proxy])!!`, `status(Actor[#Proxy])!!`, `urls(Actor[#Proxy])!!`, `setMode(Actor[#Proxy], \"lan\")!!` [`lan` | `tailscale_only` | `local_only` | `paused`], `setAuth(Actor[#Proxy], true)!!`, `rotateToken(Actor[#Proxy])!!`, `blockIp(Actor[#Proxy], ip)!!`, `unblockIp(Actor[#Proxy], ip)!!`, `recentLogs(Actor[#Proxy], 10)!!`), "
+    "`Actor[#Jetson]` (`summary(Actor[#Jetson])!!`, `telemetry(Actor[#Jetson])!!`, `discover(Actor[#Jetson])!!`, `scanLan(Actor[#Jetson])!!` [scans `192.168.68.0/22` for SSH/RTSP edge boards without host shell!], `setHost(Actor[#Jetson], ip)!!`, `cameraStatus(Actor[#Jetson])!!`, `exec(Actor[#Jetson], \"uname -a\")!!` [guarded SSH command on the NVIDIA Jetson board]), "
     "`Actor[#Web]` (`summary(Actor[#Web])!!`, `scrape(Actor[#Web], url)!!`, `extract(Actor[#Web], url)!!`, `search(Actor[#Web], query, 5)!!`, `cleanUrl(Actor[#Web], url)!!`, `renderBrowser(Actor[#Web], url)!!`, `clearCache(Actor[#Web])!!`), "
     "`Actor[#PDF]` (`summary(Actor[#PDF])!!`, `fetchUrl(Actor[#PDF], url)!!`, `info(Actor[#PDF], pathOrUrl)!!`, `pageCount(Actor[#PDF], pathOrUrl)!!`, `readPages(Actor[#PDF], pathOrUrl, startPage, endPage, maxChars)!!`, `searchText(Actor[#PDF], pathOrUrl, query, maxHits, maxChars)!!`), "
     "`Actor[#Hue]` (virtual in-memory smart-light twin), and `Actor[#Bench]` (`listTasks(Actor[#Bench])!!`, `runTask(Actor[#Bench], #alg_primes)!!`).\n"
@@ -1803,6 +1805,9 @@ def bootstrap_agent_harness(
 
     proxy_py = ReverseProxyTwin()
     active_vm.expose_object(proxy_py, global_key="#Proxy")
+
+    jetson_py = JetsonEdgeTwin()
+    active_vm.expose_object(jetson_py, global_key="#Jetson")
 
     net_py = NetTransportBridge()
     active_vm.expose_object(net_py, global_key="#Net")

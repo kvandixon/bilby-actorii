@@ -10,8 +10,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install git/file utilities + Tier-1 read-only research dependencies (PDF & Web)
-RUN apt-get update && apt-get install -y --no-install-recommends git file ca-certificates && rm -rf /var/lib/apt/lists/* && \
+# Install git/file/ssh utilities + Tier-1 read-only research dependencies (PDF & Web)
+RUN apt-get update && apt-get install -y --no-install-recommends git file ca-certificates openssh-client && rm -rf /var/lib/apt/lists/* && \
     pip install --no-cache-dir \
         websockets \
         pytest \

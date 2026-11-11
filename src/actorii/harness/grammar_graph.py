@@ -228,6 +228,10 @@ SEED_PRIMITIVES: List[Dict[str, str]] = [
     {"cls": "HostWorkspaceBridge", "selector": "writeFile", "syntax": "writeFile(Actor[#Host], \"/workspace/file.py\", content)", "desc": "Write full string content to a workspace file"},
     {"cls": "HostWorkspaceBridge", "selector": "editFile", "syntax": "editFile(Actor[#Host], \"/workspace/file.py\", oldText, newText)", "desc": "Replace exact oldText with newText in a workspace file"},
     {"cls": "HostWorkspaceBridge", "selector": "execShell", "syntax": "execShell(Actor[#Host], \"pytest -q\", 15)", "desc": "Run shell command in workspace and return Dictionary (#exitCode, #stdout, #stderr)"},
+    {"cls": "JetsonEdgeTwin", "selector": "summary", "syntax": "summary(Actor[#Jetson])", "desc": "Get live status, IP, RAM, disk, temperature, and RTSP camera state of the NVIDIA Jetson board"},
+    {"cls": "JetsonEdgeTwin", "selector": "scanLan", "syntax": "scanLan(Actor[#Jetson])", "desc": "Scan 192.168.68.0/22 LAN for SSH (:22) and RTSP (:8554) edge devices without host shell"},
+    {"cls": "JetsonEdgeTwin", "selector": "discover", "syntax": "discover(Actor[#Jetson])", "desc": "Auto-discover Jetson IP via mDNS / LAN SSH banner scan"},
+    {"cls": "JetsonEdgeTwin", "selector": "exec", "syntax": "exec(Actor[#Jetson], \"uname -a\", 20)", "desc": "Execute a guarded command over SSH on the NVIDIA Jetson board and return Dictionary (#ok, #exitCode, #stdout, #stderr)"},
 ]
 
 SEED_ERROR_PATTERNS: List[Dict[str, str]] = [

@@ -739,6 +739,7 @@ class ActorTUISession:
         if cmd == "/twins":
             self._emit(f"\n{self._c(CYAN + BOLD, '=== ActorII Live Digital Twins (`Actor[...]`) ===')}")
             valk = self.vm.eval_chunk("summary(Actor[#Valkyrie])!!")
+            jetson_twin = self.vm.eval_chunk("summary(Actor[#Jetson])!!")
             proxy_twin = self.vm.eval_chunk("summary(Actor[#Proxy])!!")
             re_twin = self.vm.eval_chunk("summary(Actor[#ReverseEngineer])!!")
             tg_twin = self.vm.eval_chunk("summary(Actor[#Telegram])!!")
@@ -748,6 +749,7 @@ class ActorTUISession:
             pantry_cnt = self.vm.eval_chunk("recipeCount(Actor[#Pantry])!!")
             pantry_list = self.vm.eval_chunk("listRecipes(Actor[#Pantry], 5)!!")
             self._emit(f"  • {self._c(GREEN + BOLD, 'Actor[#Valkyrie]')}        : {valk}")
+            self._emit(f"  • {self._c(GREEN + BOLD, 'Actor[#Jetson]')}          : {jetson_twin}")
             self._emit(f"  • {self._c(BLUE + BOLD, 'Actor[#Proxy]')}           : {proxy_twin}")
             self._emit(f"  • {self._c(CYAN + BOLD, 'Actor[#ReverseEngineer]')} : {re_twin}")
             self._emit(f"  • {self._c(BLUE + BOLD, 'Actor[#Telegram]')}        : {tg_twin}")
