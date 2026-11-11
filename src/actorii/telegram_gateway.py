@@ -59,7 +59,7 @@ class BilbyTelegramGateway:
         default_thread_id: Optional[int] = None,
         model: str = "qwen3.8:latest",
         endpoint: Optional[str] = None,
-        max_steps: int = 8,
+        max_steps: int = 20,
         poll_timeout: int = 20,
         state_path: Optional[Path] = None,
         session: Optional[ActorTUISession] = None,
@@ -246,7 +246,7 @@ class BilbyTelegramGateway:
             "• Destructive Command Filter (`systemctl`, `sudo`, `nmcli`, `resolv.conf`, `crontab`, `rm -rf`): 🔒 ACTIVE (47 patterns)\n"
             f"• Ring 0/1 Kernel & Bridge Class Lock: 🔒 ACTIVE (36 classes + `AgentHarness` kernel methods)\n"
             f"• Pool Singleton Lock (`Actor[#Host]`, `Actor[#Harness]`, `Actor[#Sandbox]`): {'🔒 LOCKED' if singleton_lock else '⚠️ UNLOCKED'}\n"
-            f"• Per-Step Opcode Gas Limit: {self.session.harness._fields.get('gasLimit', 15000)} ops | Max Steps: {self.session.harness._fields.get('maxSteps', 8)} | 3-Strike Circuit Breaker: ACTIVE\n"
+            f"• Per-Step Opcode Gas Limit: {self.session.harness._fields.get('gasLimit', 15000)} ops | Max Steps: {self.session.harness._fields.get('maxSteps', 20)} | Strike Breaker: {self.session.harness._fields.get('maxFailures', 20)} strikes\n"
             f"• Authorized Telegram IDs: {self.allowed_users}"
         )
 
@@ -521,7 +521,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--model", default=os.environ.get("ACTORII_MODEL", "qwen3.8:latest"))
     parser.add_argument("--endpoint", default=os.environ.get("ACTORII_LLM_ENDPOINT"))
-    parser.add_argument("--max-steps", type=int, default=8)
+    parser.add_argument("--max-steps", type=int, default=20)
     parser.add_argument("--poll-timeout", type=int, default=20)
     parser.add_argument("--startup-ping", action="store_true", help="Send a startup notification to home channel")
     args = parser.parse_args(argv)

@@ -95,8 +95,8 @@
     "semantic_hash": "e10c3ae2089986cdf94e5d0ab82adf8c"
   },
   "websocket_server.py": {
-    "mtime": 1794329832.05054,
-    "ast_hash": "6987ae69e9cac3770e7259ba32ec68e4",
+    "mtime": 1794429755.4698062,
+    "ast_hash": "95a11c41cefda64636afb1b58f940ef5",
     "semantic_hash": ""
   },
   "ARCHITECTURE.md": {
@@ -110,8 +110,8 @@
     "semantic_hash": ""
   },
   "browser_client.html": {
-    "mtime": 1794329116.5183432,
-    "ast_hash": "cc5a99be49c3bce6b5332e59e16b0de5",
+    "mtime": 1794429759.5019932,
+    "ast_hash": "535b0dfa9fe2e36fbf9ca08b751c1ee9",
     "semantic_hash": ""
   },
   "docs/HISTORICAL_ACTOR_SPEC.md": {
@@ -325,8 +325,8 @@
     "semantic_hash": "0e9c86c32fcc21efeb8d34aef3550f01"
   },
   "src/actorii/harness/__init__.py": {
-    "mtime": 1794329784.931356,
-    "ast_hash": "65acfb0855c7cfbc7d4e7b378cc55652",
+    "mtime": 1794429673.1549919,
+    "ast_hash": "6e9334ee3864d1a1b77d99a2b8b70223",
     "semantic_hash": ""
   },
   "src/actorii/harness/benchmark.py": {
@@ -335,8 +335,8 @@
     "semantic_hash": "da8483fdd0045a01f931b9ebcd256f30"
   },
   "src/actorii/harness/grammar_graph.py": {
-    "mtime": 1794287829.1026213,
-    "ast_hash": "e9c5b3d7a22d5954b60a5846171dfdd2",
+    "mtime": 1794429675.405096,
+    "ast_hash": "9ac912ade0668e8d65f965ed7ce89160",
     "semantic_hash": ""
   },
   "src/actorii/harness/host_bridge.py": {
@@ -355,8 +355,8 @@
     "semantic_hash": ""
   },
   "src/actorii/tui.py": {
-    "mtime": 1794329828.6263814,
-    "ast_hash": "d91d7a80ff399cb3a179deb3df07f119",
+    "mtime": 1794429708.545632,
+    "ast_hash": "9d4f6cf4b5b36eb67a2ba94dc51371b3",
     "semantic_hash": ""
   },
   "tests/test_agent_harness_and_tui.py": {
@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "src/actorii/telegram_gateway.py": {
-    "mtime": 1794329829.9864442,
-    "ast_hash": "db02c9e9cb14d6dd9dba52aad29090b2",
+    "mtime": 1794429750.9915988,
+    "ast_hash": "a3f5f8606525f126fcfb855767d9f606",
     "semantic_hash": ""
   },
   "benchmarks/run_longmem_locomo_suite.py": {

@@ -6600,7 +6600,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_geometry",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "geometry.py"
     },
     {
@@ -7337,7 +7337,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rationale_1",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "1993 whitewater actor 4.1 geometry classes (point, point3d, rect)...."
     },
     {
@@ -7480,7 +7480,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "gui.py"
     },
     {
@@ -7853,8 +7853,8 @@
       "source_location": "L286",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "dialog"
     },
     {
@@ -7864,8 +7864,8 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog_init",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".__init__()"
     },
     {
@@ -7908,8 +7908,8 @@
       "source_location": "L336",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog_create_standard_buttons",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".create_standard_buttons()"
     },
     {
@@ -7919,8 +7919,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_py_button",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "button"
     },
     {
@@ -7952,8 +7952,8 @@
       "source_location": "L402",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "control"
     },
     {
@@ -7974,8 +7974,8 @@
       "source_location": "L433",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control_left",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".left()"
     },
     {
@@ -7985,8 +7985,8 @@
       "source_location": "L437",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control_top",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".top()"
     },
     {
@@ -7996,8 +7996,8 @@
       "source_location": "L441",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control_width",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".width()"
     },
     {
@@ -8007,8 +8007,8 @@
       "source_location": "L445",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control_height",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".height()"
     },
     {
@@ -8018,8 +8018,8 @@
       "source_location": "L448",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control_should_have_children",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".should_have_children()"
     },
     {
@@ -8040,8 +8040,8 @@
       "source_location": "L456",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control_get_value",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".get_value()"
     },
     {
@@ -8051,8 +8051,8 @@
       "source_location": "L459",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control_set_value",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".set_value()"
     },
     {
@@ -8095,8 +8095,8 @@
       "source_location": "L565",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_button_press",
-      "community": 2,
-      "community_name": "Button",
+      "community": 560,
+      "community_name": "Window",
       "norm_label": ".press()"
     },
     {
@@ -8205,8 +8205,8 @@
       "source_location": "L688",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_checkbox_toggle",
-      "community": 2,
-      "community_name": "Button",
+      "community": 560,
+      "community_name": "Window",
       "norm_label": ".toggle()"
     },
     {
@@ -8216,8 +8216,8 @@
       "source_location": "L694",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_checkbox_on_click",
-      "community": 2,
-      "community_name": "Button",
+      "community": 560,
+      "community_name": "Window",
       "norm_label": ".on_click()"
     },
     {
@@ -8283,7 +8283,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_1",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "1993 whitewater actor 4.1 gui widget hierarchy. reconstructed from authentic..."
     },
     {
@@ -8436,8 +8436,8 @@
       "source_location": "L287",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_287",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "authentic 1993 actor dialog class (inherits window, modal support). source:..."
     },
     {
@@ -8480,8 +8480,8 @@
       "source_location": "L339",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_339",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "helper to create and add standard ok and cancel buttons."
     },
     {
@@ -8513,8 +8513,8 @@
       "source_location": "L403",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_403",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "authentic 1993 actor control class (control.cls). base class for interactive..."
     },
     {
@@ -8524,8 +8524,8 @@
       "source_location": "L449",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_449",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "controls should never have children (control.cls:96)."
     },
     {
@@ -8568,8 +8568,8 @@
       "source_location": "L566",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_566",
-      "community": 2,
-      "community_name": "Button",
+      "community": 560,
+      "community_name": "Window",
       "norm_label": "simulate programmatic button press."
     },
     {
@@ -8634,8 +8634,8 @@
       "source_location": "L689",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_689",
-      "community": 2,
-      "community_name": "Button",
+      "community": 560,
+      "community_name": "Window",
       "norm_label": "toggle checked state and update data (checkbox.cls:80)."
     },
     {
@@ -8645,8 +8645,8 @@
       "source_location": "L695",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_695",
-      "community": 2,
-      "community_name": "Button",
+      "community": 560,
+      "community_name": "Window",
       "norm_label": "handle click/press event by toggling state and updating data (checkbox.cls:73)."
     },
     {
@@ -9261,8 +9261,8 @@
       "source_location": "L233",
       "_origin": "ast",
       "id": "src_actorii_classes_thermopro_bluezthermoprotransport",
-      "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "bluezthermoprotransport"
     },
     {
@@ -9272,8 +9272,8 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "src_actorii_classes_thermopro_bluezthermoprotransport_init",
-      "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".__init__()"
     },
     {
@@ -10207,8 +10207,8 @@
       "source_location": "L234",
       "_origin": "ast",
       "id": "src_actorii_classes_thermopro_rationale_234",
-      "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "pure-python bluez d-bus transport for reading ble advertisements and gatt..."
     },
     {
@@ -12903,7 +12903,7 @@
       "_origin": "ast",
       "id": "src_actorii_display_wayland",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "wayland.py"
     },
     {
@@ -12914,7 +12914,7 @@
       "_origin": "ast",
       "id": "src_actorii_display_wayland_waylanddisplay",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "waylanddisplay"
     },
     {
@@ -12925,7 +12925,7 @@
       "_origin": "ast",
       "id": "src_actorii_display_wayland_waylanddisplay_init",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".__init__()"
     },
     {
@@ -12936,7 +12936,7 @@
       "_origin": "ast",
       "id": "src_actorii_display_wayland_waylanddisplay_create_surface",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".create_surface()"
     },
     {
@@ -13233,7 +13233,7 @@
       "_origin": "ast",
       "id": "src_actorii_display_wayland_create_driver",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "create_driver()"
     },
     {
@@ -13244,7 +13244,7 @@
       "_origin": "ast",
       "id": "src_actorii_display_wayland_rationale_16",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "manages a wayland display connection using pywayland. in headless/test mode,..."
     },
     {
@@ -13255,7 +13255,7 @@
       "_origin": "ast",
       "id": "src_actorii_display_wayland_rationale_48",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "create a new wayland surface for rendering. args: width: surface width in..."
     },
     {
@@ -13475,7 +13475,7 @@
       "_origin": "ast",
       "id": "src_actorii_display_wayland_rationale_504",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "create a display driver for the given mode. args: mode: \"wayland\", \"websocket\",..."
     },
     {
@@ -13486,7 +13486,7 @@
       "_origin": "ast",
       "id": "src_actorii_display_wayland_rationale_4",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "# note: pywayland is a client library that connects to an existing wayland"
     },
     {
@@ -15440,9 +15440,9 @@
       "label": "Load `agent_harness.act` into `vm` and instantiate `Actor[#Harness]` /\u2026",
       "file_type": "rationale",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1733",
+      "source_location": "L1734",
       "_origin": "ast",
-      "id": "src_actorii_harness_init_rationale_1733",
+      "id": "src_actorii_harness_init_rationale_1734",
       "community": 23,
       "community_name": "bootstrap_agent_harness",
       "norm_label": "load `agent_harness.act` into `vm` and instantiate `actor[#harness]` /..."
@@ -15682,7 +15682,7 @@
       "label": "ActorGrammarGraph",
       "file_type": "code",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L295",
+      "source_location": "L297",
       "_origin": "ast",
       "id": "src_actorii_harness_grammar_graph_actorgrammargraph",
       "community": 39,
@@ -15693,7 +15693,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L298",
+      "source_location": "L300",
       "_origin": "ast",
       "id": "src_actorii_harness_grammar_graph_actorgrammargraph_init",
       "community": 39,
@@ -15704,7 +15704,7 @@
       "label": "._run_cypher()",
       "file_type": "code",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L304",
+      "source_location": "L306",
       "_origin": "ast",
       "id": "src_actorii_harness_grammar_graph_actorgrammargraph_run_cypher",
       "community": 39,
@@ -15726,7 +15726,7 @@
       "label": ".seed_graph()",
       "file_type": "code",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L333",
+      "source_location": "L335",
       "_origin": "ast",
       "id": "src_actorii_harness_grammar_graph_actorgrammargraph_seed_graph",
       "community": 39,
@@ -15737,7 +15737,7 @@
       "label": ".graphStats()",
       "file_type": "code",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L380",
+      "source_location": "L382",
       "_origin": "ast",
       "id": "src_actorii_harness_grammar_graph_actorgrammargraph_graphstats",
       "community": 39,
@@ -15748,7 +15748,7 @@
       "label": ".lookupSyntax()",
       "file_type": "code",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L404",
+      "source_location": "L406",
       "_origin": "ast",
       "id": "src_actorii_harness_grammar_graph_actorgrammargraph_lookupsyntax",
       "community": 39,
@@ -15759,7 +15759,7 @@
       "label": ".queryConstructsForTask()",
       "file_type": "code",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L436",
+      "source_location": "L438",
       "_origin": "ast",
       "id": "src_actorii_harness_grammar_graph_actorgrammargraph_queryconstructsfortask",
       "community": 39,
@@ -15770,7 +15770,7 @@
       "label": ".diagnoseError()",
       "file_type": "code",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L503",
+      "source_location": "L505",
       "_origin": "ast",
       "id": "src_actorii_harness_grammar_graph_actorgrammargraph_diagnoseerror",
       "community": 39,
@@ -15781,7 +15781,7 @@
       "label": ".recordLearnedFix()",
       "file_type": "code",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L544",
+      "source_location": "L546",
       "_origin": "ast",
       "id": "src_actorii_harness_grammar_graph_actorgrammargraph_recordlearnedfix",
       "community": 39,
@@ -15803,9 +15803,9 @@
       "label": "Neo4j-backed 1993 Actor syntax, primitive & error-remediation knowledge graph\u2026",
       "file_type": "rationale",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L296",
+      "source_location": "L298",
       "_origin": "ast",
-      "id": "src_actorii_harness_grammar_graph_rationale_296",
+      "id": "src_actorii_harness_grammar_graph_rationale_298",
       "community": 39,
       "community_name": "actor_query",
       "norm_label": "neo4j-backed 1993 actor syntax, primitive & error-remediation knowledge graph..."
@@ -15814,9 +15814,9 @@
       "label": "Idempotently seed `:ActorSyntaxConstruct`, `:ActorPrimitive`, and\u2026",
       "file_type": "rationale",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L334",
+      "source_location": "L336",
       "_origin": "ast",
-      "id": "src_actorii_harness_grammar_graph_rationale_334",
+      "id": "src_actorii_harness_grammar_graph_rationale_336",
       "community": 39,
       "community_name": "actor_query",
       "norm_label": "idempotently seed `:actorsyntaxconstruct`, `:actorprimitive`, and..."
@@ -15825,9 +15825,9 @@
       "label": "Return live counts of 1993 Actor grammar nodes & learned fixes in Neo4j.",
       "file_type": "rationale",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L381",
+      "source_location": "L383",
       "_origin": "ast",
-      "id": "src_actorii_harness_grammar_graph_rationale_381",
+      "id": "src_actorii_harness_grammar_graph_rationale_383",
       "community": 39,
       "community_name": "actor_query",
       "norm_label": "return live counts of 1993 actor grammar nodes & learned fixes in neo4j."
@@ -15836,9 +15836,9 @@
       "label": "Query Neo4j for a specific 1993 Actor syntax construct or keyword.",
       "file_type": "rationale",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L405",
+      "source_location": "L407",
       "_origin": "ast",
-      "id": "src_actorii_harness_grammar_graph_rationale_405",
+      "id": "src_actorii_harness_grammar_graph_rationale_407",
       "community": 39,
       "community_name": "actor_query",
       "norm_label": "query neo4j for a specific 1993 actor syntax construct or keyword."
@@ -15847,9 +15847,9 @@
       "label": "Query Neo4j for all 1993 Actor grammar rules and primitives relevant to a task.",
       "file_type": "rationale",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L437",
+      "source_location": "L439",
       "_origin": "ast",
-      "id": "src_actorii_harness_grammar_graph_rationale_437",
+      "id": "src_actorii_harness_grammar_graph_rationale_439",
       "community": 39,
       "community_name": "actor_query",
       "norm_label": "query neo4j for all 1993 actor grammar rules and primitives relevant to a task."
@@ -15858,9 +15858,9 @@
       "label": "Traverse `(:ActorErrorPattern)-[:REMEDIATED_BY]->(:ActorSyntaxConstruct)` in\u2026",
       "file_type": "rationale",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L504",
+      "source_location": "L506",
       "_origin": "ast",
-      "id": "src_actorii_harness_grammar_graph_rationale_504",
+      "id": "src_actorii_harness_grammar_graph_rationale_506",
       "community": 39,
       "community_name": "actor_query",
       "norm_label": "traverse `(:actorerrorpattern)-[:remediated_by]->(:actorsyntaxconstruct)` in..."
@@ -15869,9 +15869,9 @@
       "label": "Persist a verified self-correction `(Error) -> (Fixed Actor Code)` into Neo4j.",
       "file_type": "rationale",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L551",
+      "source_location": "L553",
       "_origin": "ast",
-      "id": "src_actorii_harness_grammar_graph_rationale_551",
+      "id": "src_actorii_harness_grammar_graph_rationale_553",
       "community": 39,
       "community_name": "actor_query",
       "norm_label": "persist a verified self-correction `(error) -> (fixed actor code)` into neo4j."
@@ -19084,8 +19084,8 @@
       "source_location": "L659",
       "_origin": "ast",
       "id": "src_actorii_image_imagedeserializer",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "_imagedeserializer"
     },
     {
@@ -19117,8 +19117,8 @@
       "source_location": "L776",
       "_origin": "ast",
       "id": "src_actorii_image_imagedeserializer_create_shell",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "._create_shell()"
     },
     {
@@ -19304,8 +19304,8 @@
       "source_location": "L660",
       "_origin": "ast",
       "id": "src_actorii_image_rationale_660",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "restores a serialized actorii image snapshot onto a live actorvm."
     },
     {
@@ -19425,8 +19425,8 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "src_actorii_parser_init_astnode_eq",
-      "community": 32,
-      "community_name": "Opcode",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__eq__()"
     },
     {
@@ -19436,8 +19436,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_actorii_parser_init_py_any",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "any"
     },
     {
@@ -19458,8 +19458,8 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "src_actorii_parser_init_classdef",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "classdef"
     },
     {
@@ -19469,8 +19469,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "src_actorii_parser_init_classdef_init",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__init__()"
     },
     {
@@ -19480,8 +19480,8 @@
       "source_location": "L104",
       "_origin": "ast",
       "id": "src_actorii_parser_init_classdef_repr",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__repr__()"
     },
     {
@@ -19491,8 +19491,8 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "src_actorii_parser_init_classdefnode",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "classdefnode"
     },
     {
@@ -19502,8 +19502,8 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "src_actorii_parser_init_classdefnode_init",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__init__()"
     },
     {
@@ -19513,8 +19513,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "src_actorii_parser_init_classdefnode_repr",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__repr__()"
     },
     {
@@ -19557,8 +19557,8 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "src_actorii_parser_init_methoddef",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "methoddef"
     },
     {
@@ -19568,8 +19568,8 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "src_actorii_parser_init_methoddef_init",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__init__()"
     },
     {
@@ -19579,8 +19579,8 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "src_actorii_parser_init_methoddef_repr",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__repr__()"
     },
     {
@@ -19590,8 +19590,8 @@
       "source_location": "L196",
       "_origin": "ast",
       "id": "src_actorii_parser_init_methoddefnode",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "methoddefnode"
     },
     {
@@ -19601,8 +19601,8 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "src_actorii_parser_init_methoddefnode_init",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__init__()"
     },
     {
@@ -19612,8 +19612,8 @@
       "source_location": "L225",
       "_origin": "ast",
       "id": "src_actorii_parser_init_methoddefnode_repr",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__repr__()"
     },
     {
@@ -19623,8 +19623,8 @@
       "source_location": "L234",
       "_origin": "ast",
       "id": "src_actorii_parser_init_primdefnode",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "primdefnode"
     },
     {
@@ -19634,8 +19634,8 @@
       "source_location": "L237",
       "_origin": "ast",
       "id": "src_actorii_parser_init_primdefnode_init",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__init__()"
     },
     {
@@ -19645,8 +19645,8 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "src_actorii_parser_init_primdefnode_repr",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__repr__()"
     },
     {
@@ -20503,8 +20503,8 @@
       "source_location": "L1232",
       "_origin": "ast",
       "id": "src_actorii_parser_init_parse_method",
-      "community": 32,
-      "community_name": "Opcode",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "_parse_method()"
     },
     {
@@ -20514,8 +20514,8 @@
       "source_location": "L1285",
       "_origin": "ast",
       "id": "src_actorii_parser_init_parse_tokens",
-      "community": 32,
-      "community_name": "Opcode",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "_parse_tokens()"
     },
     {
@@ -20844,8 +20844,8 @@
       "source_location": "L2411",
       "_origin": "ast",
       "id": "src_actorii_parser_init_blockdescriptor_init",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__init__()"
     },
     {
@@ -20922,7 +20922,7 @@
       "_origin": "ast",
       "id": "src_actorii_parser_init_capturedvar_new",
       "community": 63,
-      "community_name": "MethodRef",
+      "community_name": "MethodDefNode",
       "norm_label": ".__new__()"
     },
     {
@@ -20933,7 +20933,7 @@
       "_origin": "ast",
       "id": "src_actorii_parser_init_methodref",
       "community": 63,
-      "community_name": "MethodRef",
+      "community_name": "MethodDefNode",
       "norm_label": "methodref"
     },
     {
@@ -20944,7 +20944,7 @@
       "_origin": "ast",
       "id": "src_actorii_parser_init_py_str",
       "community": 63,
-      "community_name": "MethodRef",
+      "community_name": "MethodDefNode",
       "norm_label": "str"
     },
     {
@@ -20955,7 +20955,7 @@
       "_origin": "ast",
       "id": "src_actorii_parser_init_methodref_new",
       "community": 63,
-      "community_name": "MethodRef",
+      "community_name": "MethodDefNode",
       "norm_label": ".__new__()"
     },
     {
@@ -20966,7 +20966,7 @@
       "_origin": "ast",
       "id": "src_actorii_parser_init_methodref_eq",
       "community": 63,
-      "community_name": "MethodRef",
+      "community_name": "MethodDefNode",
       "norm_label": ".__eq__()"
     },
     {
@@ -20977,7 +20977,7 @@
       "_origin": "ast",
       "id": "src_actorii_parser_init_methodref_hash",
       "community": 63,
-      "community_name": "MethodRef",
+      "community_name": "MethodDefNode",
       "norm_label": ".__hash__()"
     },
     {
@@ -20988,7 +20988,7 @@
       "_origin": "ast",
       "id": "src_actorii_parser_init_methodref_repr",
       "community": 63,
-      "community_name": "MethodRef",
+      "community_name": "MethodDefNode",
       "norm_label": ".__repr__()"
     },
     {
@@ -21064,8 +21064,8 @@
       "source_location": "L2565",
       "_origin": "ast",
       "id": "src_actorii_parser_init_bytecodecompiler_init",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": ".__init__()"
     },
     {
@@ -21295,8 +21295,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_86",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "represents a class definition in actor source."
     },
     {
@@ -21306,8 +21306,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_112",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "authentic 1993 dynamic class definition node (inherit)."
     },
     {
@@ -21328,8 +21328,8 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_160",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "represents a method definition in a class."
     },
     {
@@ -21339,8 +21339,8 @@
       "source_location": "L197",
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_197",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "authentic 1993 method definition node."
     },
     {
@@ -21350,8 +21350,8 @@
       "source_location": "L235",
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_235",
-      "community": 29,
-      "community_name": "BytecodeCompiler",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "specialized node for primitive declarations: prim name(self, ...):type!!"
     },
     {
@@ -21702,8 +21702,8 @@
       "source_location": "L1233",
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_1233",
-      "community": 32,
-      "community_name": "Opcode",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "parse a legacy method definition."
     },
     {
@@ -21713,8 +21713,8 @@
       "source_location": "L1286",
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_1286",
-      "community": 32,
-      "community_name": "Opcode",
+      "community": 63,
+      "community_name": "MethodDefNode",
       "norm_label": "parse a token list into ast classdef nodes in legacy mode."
     },
     {
@@ -21989,7 +21989,7 @@
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_2465",
       "community": 63,
-      "community_name": "MethodRef",
+      "community_name": "MethodDefNode",
       "norm_label": "string subclass representing a method selector with attached call arity."
     },
     {
@@ -22777,7 +22777,7 @@
       "label": "._record_audit_event()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L156",
+      "source_location": "L158",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_record_audit_event",
       "community": 43,
@@ -22799,7 +22799,7 @@
       "label": ".auto_save_session()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L165",
+      "source_location": "L167",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_auto_save_session",
       "community": 43,
@@ -22821,7 +22821,7 @@
       "label": "._seed_convenience_objects()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L174",
+      "source_location": "L176",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_seed_convenience_objects",
       "community": 43,
@@ -22832,7 +22832,7 @@
       "label": "._c()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L184",
+      "source_location": "L186",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_c",
       "community": 43,
@@ -22843,7 +22843,7 @@
       "label": "._emit()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L187",
+      "source_location": "L189",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_emit",
       "community": 43,
@@ -22854,7 +22854,7 @@
       "label": "._on_harness_step()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L191",
+      "source_location": "L193",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_on_harness_step",
       "community": 43,
@@ -22865,7 +22865,7 @@
       "label": ".flush_usage_file()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L228",
+      "source_location": "L230",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_flush_usage_file",
       "community": 43,
@@ -22876,7 +22876,7 @@
       "label": ".status_ribbon_text()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L265",
+      "source_location": "L267",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_status_ribbon_text",
       "community": 43,
@@ -22887,7 +22887,7 @@
       "label": "._remote_studio_request()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L278",
+      "source_location": "L280",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_remote_studio_request",
       "community": 43,
@@ -22898,7 +22898,7 @@
       "label": ".get_chat_history()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L300",
+      "source_location": "L302",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_get_chat_history",
       "community": 43,
@@ -22909,7 +22909,7 @@
       "label": ".get_pool_objects()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L310",
+      "source_location": "L312",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_get_pool_objects",
       "community": 43,
@@ -22920,7 +22920,7 @@
       "label": ".get_user_classes()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L320",
+      "source_location": "L322",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_get_user_classes",
       "community": 43,
@@ -22931,7 +22931,7 @@
       "label": ".get_scratchpad_dict()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L327",
+      "source_location": "L329",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_get_scratchpad_dict",
       "community": 43,
@@ -22942,7 +22942,7 @@
       "label": ".handle_input()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L340",
+      "source_location": "L342",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_handle_input",
       "community": 43,
@@ -22953,7 +22953,7 @@
       "label": "._run_harness_goal()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L363",
+      "source_location": "L365",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_run_harness_goal",
       "community": 43,
@@ -22964,7 +22964,7 @@
       "label": "._handle_actor_eval()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L409",
+      "source_location": "L411",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_handle_actor_eval",
       "community": 43,
@@ -22975,7 +22975,7 @@
       "label": "._handle_slash_command()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L456",
+      "source_location": "L458",
       "_origin": "ast",
       "id": "src_actorii_tui_actortuisession_handle_slash_command",
       "community": 43,
@@ -22986,7 +22986,7 @@
       "label": "run_curses_dock()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1019",
+      "source_location": "L1023",
       "_origin": "ast",
       "id": "src_actorii_tui_run_curses_dock",
       "community": 43,
@@ -22997,7 +22997,7 @@
       "label": "_configure_readline()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1208",
+      "source_location": "L1212",
       "_origin": "ast",
       "id": "src_actorii_tui_configure_readline",
       "community": 43,
@@ -23008,7 +23008,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1236",
+      "source_location": "L1240",
       "_origin": "ast",
       "id": "src_actorii_tui_main",
       "community": 43,
@@ -23041,9 +23041,9 @@
       "label": "Process one user input line. Returns False if the session should exit.",
       "file_type": "rationale",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L341",
+      "source_location": "L343",
       "_origin": "ast",
-      "id": "src_actorii_tui_rationale_341",
+      "id": "src_actorii_tui_rationale_343",
       "community": 43,
       "community_name": "ActorTUISession",
       "norm_label": "process one user input line. returns false if the session should exit."
@@ -23052,9 +23052,9 @@
       "label": "Launch the full-screen split-pane Curses TUI dock with live Object Pool sidebar.",
       "file_type": "rationale",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1020",
+      "source_location": "L1024",
       "_origin": "ast",
-      "id": "src_actorii_tui_rationale_1020",
+      "id": "src_actorii_tui_rationale_1024",
       "community": 43,
       "community_name": "ActorTUISession",
       "norm_label": "launch the full-screen split-pane curses tui dock with live object pool sidebar."
@@ -29641,8 +29641,8 @@
       "source_location": "L654",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "testguihierarchy"
     },
     {
@@ -29652,8 +29652,8 @@
       "source_location": "L657",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_window_and_child_management",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_window_and_child_management()"
     },
     {
@@ -29663,8 +29663,8 @@
       "source_location": "L673",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_dialog_modal_lifecycle",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_dialog_modal_lifecycle()"
     },
     {
@@ -29674,8 +29674,8 @@
       "source_location": "L685",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_button_click_and_dialog_auto_close",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_button_click_and_dialog_auto_close()"
     },
     {
@@ -29685,8 +29685,8 @@
       "source_location": "L695",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_button_callback",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_button_callback()"
     },
     {
@@ -29696,8 +29696,8 @@
       "source_location": "L701",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_textfield_state",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_textfield_state()"
     },
     {
@@ -29707,8 +29707,8 @@
       "source_location": "L713",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_checkbox_state_and_toggling",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_checkbox_state_and_toggling()"
     },
     {
@@ -29718,8 +29718,8 @@
       "source_location": "L731",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_html5_rendering",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_html5_rendering()"
     },
     {
@@ -29938,8 +29938,8 @@
       "source_location": "L655",
       "_origin": "ast",
       "id": "tests_test_class_library_rationale_655",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "tests windowsobject, window, dialog, control, button, textfield, checkbox."
     },
     {
@@ -34526,7 +34526,7 @@
       "_origin": "ast",
       "id": "tests_test_image_persistence",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "test_image_persistence.py"
     },
     {
@@ -34647,7 +34647,7 @@
       "_origin": "ast",
       "id": "tests_test_image_persistence_rationale_1",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "test suite for 1993 actor 4.1 live image persistence (snapshot / restore)...."
     },
     {
@@ -35296,7 +35296,7 @@
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "test_m4_geometry_gui_adversarial.py"
     },
     {
@@ -35691,8 +35691,8 @@
       "source_location": "L477",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testdialogmodalflowadversarial",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "testdialogmodalflowadversarial"
     },
     {
@@ -35702,8 +35702,8 @@
       "source_location": "L480",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testdialogmodalflowadversarial_test_dialog_standard_buttons_and_modal_closure",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_dialog_standard_buttons_and_modal_closure()"
     },
     {
@@ -35713,8 +35713,8 @@
       "source_location": "L500",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testdialogmodalflowadversarial_test_dialog_ok_button_click",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_dialog_ok_button_click()"
     },
     {
@@ -35757,8 +35757,8 @@
       "source_location": "L559",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testhistoricalbenchmarkregressions",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "testhistoricalbenchmarkregressions"
     },
     {
@@ -35955,8 +35955,8 @@
       "source_location": "L478",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_rationale_478",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "tests modal dialog lifecycle, standard buttons, and result codes."
     },
     {
@@ -35977,8 +35977,8 @@
       "source_location": "L560",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_rationale_560",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "verifies that m4 changes introduced zero regressions to authentic 1993..."
     },
     {
@@ -35989,7 +35989,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "test_m5_surfaces_actions_adversarial.py"
     },
     {
@@ -36088,7 +36088,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "testwaylandheadlesssurfaceadversarial"
     },
     {
@@ -36099,7 +36099,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial_test_surface_boundary_coordinates",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_surface_boundary_coordinates()"
     },
     {
@@ -36110,7 +36110,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial_test_negative_coordinates_safety",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_negative_coordinates_safety()"
     },
     {
@@ -36121,7 +36121,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial_test_out_of_bounds_pixel_operations",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_out_of_bounds_pixel_operations()"
     },
     {
@@ -36132,7 +36132,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial_test_zero_size_and_boundary_damage_regions",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_zero_size_and_boundary_damage_regions()"
     },
     {
@@ -36143,7 +36143,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial_test_multi_region_damage_and_flush_sequence",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_multi_region_damage_and_flush_sequence()"
     },
     {
@@ -36154,7 +36154,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial_test_copy_from_stress_and_edge_cases",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_copy_from_stress_and_edge_cases()"
     },
     {
@@ -36165,7 +36165,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial_test_color_formats_and_buffer_layout",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_color_formats_and_buffer_layout()"
     },
     {
@@ -36176,7 +36176,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial_test_wayland_driver_lifecycle_and_resize",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_wayland_driver_lifecycle_and_resize()"
     },
     {
@@ -36187,7 +36187,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_testwaylandheadlesssurfaceadversarial_test_wayland_driver_resize_defect_documentation",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_wayland_driver_resize_defect_documentation()"
     },
     {
@@ -36275,7 +36275,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_test_demo_wayland_subprocess_clean_exit",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "test_demo_wayland_subprocess_clean_exit()"
     },
     {
@@ -36286,7 +36286,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_1",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "adversarial stress tests for milestone m5: ui action event dispatch and display..."
     },
     {
@@ -36385,7 +36385,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_425",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "stress-test wayland surface pixel ops, coordinates, damage, and buffer..."
     },
     {
@@ -36396,7 +36396,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_428",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "pixel operations exactly at edges (0,0), (w-1, 0), (0, h-1), (w-1, h-1), (w, h)."
     },
     {
@@ -36407,7 +36407,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_452",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "negative coordinates do not throw exceptions and get_pixel returns #000000."
     },
     {
@@ -36418,7 +36418,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_464",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "extreme positive coordinates do not trigger buffer overflow."
     },
     {
@@ -36429,7 +36429,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_474",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "damage regions with 0 width/height, negative values, or exceeding boundaries."
     },
     {
@@ -36440,7 +36440,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_493",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "multiple sequential and interleaved damage marks followed by repeated flushes."
     },
     {
@@ -36451,7 +36451,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_513",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "surface copy_from between different surfaces, partial rects, and boundary..."
     },
     {
@@ -36462,7 +36462,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_534",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify hex colors, lowercase/mixed case, non-hex fallback, and buffer stride."
     },
     {
@@ -36473,7 +36473,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_565",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "waylanddriver wrapping surface, handling resize, and event dispatch."
     },
     {
@@ -36484,7 +36484,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_605",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify that waylanddriver.resize cleanly delegates to waylandsurface.resize."
     },
     {
@@ -36572,7 +36572,7 @@
       "_origin": "ast",
       "id": "tests_test_m5_surfaces_actions_adversarial_rationale_843",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "verify demo_wayland.py executes cleanly to completion with exit code 0."
     },
     {
@@ -36583,7 +36583,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "test_m6_adversarial_hardening.py"
     },
     {
@@ -36594,7 +36594,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_testwaylanddisplayhardening",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "testwaylanddisplayhardening"
     },
     {
@@ -36605,7 +36605,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_testwaylanddisplayhardening_test_wayland_surface_resize_buffer_reallocation",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_wayland_surface_resize_buffer_reallocation()"
     },
     {
@@ -36616,7 +36616,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_testwaylanddisplayhardening_test_wayland_surface_resize_pixel_preservation",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_wayland_surface_resize_pixel_preservation()"
     },
     {
@@ -36627,7 +36627,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_testwaylanddisplayhardening_test_wayland_surface_resize_clamping_and_boundaries",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_wayland_surface_resize_clamping_and_boundaries()"
     },
     {
@@ -36638,7 +36638,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_testwaylanddisplayhardening_test_wayland_driver_resize_delegation",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": ".test_wayland_driver_resize_delegation()"
     },
     {
@@ -36714,8 +36714,8 @@
       "source_location": "L245",
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_testcollectionsandsethardening",
-      "community": 2,
-      "community_name": "Button",
+      "community": 303,
+      "community_name": "WaylandSurface",
       "norm_label": "testcollectionsandsethardening"
     },
     {
@@ -36725,8 +36725,8 @@
       "source_location": "L248",
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_testcollectionsandsethardening_test_actor_collection_safe_len_and_size",
-      "community": 2,
-      "community_name": "Button",
+      "community": 303,
+      "community_name": "WaylandSurface",
       "norm_label": ".test_actor_collection_safe_len_and_size()"
     },
     {
@@ -36880,7 +36880,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_rationale_1",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "milestone m6 white-box adversarial coverage hardening test suite. verifies..."
     },
     {
@@ -36891,7 +36891,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_rationale_64",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "adversarial tests for waylandsurface.resize and waylanddriver.resize."
     },
     {
@@ -36902,7 +36902,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_rationale_67",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify that waylandsurface.resize reallocates the buffer correctly."
     },
     {
@@ -36913,7 +36913,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_rationale_84",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify that resize preserves existing pixel contents in overlapping regions."
     },
     {
@@ -36924,7 +36924,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_rationale_112",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify boundary inputs (zero, negative) are clamped to at least 1x1."
     },
     {
@@ -36935,7 +36935,7 @@
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_rationale_125",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify waylanddriver.resize cleanly delegates to waylandsurface.resize."
     },
     {
@@ -37011,8 +37011,8 @@
       "source_location": "L246",
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_rationale_246",
-      "community": 2,
-      "community_name": "Button",
+      "community": 303,
+      "community_name": "WaylandSurface",
       "norm_label": "adversarial tests for actorcollection safe protocols and actorset."
     },
     {
@@ -37022,8 +37022,8 @@
       "source_location": "L249",
       "_origin": "ast",
       "id": "tests_test_m6_adversarial_hardening_rationale_249",
-      "community": 2,
-      "community_name": "Button",
+      "community": 303,
+      "community_name": "WaylandSurface",
       "norm_label": "verify that actorcollection direct instantiation supports len() and size()..."
     },
     {
@@ -38365,7 +38365,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "test_tp358w_digital_twin.py"
     },
     {
@@ -38376,7 +38376,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_is_bluez_adapter_powered",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "_is_bluez_adapter_powered()"
     },
     {
@@ -38431,7 +38431,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_testactordigitaltwinandcollaborators",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "testactordigitaltwinandcollaborators"
     },
     {
@@ -38464,7 +38464,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_testactordigitaltwinandcollaborators_test_thermometer_ui_window_and_surface_rendering",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": ".test_thermometer_ui_window_and_surface_rendering()"
     },
     {
@@ -38475,7 +38475,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_testactordigitaltwinandcollaborators_test_websocket_workspace_thermometer_ui_and_actions",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": ".test_websocket_workspace_thermometer_ui_and_actions()"
     },
     {
@@ -38486,7 +38486,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_py_skipif",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "skipif"
     },
     {
@@ -38497,7 +38497,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_testlivephysicaltp358whardware",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "testlivephysicaltp358whardware"
     },
     {
@@ -38508,7 +38508,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_testlivephysicaltp358whardware_test_live_ble_sync_and_history_download_in_actor",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": ".test_live_ble_sync_and_history_download_in_actor()"
     },
     {
@@ -38519,7 +38519,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_rationale_1",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "test suite for thermopro tp358w / tp358s bluetooth digital twin..."
     },
     {
@@ -38530,7 +38530,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_rationale_52",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "check whether bluez adapter `/org/bluez/hci0` is powered on."
     },
     {
@@ -38552,7 +38552,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_rationale_133",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "tests the 1993 actor digital twin program (`examples/tp358w_digital_twin.act`)."
     },
     {
@@ -38574,7 +38574,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_rationale_231",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "tests `thermometerui` / `thermometerwindow` child controls, wayland/websocket..."
     },
     {
@@ -38585,7 +38585,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_rationale_286",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "tests websocket `render_thermometer` and interactive `ui_event` unit toggle on..."
     },
     {
@@ -38596,7 +38596,7 @@
       "_origin": "ast",
       "id": "tests_test_tp358w_digital_twin_rationale_342",
       "community": 21,
-      "community_name": "BlueZThermoProTransport",
+      "community_name": "WebSocketSurface",
       "norm_label": "live ble hardware test against 00:11:22:33:44:55 (`tp358s (demo)`) on valkyrie."
     },
     {
@@ -39245,7 +39245,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_websocket.py"
     },
     {
@@ -39256,7 +39256,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_resolve_hist_root",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "_resolve_hist_root()"
     },
     {
@@ -39267,7 +39267,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_wayland_headless_surface",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_headless_surface()"
     },
     {
@@ -39278,7 +39278,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_wayland_driver_headless",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_driver_headless()"
     },
     {
@@ -39289,7 +39289,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_wayland_surface_clear_and_fill",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_surface_clear_and_fill()"
     },
     {
@@ -39300,7 +39300,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_wayland_surface_damage_and_flush",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_surface_damage_and_flush()"
     },
     {
@@ -39311,7 +39311,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_wayland_surface_copy_from",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_surface_copy_from()"
     },
     {
@@ -39322,7 +39322,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_wayland_surface_bounds_safety",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_surface_bounds_safety()"
     },
     {
@@ -39333,7 +39333,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_wayland_driver_pointer_event_mapping",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_driver_pointer_event_mapping()"
     },
     {
@@ -39344,7 +39344,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_wayland_driver_keyboard_event_mapping",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_driver_keyboard_event_mapping()"
     },
     {
@@ -39354,7 +39354,7 @@
       "source_location": "L140",
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_websocket_driver_resize",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "test_websocket_driver_resize()"
     },
@@ -39366,7 +39366,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_websocket_surface_buffer",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_websocket_surface_buffer()"
     },
     {
@@ -39377,7 +39377,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_workspace_initialization",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_workspace_initialization()"
     },
     {
@@ -39388,7 +39388,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_eval_arithmetic_expression",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_eval_arithmetic_expression()"
     },
     {
@@ -39399,7 +39399,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_eval_with_caret_return",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_eval_with_caret_return()"
     },
     {
@@ -39410,7 +39410,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_eval_multiple_chunks_and_variables",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_eval_multiple_chunks_and_variables()"
     },
     {
@@ -39421,7 +39421,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_eval_sieve_benchmark_historical_act",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_eval_sieve_benchmark_historical_act()"
     },
     {
@@ -39432,7 +39432,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_eval_dynamic_class_and_method_definition",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_eval_dynamic_class_and_method_definition()"
     },
     {
@@ -39443,7 +39443,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_eval_syntax_error_resilience",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_eval_syntax_error_resilience()"
     },
     {
@@ -39454,7 +39454,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_get_classes_hierarchy",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_get_classes_hierarchy()"
     },
     {
@@ -39465,7 +39465,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_inspect_object_existing_widget",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_inspect_object_existing_widget()"
     },
     {
@@ -39476,7 +39476,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_inspect_object_not_found",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_inspect_object_not_found()"
     },
     {
@@ -39487,7 +39487,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_ui_event_button_click_dispatch",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_ui_event_button_click_dispatch()"
     },
     {
@@ -39498,7 +39498,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_ui_event_window_action_handler",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_ui_event_window_action_handler()"
     },
     {
@@ -39509,7 +39509,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_render_widget_html_generation",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_render_widget_html_generation()"
     },
     {
@@ -39520,7 +39520,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_canvas_drawing_commands",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_canvas_drawing_commands()"
     },
     {
@@ -39530,7 +39530,7 @@
       "source_location": "L461",
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_test_websocket_e2e_network_session",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "test_websocket_e2e_network_session()"
     },
@@ -39542,7 +39542,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_1",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "tests for wayland display surfaces, websocket surfaces, and interactive..."
     },
     {
@@ -39553,7 +39553,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_171",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify actorworkspace initializes actorvm with all core standard library..."
     },
     {
@@ -39564,7 +39564,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_184",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify eval handler computes arithmetic expression ending in !!."
     },
     {
@@ -39575,7 +39575,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_197",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify eval handler computes expressions with explicit return operator (^)."
     },
     {
@@ -39586,7 +39586,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_210",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify eval handler maintains global state across multiple evaluation chunks."
     },
     {
@@ -39597,7 +39597,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_228",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify loading authentic sieve.act and evaluating sieve(sam, 100) returns 25."
     },
     {
@@ -39608,7 +39608,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_252",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify dynamic class definition (inherit) and method definition via eval."
     },
     {
@@ -39619,7 +39619,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_277",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify eval handles syntax errors gracefully without crashing the workspace."
     },
     {
@@ -39630,7 +39630,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_295",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify get_classes returns all registered classes, supers, methods, and ivars."
     },
     {
@@ -39641,7 +39641,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_325",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify inspect_object returns class and field attributes of registered objects."
     },
     {
@@ -39652,7 +39652,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_343",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify inspect_object returns found=false for non-existent keys."
     },
     {
@@ -39663,7 +39663,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_356",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify ui_event dispatches to button callback and records execution."
     },
     {
@@ -39674,7 +39674,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_384",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify ui_event triggers window action method registered in action_handlers."
     },
     {
@@ -39685,7 +39685,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_413",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify render_widget generates html and registers widget in actor dictionary."
     },
     {
@@ -39696,7 +39696,7 @@
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_437",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify canvas pixel manipulation commands: clear, set_pixel, get_pixel."
     },
     {
@@ -39706,7 +39706,7 @@
       "source_location": "L462",
       "_origin": "ast",
       "id": "tests_test_wayland_websocket_rationale_462",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "full end-to-end integration test over live loopback websocket connection."
     },
@@ -39718,7 +39718,7 @@
       "_origin": "ast",
       "id": "websocket_server",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "websocket_server.py"
     },
     {
@@ -39728,7 +39728,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "websocketsurface"
     },
@@ -39739,7 +39739,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_init",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".__init__()"
     },
@@ -39750,7 +39750,7 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_width",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".width()"
     },
@@ -39761,7 +39761,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_height",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".height()"
     },
@@ -39772,7 +39772,7 @@
       "source_location": "L65",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_stride",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".stride()"
     },
@@ -39783,7 +39783,7 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_format",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".format()"
     },
@@ -39794,7 +39794,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_post_event",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".post_event()"
     },
@@ -39806,7 +39806,7 @@
       "_origin": "ast",
       "id": "websocket_server_py_any",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "any"
     },
     {
@@ -39816,7 +39816,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_poll_event",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".poll_event()"
     },
@@ -39827,7 +39827,7 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_clear_pixels",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".clear_pixels()"
     },
@@ -39838,7 +39838,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_fill_rect",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".fill_rect()"
     },
@@ -39849,7 +39849,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_get_pixel",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".get_pixel()"
     },
@@ -39860,7 +39860,7 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_set_pixel",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".set_pixel()"
     },
@@ -39871,7 +39871,7 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_flush",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".flush()"
     },
@@ -39882,7 +39882,7 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_damage",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".damage()"
     },
@@ -39893,7 +39893,7 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_copy_from",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".copy_from()"
     },
@@ -39904,7 +39904,7 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_flush_commands",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".flush_commands()"
     },
@@ -39915,7 +39915,7 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "websocket_server_websocketsurface_serialize_commands",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "._serialize_commands()"
     },
@@ -39926,7 +39926,7 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "websocketdriver"
     },
@@ -39937,7 +39937,7 @@
       "source_location": "L182",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_init",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".__init__()"
     },
@@ -39948,7 +39948,7 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_ws",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "._ws()"
     },
@@ -39959,7 +39959,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "websocket_server_py_setter",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "setter"
     },
@@ -39971,7 +39971,7 @@
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_register_client",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": ".register_client()"
     },
     {
@@ -39982,7 +39982,7 @@
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_unregister_client",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": ".unregister_client()"
     },
     {
@@ -39992,7 +39992,7 @@
       "source_location": "L216",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_active_targets",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "._active_targets()"
     },
@@ -40003,7 +40003,7 @@
       "source_location": "L221",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_schedule_send",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "._schedule_send()"
     },
@@ -40014,7 +40014,7 @@
       "source_location": "L238",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_present",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".present()"
     },
@@ -40025,7 +40025,7 @@
       "source_location": "L246",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_resize",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".resize()"
     },
@@ -40036,7 +40036,7 @@
       "source_location": "L255",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_handle_event",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".handle_event()"
     },
@@ -40047,7 +40047,7 @@
       "source_location": "L285",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_clear",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".clear()"
     },
@@ -40058,7 +40058,7 @@
       "source_location": "L290",
       "_origin": "ast",
       "id": "websocket_server_websocketdriver_send_commands",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".send_commands()"
     },
@@ -40069,7 +40069,7 @@
       "source_location": "L308",
       "_origin": "ast",
       "id": "websocket_server_create_surface",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "create_surface()"
     },
@@ -40080,7 +40080,7 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "websocket_server_solve_n_queens",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "_solve_n_queens()"
     },
@@ -40091,7 +40091,7 @@
       "source_location": "L348",
       "_origin": "ast",
       "id": "websocket_server_run_sieve",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "_run_sieve()"
     },
@@ -40103,7 +40103,7 @@
       "_origin": "ast",
       "id": "websocket_server_serialize_value",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "_serialize_value()"
     },
     {
@@ -40113,7 +40113,7 @@
       "source_location": "L416",
       "_origin": "ast",
       "id": "websocket_server_actorworkspace",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "actorworkspace"
     },
@@ -40124,7 +40124,7 @@
       "source_location": "L419",
       "_origin": "ast",
       "id": "websocket_server_actorworkspace_init",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": ".__init__()"
     },
@@ -40136,7 +40136,7 @@
       "_origin": "ast",
       "id": "websocket_server_actorworkspace_resolve_widget",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "._resolve_widget()"
     },
     {
@@ -40147,7 +40147,7 @@
       "_origin": "ast",
       "id": "websocket_server_actorworkspace_eval_source",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "._eval_source()"
     },
     {
@@ -40158,7 +40158,7 @@
       "_origin": "ast",
       "id": "websocket_server_actorworkspace_sync_windows_to_surface",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "._sync_windows_to_surface()"
     },
     {
@@ -40169,7 +40169,7 @@
       "_origin": "ast",
       "id": "websocket_server_actorworkspace_handle_message",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": ".handle_message()"
     },
     {
@@ -40179,7 +40179,7 @@
       "source_location": "L490",
       "_origin": "ast",
       "id": "websocket_server_actorworkspace_handle_message_unlocked",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "._handle_message_unlocked()"
     },
@@ -40191,95 +40191,95 @@
       "_origin": "ast",
       "id": "websocket_server_get_shared_workspace",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "get_shared_workspace()"
     },
     {
       "label": "_build_mobile_thermometer_page()",
       "file_type": "code",
       "source_file": "websocket_server.py",
-      "source_location": "L1462",
+      "source_location": "L1464",
       "_origin": "ast",
       "id": "websocket_server_build_mobile_thermometer_page",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "_build_mobile_thermometer_page()"
     },
     {
       "label": "_http_response()",
       "file_type": "code",
       "source_file": "websocket_server.py",
-      "source_location": "L1588",
+      "source_location": "L1590",
       "_origin": "ast",
       "id": "websocket_server_http_response",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "_http_response()"
     },
     {
       "label": "_is_request_origin_allowed()",
       "file_type": "code",
       "source_file": "websocket_server.py",
-      "source_location": "L1611",
+      "source_location": "L1613",
       "_origin": "ast",
       "id": "websocket_server_is_request_origin_allowed",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "_is_request_origin_allowed()"
     },
     {
       "label": "_is_request_authorized()",
       "file_type": "code",
       "source_file": "websocket_server.py",
-      "source_location": "L1660",
+      "source_location": "L1662",
       "_origin": "ast",
       "id": "websocket_server_is_request_authorized",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "_is_request_authorized()"
     },
     {
       "label": "_has_csrf_proof_header()",
       "file_type": "code",
       "source_file": "websocket_server.py",
-      "source_location": "L1684",
+      "source_location": "L1686",
       "_origin": "ast",
       "id": "websocket_server_has_csrf_proof_header",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "_has_csrf_proof_header()"
     },
     {
       "label": "process_http_request()",
       "file_type": "code",
       "source_file": "websocket_server.py",
-      "source_location": "L1704",
+      "source_location": "L1706",
       "_origin": "ast",
       "id": "websocket_server_process_http_request",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "process_http_request()"
     },
     {
       "label": "handler()",
       "file_type": "code",
       "source_file": "websocket_server.py",
-      "source_location": "L2042",
+      "source_location": "L2044",
       "_origin": "ast",
       "id": "websocket_server_handler",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "handler()"
     },
     {
       "label": "main()",
       "file_type": "code",
       "source_file": "websocket_server.py",
-      "source_location": "L2069",
+      "source_location": "L2071",
       "_origin": "ast",
       "id": "websocket_server_main",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "main()"
     },
     {
@@ -40289,7 +40289,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "websocket_server_rationale_41",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "html5 canvas surface driven via websocket commands (sparse pixel store)."
     },
@@ -40300,7 +40300,7 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "websocket_server_rationale_180",
-      "community": 12,
+      "community": 21,
       "community_name": "WebSocketSurface",
       "norm_label": "concrete websocket display driver for actorii supporting multi-client broadcast."
     },
@@ -40312,7 +40312,7 @@
       "_origin": "ast",
       "id": "websocket_server_rationale_374",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "convert actorvm runtime values into json-serializable primitives."
     },
     {
@@ -40322,7 +40322,7 @@
       "source_location": "L417",
       "_origin": "ast",
       "id": "websocket_server_rationale_417",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "interactive actor 4.1 execution session maintaining live vm and display state."
     },
@@ -40334,7 +40334,7 @@
       "_origin": "ast",
       "id": "websocket_server_rationale_434",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "resolve a widget identifier or instance across workspace and vm scopes."
     },
     {
@@ -40345,7 +40345,7 @@
       "_origin": "ast",
       "id": "websocket_server_rationale_455",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "evaluate actor code on vm, handling implicit return for final expression..."
     },
     {
@@ -40356,7 +40356,7 @@
       "_origin": "ast",
       "id": "websocket_server_rationale_461",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "attach and render any live window objects in `actor[...]` onto `self.surface`."
     },
     {
@@ -40367,7 +40367,7 @@
       "_origin": "ast",
       "id": "websocket_server_rationale_482",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "dispatch an incoming json protocol message serialized under `_vm_lock`."
     },
     {
@@ -40378,73 +40378,73 @@
       "_origin": "ast",
       "id": "websocket_server_rationale_1405",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "return the persistent shared actorworkspace for http + websocket clients."
     },
     {
       "label": "Render standalone mobile-friendly HTML5 page for Actor[#ThermoUI] with live\u2026",
       "file_type": "rationale",
       "source_file": "websocket_server.py",
-      "source_location": "L1463",
+      "source_location": "L1465",
       "_origin": "ast",
-      "id": "websocket_server_rationale_1463",
+      "id": "websocket_server_rationale_1465",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "render standalone mobile-friendly html5 page for actor[#thermoui] with live..."
     },
     {
       "label": "Validate HTTP/WebSocket `Origin` and `Sec-Fetch-Site` headers against cross-\u2026",
       "file_type": "rationale",
       "source_file": "websocket_server.py",
-      "source_location": "L1612",
+      "source_location": "L1614",
       "_origin": "ast",
-      "id": "websocket_server_rationale_1612",
+      "id": "websocket_server_rationale_1614",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "validate http/websocket `origin` and `sec-fetch-site` headers against cross-..."
     },
     {
       "label": "Verify `ACTORII_STUDIO_TOKEN` via `Authorization: Bearer <token>` (or `?token=`\u2026",
       "file_type": "rationale",
       "source_file": "websocket_server.py",
-      "source_location": "L1661",
+      "source_location": "L1663",
       "_origin": "ast",
-      "id": "websocket_server_rationale_1661",
+      "id": "websocket_server_rationale_1663",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "verify `actorii_studio_token` via `authorization: bearer <token>` (or `?token=`..."
     },
     {
       "label": "Require a non-CORS-safelisted header (`X-Actor-Request: 1` or `Authorization`)\u2026",
       "file_type": "rationale",
       "source_file": "websocket_server.py",
-      "source_location": "L1685",
+      "source_location": "L1687",
       "_origin": "ast",
-      "id": "websocket_server_rationale_1685",
+      "id": "websocket_server_rationale_1687",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "require a non-cors-safelisted header (`x-actor-request: 1` or `authorization`)..."
     },
     {
       "label": "Serve HTML5 Actor Surface and hardened HTTP API on the same port as WebSocket.",
       "file_type": "rationale",
       "source_file": "websocket_server.py",
-      "source_location": "L1705",
+      "source_location": "L1707",
       "_origin": "ast",
-      "id": "websocket_server_rationale_1705",
+      "id": "websocket_server_rationale_1707",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "serve html5 actor surface and hardened http api on the same port as websocket."
     },
     {
       "label": "Main WebSocket connection loop with multi-client driver registration.",
       "file_type": "rationale",
       "source_file": "websocket_server.py",
-      "source_location": "L2047",
+      "source_location": "L2049",
       "_origin": "ast",
-      "id": "websocket_server_rationale_2047",
+      "id": "websocket_server_rationale_2049",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "main websocket connection loop with multi-client driver registration."
     },
     {
@@ -42665,7 +42665,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "verify_m6_integrity.py",
       "id": "agents_teamwork_teamwork_preview_auditor_m6_1_verify_m6_integrity"
     },
@@ -42687,7 +42687,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "test_wayland_resize_authenticity()",
       "id": "agents_teamwork_teamwork_preview_auditor_m6_1_verify_m6_integrity_test_wayland_resize_authenticity"
     },
@@ -42697,8 +42697,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_auditor_m6_1/verify_m6_integrity.py",
       "source_location": "L164",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 12,
+      "community_name": "ActorWorkspace",
       "norm_label": "test_workspace_widget_resolution_and_eval()",
       "id": "agents_teamwork_teamwork_preview_auditor_m6_1_verify_m6_integrity_test_workspace_widget_resolution_and_eval"
     },
@@ -42742,7 +42742,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "independent forensic verification script for milestone m6. audits authentic...",
       "id": "agents_teamwork_teamwork_preview_auditor_m6_1_verify_m6_integrity_rationale_1"
     },
@@ -42764,7 +42764,7 @@
       "source_location": "L106",
       "_origin": "ast",
       "community": 17,
-      "community_name": "ActorWorkspace",
+      "community_name": "WaylandDisplay",
       "norm_label": "verify authentic buffer reallocation, pixel preservation, and clamping in...",
       "id": "agents_teamwork_teamwork_preview_auditor_m6_1_verify_m6_integrity_rationale_106"
     },
@@ -42774,8 +42774,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_auditor_m6_1/verify_m6_integrity.py",
       "source_location": "L165",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 12,
+      "community_name": "ActorWorkspace",
       "norm_label": "verify authentic widget resolution, error handling on missing widgets, and eval...",
       "id": "agents_teamwork_teamwork_preview_auditor_m6_1_verify_m6_integrity_rationale_165"
     },
@@ -42906,8 +42906,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_auditor_m7_1/verify_r2_classes.py",
       "source_location": "L106",
       "_origin": "ast",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "test_gui_widgets()",
       "id": "agents_teamwork_teamwork_preview_auditor_m7_1_verify_r2_classes_test_gui_widgets"
     },
@@ -42940,7 +42940,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "verify_r3_workspace.py",
       "id": "agents_teamwork_teamwork_preview_auditor_m7_1_verify_r3_workspace"
     },
@@ -42951,7 +42951,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "test_wayland_shm()",
       "id": "agents_teamwork_teamwork_preview_auditor_m7_1_verify_r3_workspace_test_wayland_shm"
     },
@@ -42962,7 +42962,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "test_workspace_and_websocket_live()",
       "id": "agents_teamwork_teamwork_preview_auditor_m7_1_verify_r3_workspace_test_workspace_and_websocket_live"
     },
@@ -42973,7 +42973,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "independent forensic verification script for r3 (interactive visual workspace).",
       "id": "agents_teamwork_teamwork_preview_auditor_m7_1_verify_r3_workspace_rationale_1"
     },
@@ -43731,7 +43731,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "challenge_workspace_protocol.py",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol"
@@ -43742,7 +43742,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L36",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "testharness",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_testharness"
@@ -43753,7 +43753,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L37",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": ".__init__()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_testharness_init"
@@ -43764,7 +43764,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L42",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": ".record()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_testharness_record"
@@ -43775,7 +43775,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L66",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "test_section_1_eval_persistence()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_test_section_1_eval_persistence"
@@ -43786,7 +43786,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L156",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "test_section_2_complex_expressions()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_test_section_2_complex_expressions"
@@ -43797,7 +43797,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L245",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "test_section_3_error_recovery()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_test_section_3_error_recovery"
@@ -43808,7 +43808,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L311",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "test_section_4_get_classes()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_test_section_4_get_classes"
@@ -43819,7 +43819,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L381",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "test_section_5_inspect_object()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_test_section_5_inspect_object"
@@ -43830,7 +43830,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L506",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "test_section_6_network_roundtrip()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_test_section_6_network_roundtrip"
@@ -43841,7 +43841,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_1/challenge_workspace_protocol.py",
       "source_location": "L684",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "main()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_1_challenge_workspace_protocol_main"
@@ -43852,7 +43852,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_2/challenge_surfaces_actions.py",
       "source_location": "L1",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "challenge_surfaces_actions.py",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_2_challenge_surfaces_actions"
@@ -43863,7 +43863,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_2/challenge_surfaces_actions.py",
       "source_location": "L44",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "record_result()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_2_challenge_surfaces_actions_record_result"
@@ -43874,7 +43874,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_2/challenge_surfaces_actions.py",
       "source_location": "L59",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "run_ui_action_tests()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_2_challenge_surfaces_actions_run_ui_action_tests"
@@ -43885,7 +43885,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_2/challenge_surfaces_actions.py",
       "source_location": "L317",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "run_wayland_surface_tests()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_2_challenge_surfaces_actions_run_wayland_surface_tests"
@@ -43896,7 +43896,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_2/challenge_surfaces_actions.py",
       "source_location": "L509",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "run_render_widget_tests()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_2_challenge_surfaces_actions_run_render_widget_tests"
@@ -43907,7 +43907,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_2/challenge_surfaces_actions.py",
       "source_location": "L712",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "run_demo_wayland_test()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_2_challenge_surfaces_actions_run_demo_wayland_test"
@@ -43918,7 +43918,7 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m5_2/challenge_surfaces_actions.py",
       "source_location": "L741",
       "_origin": "ast",
-      "community": 17,
+      "community": 12,
       "community_name": "ActorWorkspace",
       "norm_label": "main()",
       "id": "agents_teamwork_teamwork_preview_challenger_m5_2_challenge_surfaces_actions_main"
@@ -44084,7 +44084,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "community": 12,
-      "community_name": "WebSocketSurface",
+      "community_name": "ActorWorkspace",
       "norm_label": "challenge_surfaces_workspace.py",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace"
     },
@@ -44149,8 +44149,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L204",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": "testworkspaceserveradversarial",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testworkspaceserveradversarial"
     },
@@ -44160,8 +44160,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L207",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": ".setup()",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testworkspaceserveradversarial_setup"
     },
@@ -44171,8 +44171,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L210",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": ".test_eval_source_statement_expression_bug_reproduction()",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testworkspaceserveradversarial_test_eval_source_statement_expression_bug_reproduction"
     },
@@ -44182,8 +44182,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L224",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": ".test_eval_source_delegation_to_eval_chunk_removes_duplication()",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testworkspaceserveradversarial_test_eval_source_delegation_to_eval_chunk_removes_duplication"
     },
@@ -44193,8 +44193,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L267",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": ".test_ui_event_nonexistent_widget_handling()",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testworkspaceserveradversarial_test_ui_event_nonexistent_widget_handling"
     },
@@ -44204,8 +44204,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L356",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": ".test_inspect_object_actor_class_methods()",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testworkspaceserveradversarial_test_inspect_object_actor_class_methods"
     },
@@ -44215,8 +44215,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L402",
       "_origin": "ast",
-      "community": 59,
-      "community_name": "TestClassLibraryAdversarial",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "testclasslibraryadversarial",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testclasslibraryadversarial"
     },
@@ -44226,8 +44226,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L405",
       "_origin": "ast",
-      "community": 59,
-      "community_name": "TestClassLibraryAdversarial",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_actor_collection_len_and_size_edge_cases()",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testclasslibraryadversarial_test_actor_collection_len_and_size_edge_cases"
     },
@@ -44237,8 +44237,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L424",
       "_origin": "ast",
-      "community": 59,
-      "community_name": "TestClassLibraryAdversarial",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_actor_array_boundary_and_copy_from()",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testclasslibraryadversarial_test_actor_array_boundary_and_copy_from"
     },
@@ -44270,8 +44270,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L542",
       "_origin": "ast",
-      "community": 59,
-      "community_name": "TestClassLibraryAdversarial",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_dictionary_edge_cases()",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testclasslibraryadversarial_test_dictionary_edge_cases"
     },
@@ -44292,8 +44292,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L622",
       "_origin": "ast",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": ".test_gui_widgets_edge_cases()",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_testclasslibraryadversarial_test_gui_widgets_edge_cases"
     },
@@ -44347,8 +44347,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L205",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": "stress tests _eval_source, ui_event, and inspect_object in websocket_server.py.",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_205"
     },
@@ -44358,8 +44358,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L211",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": "reproduce the defect where statement expressions return none in ws._eval_source.",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_211"
     },
@@ -44369,8 +44369,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L225",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": "verify that delegating ws._eval_source to vm.eval_chunk fixes statement...",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_225"
     },
@@ -44380,8 +44380,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L268",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": "stress-test ui_event on non-existent widget ids: must return handled: false.",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_268"
     },
@@ -44391,8 +44391,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L357",
       "_origin": "ast",
-      "community": 2,
-      "community_name": "Button",
+      "community": 59,
+      "community_name": "TestWorkspaceServerAdversarial",
       "norm_label": "stress-test inspect_object on actorclass: returns both _methods and...",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_357"
     },
@@ -44402,8 +44402,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L403",
       "_origin": "ast",
-      "community": 59,
-      "community_name": "TestClassLibraryAdversarial",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "stress tests edge cases across foundational classes in src/actorii/classes/.",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_403"
     },
@@ -44413,8 +44413,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L406",
       "_origin": "ast",
-      "community": 59,
-      "community_name": "TestClassLibraryAdversarial",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "actorcollection direct instantiation: document len() error and verified fix.",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_406"
     },
@@ -44424,8 +44424,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L425",
       "_origin": "ast",
-      "community": 59,
-      "community_name": "TestClassLibraryAdversarial",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "stress-test actorarray boundary conditions and copyfrom.",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_425"
     },
@@ -44457,8 +44457,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L543",
       "_origin": "ast",
-      "community": 59,
-      "community_name": "TestClassLibraryAdversarial",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "stress-test dictionary symbol normalization, missing keys, and iteration.",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_543"
     },
@@ -44479,8 +44479,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m6_2/challenge_surfaces_workspace.py",
       "source_location": "L623",
       "_origin": "ast",
-      "community": 560,
-      "community_name": "Window",
+      "community": 2,
+      "community_name": "Button",
       "norm_label": "stress-test control, button, checkbox, textfield, window, and dialog lifecycle.",
       "id": "agents_teamwork_teamwork_preview_challenger_m6_2_challenge_surfaces_workspace_rationale_623"
     },
@@ -83276,7 +83276,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/actorii/tui.py",
-      "source_location": "L795",
+      "source_location": "L797",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -86096,7 +86096,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L974",
+      "source_location": "L976",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui",
@@ -86109,7 +86109,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/actorii/tui.py",
-      "source_location": "L975",
+      "source_location": "L977",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -86267,7 +86267,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L233",
+      "source_location": "L235",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui",
@@ -86278,7 +86278,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L233",
+      "source_location": "L235",
       "weight": 0.8,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -87761,7 +87761,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L502",
+      "source_location": "L504",
       "weight": 1.0,
       "context": "decorator",
       "_origin": "ast",
@@ -87773,7 +87773,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L379",
+      "source_location": "L381",
       "weight": 1.0,
       "context": "decorator",
       "_origin": "ast",
@@ -87785,7 +87785,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L403",
+      "source_location": "L405",
       "weight": 1.0,
       "context": "decorator",
       "_origin": "ast",
@@ -87797,7 +87797,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L435",
+      "source_location": "L437",
       "weight": 1.0,
       "context": "decorator",
       "_origin": "ast",
@@ -89068,7 +89068,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L543",
+      "source_location": "L545",
       "weight": 1.0,
       "context": "decorator",
       "_origin": "ast",
@@ -89946,7 +89946,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L294",
+      "source_location": "L296",
       "weight": 1.0,
       "context": "decorator",
       "_origin": "ast",
@@ -97411,7 +97411,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1830",
+      "source_location": "L1833",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -116943,7 +116943,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/actorii/tui.py",
-      "source_location": "L499",
+      "source_location": "L501",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -117622,7 +117622,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L320",
+      "source_location": "L322",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_get_user_classes",
@@ -118977,7 +118977,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1336",
+      "source_location": "L1340",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_main",
@@ -124935,7 +124935,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L646",
+      "source_location": "L648",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui",
@@ -124946,7 +124946,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L646",
+      "source_location": "L648",
       "weight": 0.8,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -124959,7 +124959,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/actorii/tui.py",
-      "source_location": "L648",
+      "source_location": "L650",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -125070,7 +125070,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "websocket_server.py",
-      "source_location": "L2002",
+      "source_location": "L2004",
       "weight": 0.8,
       "_origin": "ast",
       "source": "websocket_server_actorworkspace",
@@ -125095,7 +125095,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "websocket_server.py",
-      "source_location": "L2016",
+      "source_location": "L2018",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -125105,7 +125105,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "websocket_server.py",
-      "source_location": "L2002",
+      "source_location": "L2004",
       "weight": 0.8,
       "_origin": "ast",
       "source": "websocket_server_websocketdriver",
@@ -125116,7 +125116,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "websocket_server.py",
-      "source_location": "L2002",
+      "source_location": "L2004",
       "weight": 0.8,
       "_origin": "ast",
       "source": "websocket_server_websocketsurface",
@@ -126487,7 +126487,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L322",
+      "source_location": "L324",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph_run_cypher",
@@ -126559,7 +126559,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "src/actorii/tui.py",
-      "source_location": "L750",
+      "source_location": "L752",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -127954,7 +127954,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1829",
+      "source_location": "L1832",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -128307,7 +128307,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1749",
+      "source_location": "L1750",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -129896,7 +129896,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1774",
+      "source_location": "L1775",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -129908,7 +129908,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1746",
+      "source_location": "L1747",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -129920,7 +129920,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1752",
+      "source_location": "L1753",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -129932,7 +129932,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1755",
+      "source_location": "L1756",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -129944,7 +129944,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1760",
+      "source_location": "L1761",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -129956,7 +129956,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1797",
+      "source_location": "L1798",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -129968,7 +129968,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1784",
+      "source_location": "L1785",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -129980,7 +129980,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1800",
+      "source_location": "L1801",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -129992,7 +129992,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1787",
+      "source_location": "L1788",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -130004,7 +130004,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1794",
+      "source_location": "L1795",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -130016,7 +130016,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1781",
+      "source_location": "L1782",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -130028,7 +130028,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1791",
+      "source_location": "L1792",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -130040,7 +130040,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1777",
+      "source_location": "L1778",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_init_bootstrap_agent_harness",
@@ -130063,10 +130063,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/__init__.py",
-      "source_location": "L1733",
+      "source_location": "L1734",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_harness_init_rationale_1733",
+      "source": "src_actorii_harness_init_rationale_1734",
       "target": "src_actorii_harness_init_bootstrap_agent_harness",
       "confidence_score": 1.0
     },
@@ -130100,7 +130100,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/actorii/tui.py",
-      "source_location": "L141",
+      "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_init",
@@ -130544,7 +130544,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "websocket_server.py",
-      "source_location": "L1921",
+      "source_location": "L1923",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -130783,7 +130783,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L910",
+      "source_location": "L912",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui",
@@ -130794,7 +130794,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L910",
+      "source_location": "L912",
       "weight": 0.8,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -130807,7 +130807,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/actorii/tui.py",
-      "source_location": "L911",
+      "source_location": "L913",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -130931,7 +130931,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L295",
+      "source_location": "L297",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph",
@@ -130953,7 +130953,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L503",
+      "source_location": "L505",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph",
@@ -130964,7 +130964,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L380",
+      "source_location": "L382",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph",
@@ -130975,7 +130975,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L298",
+      "source_location": "L300",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph",
@@ -130986,7 +130986,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L404",
+      "source_location": "L406",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph",
@@ -130997,7 +130997,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L436",
+      "source_location": "L438",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph",
@@ -131008,7 +131008,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L544",
+      "source_location": "L546",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph",
@@ -131019,7 +131019,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L304",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph",
@@ -131030,7 +131030,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L333",
+      "source_location": "L335",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph",
@@ -131041,10 +131041,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L296",
+      "source_location": "L298",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_harness_grammar_graph_rationale_296",
+      "source": "src_actorii_harness_grammar_graph_rationale_298",
       "target": "src_actorii_harness_grammar_graph_actorgrammargraph",
       "confidence_score": 1.0
     },
@@ -131053,7 +131053,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L302",
+      "source_location": "L304",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph_init",
@@ -131065,7 +131065,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L509",
+      "source_location": "L511",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph_diagnoseerror",
@@ -131077,7 +131077,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L383",
+      "source_location": "L385",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph_graphstats",
@@ -131089,7 +131089,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L408",
+      "source_location": "L410",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph_lookupsyntax",
@@ -131101,7 +131101,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L460",
+      "source_location": "L462",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph_queryconstructsfortask",
@@ -131113,7 +131113,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L559",
+      "source_location": "L561",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph_recordlearnedfix",
@@ -131125,7 +131125,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L304",
+      "source_location": "L306",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph_run_cypher",
@@ -131137,7 +131137,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L336",
+      "source_location": "L338",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_harness_grammar_graph_actorgrammargraph_seed_graph",
@@ -131148,10 +131148,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L334",
+      "source_location": "L336",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_harness_grammar_graph_rationale_334",
+      "source": "src_actorii_harness_grammar_graph_rationale_336",
       "target": "src_actorii_harness_grammar_graph_actorgrammargraph_seed_graph",
       "confidence_score": 1.0
     },
@@ -131159,10 +131159,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L381",
+      "source_location": "L383",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_harness_grammar_graph_rationale_381",
+      "source": "src_actorii_harness_grammar_graph_rationale_383",
       "target": "src_actorii_harness_grammar_graph_actorgrammargraph_graphstats",
       "confidence_score": 1.0
     },
@@ -131170,10 +131170,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L405",
+      "source_location": "L407",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_harness_grammar_graph_rationale_405",
+      "source": "src_actorii_harness_grammar_graph_rationale_407",
       "target": "src_actorii_harness_grammar_graph_actorgrammargraph_lookupsyntax",
       "confidence_score": 1.0
     },
@@ -131181,10 +131181,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L437",
+      "source_location": "L439",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_harness_grammar_graph_rationale_437",
+      "source": "src_actorii_harness_grammar_graph_rationale_439",
       "target": "src_actorii_harness_grammar_graph_actorgrammargraph_queryconstructsfortask",
       "confidence_score": 1.0
     },
@@ -131192,10 +131192,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L504",
+      "source_location": "L506",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_harness_grammar_graph_rationale_504",
+      "source": "src_actorii_harness_grammar_graph_rationale_506",
       "target": "src_actorii_harness_grammar_graph_actorgrammargraph_diagnoseerror",
       "confidence_score": 1.0
     },
@@ -131203,10 +131203,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/harness/grammar_graph.py",
-      "source_location": "L551",
+      "source_location": "L553",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_harness_grammar_graph_rationale_551",
+      "source": "src_actorii_harness_grammar_graph_rationale_553",
       "target": "src_actorii_harness_grammar_graph_actorgrammargraph_recordlearnedfix",
       "confidence_score": 1.0
     },
@@ -136331,7 +136331,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L692",
+      "source_location": "L694",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui",
@@ -136342,7 +136342,7 @@
       "relation": "uses",
       "confidence": "INFERRED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L692",
+      "source_location": "L694",
       "weight": 0.8,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -136355,7 +136355,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "src/actorii/tui.py",
-      "source_location": "L694",
+      "source_location": "L696",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -150102,7 +150102,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1208",
+      "source_location": "L1212",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui",
@@ -150124,7 +150124,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1236",
+      "source_location": "L1240",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui",
@@ -150135,7 +150135,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1019",
+      "source_location": "L1023",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui",
@@ -150218,7 +150218,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L354",
+      "source_location": "L356",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_input",
@@ -150229,7 +150229,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L165",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150240,7 +150240,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L184",
+      "source_location": "L186",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150251,7 +150251,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L187",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150262,7 +150262,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L228",
+      "source_location": "L230",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150273,7 +150273,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L300",
+      "source_location": "L302",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150284,7 +150284,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L310",
+      "source_location": "L312",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150295,7 +150295,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L327",
+      "source_location": "L329",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150306,7 +150306,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L320",
+      "source_location": "L322",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150317,7 +150317,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L409",
+      "source_location": "L411",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150328,7 +150328,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L340",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150339,7 +150339,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L456",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150361,7 +150361,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L191",
+      "source_location": "L193",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150372,7 +150372,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L156",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150383,7 +150383,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L278",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150394,7 +150394,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L363",
+      "source_location": "L365",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150405,7 +150405,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L174",
+      "source_location": "L176",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150416,7 +150416,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L265",
+      "source_location": "L267",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession",
@@ -150450,7 +150450,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1208",
+      "source_location": "L1212",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_configure_readline",
@@ -150462,7 +150462,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1295",
+      "source_location": "L1299",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_main",
@@ -150485,7 +150485,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1019",
+      "source_location": "L1023",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_run_curses_dock",
@@ -150626,7 +150626,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L151",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_init",
@@ -150650,7 +150650,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L445",
+      "source_location": "L447",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_actor_eval",
@@ -150662,7 +150662,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L346",
+      "source_location": "L348",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_input",
@@ -150674,7 +150674,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L192",
+      "source_location": "L194",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_on_harness_step",
@@ -150686,7 +150686,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L156",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_record_audit_event",
@@ -150698,7 +150698,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L300",
+      "source_location": "L302",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_get_chat_history",
@@ -150710,7 +150710,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L310",
+      "source_location": "L312",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_get_pool_objects",
@@ -150722,7 +150722,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L327",
+      "source_location": "L329",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_get_scratchpad_dict",
@@ -150734,7 +150734,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L409",
+      "source_location": "L411",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_actor_eval",
@@ -150746,7 +150746,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L191",
+      "source_location": "L193",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_on_harness_step",
@@ -150758,7 +150758,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L278",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_remote_studio_request",
@@ -150770,7 +150770,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L363",
+      "source_location": "L365",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_run_harness_goal",
@@ -150782,7 +150782,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L165",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_auto_save_session",
@@ -150794,7 +150794,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L462",
+      "source_location": "L464",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -150806,7 +150806,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L406",
+      "source_location": "L408",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_run_harness_goal",
@@ -150818,7 +150818,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1314",
+      "source_location": "L1318",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_main",
@@ -150830,7 +150830,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L257",
+      "source_location": "L259",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_flush_usage_file",
@@ -150842,7 +150842,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L787",
+      "source_location": "L789",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -150854,7 +150854,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L175",
+      "source_location": "L177",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_seed_convenience_objects",
@@ -150866,7 +150866,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L426",
+      "source_location": "L428",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_actor_eval",
@@ -150878,7 +150878,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L464",
+      "source_location": "L466",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -150890,7 +150890,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L200",
+      "source_location": "L202",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_on_harness_step",
@@ -150902,7 +150902,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L369",
+      "source_location": "L371",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_run_harness_goal",
@@ -150914,7 +150914,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1325",
+      "source_location": "L1329",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_main",
@@ -150926,7 +150926,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L425",
+      "source_location": "L427",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_actor_eval",
@@ -150938,7 +150938,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L464",
+      "source_location": "L466",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -150950,7 +150950,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L204",
+      "source_location": "L206",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_on_harness_step",
@@ -150962,7 +150962,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L368",
+      "source_location": "L370",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_run_harness_goal",
@@ -150974,7 +150974,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1022",
+      "source_location": "L1026",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_run_curses_dock",
@@ -150986,7 +150986,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L226",
+      "source_location": "L228",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_on_harness_step",
@@ -150998,7 +150998,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L381",
+      "source_location": "L383",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_run_harness_goal",
@@ -151010,7 +151010,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1316",
+      "source_location": "L1320",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_main",
@@ -151022,7 +151022,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L484",
+      "source_location": "L486",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -151034,7 +151034,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L272",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_status_ribbon_text",
@@ -151046,7 +151046,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L271",
+      "source_location": "L273",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_status_ribbon_text",
@@ -151058,7 +151058,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1325",
+      "source_location": "L1329",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_main",
@@ -151070,7 +151070,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L303",
+      "source_location": "L305",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_get_chat_history",
@@ -151082,7 +151082,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L418",
+      "source_location": "L420",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_actor_eval",
@@ -151094,7 +151094,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L611",
+      "source_location": "L613",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -151106,7 +151106,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L374",
+      "source_location": "L376",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_run_harness_goal",
@@ -151118,7 +151118,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L482",
+      "source_location": "L484",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -151130,7 +151130,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L400",
+      "source_location": "L402",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_run_harness_goal",
@@ -151142,7 +151142,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L496",
+      "source_location": "L498",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -151154,7 +151154,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L512",
+      "source_location": "L514",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -151166,7 +151166,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L526",
+      "source_location": "L528",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -151178,7 +151178,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L355",
+      "source_location": "L357",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_input",
@@ -151190,7 +151190,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L349",
+      "source_location": "L351",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_input",
@@ -151202,7 +151202,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L360",
+      "source_location": "L362",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_input",
@@ -151214,7 +151214,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1305",
+      "source_location": "L1309",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_main",
@@ -151225,10 +151225,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L341",
+      "source_location": "L343",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_tui_rationale_341",
+      "source": "src_actorii_tui_rationale_343",
       "target": "src_actorii_tui_actortuisession_handle_input",
       "confidence_score": 1.0
     },
@@ -151237,7 +151237,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L574",
+      "source_location": "L576",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -151249,7 +151249,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L895",
+      "source_location": "L897",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -151261,7 +151261,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1007",
+      "source_location": "L1011",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_actortuisession_handle_slash_command",
@@ -151273,7 +151273,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1320",
+      "source_location": "L1324",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_main",
@@ -151284,10 +151284,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1020",
+      "source_location": "L1024",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "src_actorii_tui_rationale_1020",
+      "source": "src_actorii_tui_rationale_1024",
       "target": "src_actorii_tui_run_curses_dock",
       "confidence_score": 1.0
     },
@@ -151296,7 +151296,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "src/actorii/tui.py",
-      "source_location": "L1324",
+      "source_location": "L1328",
       "weight": 1.0,
       "_origin": "ast",
       "source": "src_actorii_tui_main",
@@ -175671,7 +175671,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1462",
+      "source_location": "L1464",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server",
@@ -175704,7 +175704,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2042",
+      "source_location": "L2044",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server",
@@ -175715,7 +175715,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1684",
+      "source_location": "L1686",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server",
@@ -175726,7 +175726,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1588",
+      "source_location": "L1590",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server",
@@ -175737,7 +175737,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1660",
+      "source_location": "L1662",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server",
@@ -175748,7 +175748,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1611",
+      "source_location": "L1613",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server",
@@ -175759,7 +175759,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2069",
+      "source_location": "L2071",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server",
@@ -175770,7 +175770,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1704",
+      "source_location": "L1706",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server",
@@ -176167,7 +176167,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2042",
+      "source_location": "L2044",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_handler",
@@ -176179,7 +176179,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1684",
+      "source_location": "L1686",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_has_csrf_proof_header",
@@ -176191,7 +176191,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1588",
+      "source_location": "L1590",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_http_response",
@@ -176203,7 +176203,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1660",
+      "source_location": "L1662",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_is_request_authorized",
@@ -176215,7 +176215,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1611",
+      "source_location": "L1613",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_is_request_origin_allowed",
@@ -176227,7 +176227,7 @@
       "context": "return_type",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1704",
+      "source_location": "L1706",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -176658,7 +176658,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2049",
+      "source_location": "L2051",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_handler",
@@ -176670,7 +176670,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2065",
+      "source_location": "L2067",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_handler",
@@ -176850,7 +176850,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1899",
+      "source_location": "L1901",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -177199,7 +177199,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1462",
+      "source_location": "L1464",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_build_mobile_thermometer_page",
@@ -177223,7 +177223,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2042",
+      "source_location": "L2044",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_handler",
@@ -177293,7 +177293,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1898",
+      "source_location": "L1900",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -177351,7 +177351,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2054",
+      "source_location": "L2056",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_handler",
@@ -177374,7 +177374,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2048",
+      "source_location": "L2050",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_handler",
@@ -177386,7 +177386,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2072",
+      "source_location": "L2074",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_main",
@@ -177398,7 +177398,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1807",
+      "source_location": "L1809",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -177421,7 +177421,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1809",
+      "source_location": "L1811",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -177432,10 +177432,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1463",
+      "source_location": "L1465",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "websocket_server_rationale_1463",
+      "source": "websocket_server_rationale_1465",
       "target": "websocket_server_build_mobile_thermometer_page",
       "confidence_score": 1.0
     },
@@ -177444,7 +177444,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1716",
+      "source_location": "L1718",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -177456,7 +177456,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1714",
+      "source_location": "L1716",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -177467,10 +177467,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1612",
+      "source_location": "L1614",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "websocket_server_rationale_1612",
+      "source": "websocket_server_rationale_1614",
       "target": "websocket_server_is_request_origin_allowed",
       "confidence_score": 1.0
     },
@@ -177479,7 +177479,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1722",
+      "source_location": "L1724",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -177490,10 +177490,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1661",
+      "source_location": "L1663",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "websocket_server_rationale_1661",
+      "source": "websocket_server_rationale_1663",
       "target": "websocket_server_is_request_authorized",
       "confidence_score": 1.0
     },
@@ -177502,7 +177502,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1861",
+      "source_location": "L1863",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_process_http_request",
@@ -177513,10 +177513,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1685",
+      "source_location": "L1687",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "websocket_server_rationale_1685",
+      "source": "websocket_server_rationale_1687",
       "target": "websocket_server_has_csrf_proof_header",
       "confidence_score": 1.0
     },
@@ -177525,7 +177525,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "websocket_server.py",
-      "source_location": "L2081",
+      "source_location": "L2083",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_main",
@@ -177536,10 +177536,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L1705",
+      "source_location": "L1707",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "websocket_server_rationale_1705",
+      "source": "websocket_server_rationale_1707",
       "target": "websocket_server_process_http_request",
       "confidence_score": 1.0
     },
@@ -177608,7 +177608,7 @@
       "context": "argument",
       "confidence": "INFERRED",
       "source_file": "websocket_server.py",
-      "source_location": "L2078",
+      "source_location": "L2080",
       "weight": 1.0,
       "_origin": "ast",
       "source": "websocket_server_main",
@@ -177619,10 +177619,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "websocket_server.py",
-      "source_location": "L2047",
+      "source_location": "L2049",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "websocket_server_rationale_2047",
+      "source": "websocket_server_rationale_2049",
       "target": "websocket_server_handler",
       "confidence_score": 1.0
     },
@@ -213069,5 +213069,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "1765327e9e51e770233e3f6f35a8af1bd4762a76"
+  "built_at_commit": "c7492fbd5ad33e62dcc6b455ce7f3d6165a021be"
 }

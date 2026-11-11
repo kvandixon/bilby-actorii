@@ -1,7 +1,7 @@
-# Graph Report - ActorII  (2026-11-10)
+# Graph Report - ActorII  (2026-11-11)
 
 ## Corpus Check
-- 153 files · ~463,782 words
+- 153 files · ~463,847 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1765327e`
+- Built from commit: `c7492fbd`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -27,16 +27,16 @@
 - Any
 - CostModel
 - ReverseProxyTwin
-- WebSocketSurface
+- ActorWorkspace
 - ActorInheritanceHierarchy
 - parse_actor
 - actor_command
 - TestOpcodeSetExtensions
-- ActorWorkspace
+- WaylandDisplay
 - Actor1993Parser
 - TestActorTUIWorkflow
 - Milestone M1 Analysis & Specification: Expressions, Closures, Indexing, Early-Bound & Control Flow
-- BlueZThermoProTransport
+- WebSocketSurface
 - DisplaySurface
 - bootstrap_agent_harness
 - ThermometerUI
@@ -74,11 +74,11 @@
 - ActorII & The Metacircular AgentHarness: Architectural Blueprint
 - TestParserVMIntegration
 - Agent
-- TestClassLibraryAdversarial
+- TestWorkspaceServerAdversarial
 - TestDictionaryAdversarialStress
 - TestEmpiricalSieveScaling
 - db-wal-recovery/tests/test_outputs.py
-- MethodRef
+- MethodDefNode
 - Handoff Report — Milestone M2 Remediation Verification (Reviewer 2)
 - test.py
 - TestVMClassLibraryIntegration
@@ -618,8 +618,8 @@ Cohesion: 0.02
 Nodes (70): Tier 1: Comprehensive feature coverage verifying core features F1-F16., F1.3: Parse authentic 1993 inherit directive into ClassDef / ClassDefNode., F1.4: Parse authentic inherit with instance variables #(x y)., F2.1: Parse now(Sieve)!! active compilation scoping directive., F2.2: Parse now(class(FractalWindow))!! active metaclass scoping., F2.3: Verify Def parsed under now(ClassName)!! is associated with ClassName., F2.4: Verify sequential now(A)!! ... now(B)!! switches active class target., F3.2: Parse authentic 1993 Def method(self, cnt | flags count) syntax. (+62 more)
 
 ### Community 2 - "Button"
-Cohesion: 0.04
-Nodes (45): Verify authentic widget resolution, error handling on missing widgets, and eval…, test_workspace_widget_resolution_and_eval(), Stress tests _eval_source, ui_event, and inspect_object in websocket_server.py., Reproduce the defect where statement expressions return None in ws._eval_source., Verify that delegating ws._eval_source to vm.eval_chunk fixes statement…, Stress-test ui_event on non-existent widget IDs: must return handled: False., Stress-test inspect_object on ActorClass: returns both _methods and…, TestWorkspaceServerAdversarial (+37 more)
+Cohesion: 0.03
+Nodes (55): test_gui_widgets(), Stress tests edge cases across foundational classes in src/actorii/classes/., ActorCollection direct instantiation: document len() error and verified fix., Stress-test ActorArray boundary conditions and copyFrom., Stress-test Dictionary symbol normalization, missing keys, and iteration., Stress-test Control, Button, Checkbox, TextField, Window, and Dialog lifecycle., TestClassLibraryAdversarial, Button (+47 more)
 
 ### Community 3 - "TestTier2BoundaryCases"
 Cohesion: 0.02
@@ -657,9 +657,9 @@ Nodes (29): align(), CostConsts, CostModel, Encapsulates the cost and latency ca
 Cohesion: 0.07
 Nodes (45): IPv4Address, IPv6Address, Digital Twin (`Actor[#Proxy]`) enabling Bilby to inspect and manage the…, One-line operational summary of the Bilby Reverse Proxy., Detailed proxy status, active mode, network URLs, CIDRs, and auth gate., Return ready-to-open WLAN and Tailscale Studio & Benchmark URLs (including…, Set reverse proxy access mode: `lan`, `tailscale_only`, `local_only`, or…, Enable or disable the passcode / 1-tap magic-link cookie gate (`true` /… (+37 more)
 
-### Community 12 - "WebSocketSurface"
-Cohesion: 0.04
-Nodes (44): Independent forensic verification script for Milestone M6. Audits authentic…, Independent Forensic Verification Script for R3 (Interactive Visual Workspace)., test_wayland_shm(), test_workspace_and_websocket_live(), 1993 Whitewater Actor 4.1 Geometry Classes (Point, Point3D, Rect).…, 1993 Whitewater Actor 4.1 GUI Widget Hierarchy. Reconstructed from authentic…, # NOTE: pywayland is a client library that connects to an existing Wayland, Test Suite for 1993 Actor 4.1 Live Image Persistence (Snapshot / Restore).… (+36 more)
+### Community 12 - "ActorWorkspace"
+Cohesion: 0.06
+Nodes (55): Independent forensic verification script for Milestone M6. Audits authentic…, Verify authentic widget resolution, error handling on missing widgets, and eval…, test_workspace_widget_resolution_and_eval(), Independent Forensic Verification Script for R3 (Interactive Visual Workspace)., test_wayland_shm(), test_workspace_and_websocket_live(), main(), test_section_1_eval_persistence() (+47 more)
 
 ### Community 13 - "ActorInheritanceHierarchy"
 Cohesion: 0.03
@@ -677,9 +677,9 @@ Nodes (52): RuntimeError, actor_command(), Decorator marking a Python method as 
 Cohesion: 0.11
 Nodes (10): Indexing opcodes GET_INDEX and SET_INDEX., Relational comparisons and stack duplication opcodes., Control flow jump additions., Closure, return, early-binding, and primitive opcodes., Opcode values contain their mnemonic in str() for test assertions., Verifies that all M2 opcodes and aliases are defined correctly., All 25 baseline opcodes retain their exact numeric values., Variable store and load opcodes have expected non-colliding values. (+2 more)
 
-### Community 17 - "ActorWorkspace"
+### Community 17 - "WaylandDisplay"
 Cohesion: 0.03
-Nodes (79): Verify authentic buffer reallocation, pixel preservation, and clamping in…, test_wayland_resize_authenticity(), main(), test_section_1_eval_persistence(), test_section_2_complex_expressions(), test_section_3_error_recovery(), test_section_4_get_classes(), test_section_5_inspect_object() (+71 more)
+Nodes (61): Verify authentic buffer reallocation, pixel preservation, and clamping in…, test_wayland_resize_authenticity(), create_driver(), Manages a Wayland display connection using pywayland. In headless/test mode,…, Create a new Wayland surface for rendering. Args: width: Surface width in…, Create a display driver for the given mode. Args: mode: "wayland", "websocket",…, WaylandDisplay, Stress-test Wayland surface pixel ops, coordinates, damage, and buffer… (+53 more)
 
 ### Community 18 - "Actor1993Parser"
 Cohesion: 0.14
@@ -693,9 +693,9 @@ Nodes (3): Path, Tests the Hermes/Antigravity-style TUI session and slash comman
 Cohesion: 0.05
 Nodes (43): 10. Summary & Sign-off, 1. Executive Summary, 2.1 Current Expression Parser (`src/actorii/parser/__init__.py`), 2.2 Critical Gaps Identified, 2. Baseline Parser Audit & Gap Analysis, 3.1 Expression Hierarchy & Precedence (EBNF), 3.2 Block Closures (EBNF), 3.3 Indexing & Early-Bound Qualification (EBNF) (+35 more)
 
-### Community 21 - "BlueZThermoProTransport"
-Cohesion: 0.12
-Nodes (12): BlueZThermoProTransport, Pure-Python BlueZ D-Bus transport for reading BLE advertisements and GATT…, _is_bluez_adapter_powered(), skipif, Test Suite for ThermoPro TP358W / TP358S Bluetooth Digital Twin…, Tests the 1993 Actor Digital Twin program (`examples/tp358w_digital_twin.act`)., Tests `ThermometerUI` / `ThermometerWindow` child controls, Wayland/WebSocket…, Tests WebSocket `render_thermometer` and interactive `ui_event` unit toggle on… (+4 more)
+### Community 21 - "WebSocketSurface"
+Cohesion: 0.06
+Nodes (19): _is_bluez_adapter_powered(), skipif, Test Suite for ThermoPro TP358W / TP358S Bluetooth Digital Twin…, Tests the 1993 Actor Digital Twin program (`examples/tp358w_digital_twin.act`)., Tests `ThermometerUI` / `ThermometerWindow` child controls, Wayland/WebSocket…, Tests WebSocket `render_thermometer` and interactive `ui_event` unit toggle on…, Live BLE hardware test against 00:11:22:33:44:55 (`TP358S (Demo)`) on valkyrie., Check whether BlueZ adapter `/org/bluez/hci0` is powered on. (+11 more)
 
 ### Community 22 - "DisplaySurface"
 Cohesion: 0.05
@@ -726,8 +726,8 @@ Cohesion: 0.02
 Nodes (104): Independent Forensic Verification Script for R2 (Core 1993 Class Library Port)., test_collections_and_set(), Stress-test ActorOrderedCollection and ActorList underflow, bounds, and remove., list, First-Class OOP `Agent` Class for the 1993 Whitewater Actor 4.1 Hierarchy.…, is_kind_of(), object_as_string(), object_clone() (+96 more)
 
 ### Community 29 - "BytecodeCompiler"
-Cohesion: 0.08
-Nodes (21): BytecodeCompiler, ClassDef, ClassDefNode, EarlyBoundDescriptor, MethodDef, MethodDefNode, PrimDefNode, Any (+13 more)
+Cohesion: 0.17
+Nodes (10): BytecodeCompiler, EarlyBoundDescriptor, setter, Descriptor for compile-time early-bound dispatch., Lexical scope tracking local variables, parameters, and closures., Define a local variable or parameter slot., Look up variable slot index in immediate local scope., Resolve identifier across scope chain. Returns: (kind, depth, slot) kind:… (+2 more)
 
 ### Community 30 - "BilbyTelegramGateway"
 Cohesion: 0.13
@@ -739,7 +739,7 @@ Nodes (33): 1. Executive Summary, 2.10 Operators and Expressions, 2.11 Control F
 
 ### Community 32 - "Opcode"
 Cohesion: 0.03
-Nodes (64): ArrayLiteralNode, Assignment, AssignNode, ASTNode, AttributeAccess, BinaryOp, BlockNode, BooleanLiteral (+56 more)
+Nodes (60): ArrayLiteralNode, Assignment, AssignNode, ASTNode, AttributeAccess, BinaryOp, BlockNode, BooleanLiteral (+52 more)
 
 ### Community 33 - "ActorSet"
 Cohesion: 0.09
@@ -845,9 +845,9 @@ Nodes (7): Test creating instances of parsed classes on ActorVM., Integration te
 Cohesion: 0.06
 Nodes (21): Agent, _norm_key(), Any, setter, Store a semantic fact or object reference in the Agent's persistent Dictionary., Retrieve a value from the Agent's semantic memory by key or Symbol., Remove a key from the Agent's semantic memory., Clear episodic conversation history. (+13 more)
 
-### Community 59 - "TestClassLibraryAdversarial"
-Cohesion: 0.25
-Nodes (5): Stress tests edge cases across foundational classes in src/actorii/classes/., ActorCollection direct instantiation: document len() error and verified fix., Stress-test ActorArray boundary conditions and copyFrom., Stress-test Dictionary symbol normalization, missing keys, and iteration., TestClassLibraryAdversarial
+### Community 59 - "TestWorkspaceServerAdversarial"
+Cohesion: 0.18
+Nodes (6): Stress tests _eval_source, ui_event, and inspect_object in websocket_server.py., Reproduce the defect where statement expressions return None in ws._eval_source., Verify that delegating ws._eval_source to vm.eval_chunk fixes statement…, Stress-test ui_event on non-existent widget IDs: must return handled: False., Stress-test inspect_object on ActorClass: returns both _methods and…, TestWorkspaceServerAdversarial
 
 ### Community 60 - "TestDictionaryAdversarialStress"
 Cohesion: 0.12
@@ -861,9 +861,9 @@ Nodes (6): parametrize, Stress tests SIEVE.ACT and SIEVE1.ACT across varying inp
 Cohesion: 0.13
 Nodes (14): Test that the recovered.json file is valid JSON., Test that the recovered data has the correct structure., Test that the recovered data is sorted by id., Test that all expected data is recovered including WAL changes., Test that the recovered.json file exists., Test that there are no duplicate IDs in the recovered data., Test that the agent successfully decrypted the WAL file., test_no_duplicate_ids() (+6 more)
 
-### Community 63 - "MethodRef"
-Cohesion: 0.25
-Nodes (3): MethodRef, str, String subclass representing a method selector with attached call arity.
+### Community 63 - "MethodDefNode"
+Cohesion: 0.07
+Nodes (18): ClassDef, ClassDefNode, MethodDef, MethodDefNode, MethodRef, _parse_method(), _parse_tokens(), PrimDefNode (+10 more)
 
 ### Community 64 - "Handoff Report — Milestone M2 Remediation Verification (Reviewer 2)"
 Cohesion: 0.08
@@ -1771,7 +1771,7 @@ Nodes (4): Core Features Under Test (Requirements R1, R2, R3), E2E Test Infra: A
 
 ### Community 303 - "WaylandSurface"
 Cohesion: 0.04
-Nodes (36): Verify that WaylandDriver.resize cleanly calls surface.resize without crash., Stress tests buffer management and resize operations on WaylandSurface & Driver., Document that WaylandDriver.resize currently raises AttributeError because…, Empirically test the reference implementation of WaylandSurface.resize., TestWaylandSurfaceResizeAdversarial, main(), Render a button widget on the Wayland surface. Draws a blue border with light…, Render a checkbox widget on the Wayland surface. Draws a 30x30 square frame; a… (+28 more)
+Nodes (39): Verify that WaylandDriver.resize cleanly calls surface.resize without crash., Stress tests buffer management and resize operations on WaylandSurface & Driver., Document that WaylandDriver.resize currently raises AttributeError because…, Empirically test the reference implementation of WaylandSurface.resize., TestWaylandSurfaceResizeAdversarial, main(), Render a button widget on the Wayland surface. Draws a blue border with light…, Render a checkbox widget on the Wayland surface. Draws a 30x30 square frame; a… (+31 more)
 
 ### Community 304 - "Log Summary Date Ranges"
 Cohesion: 0.29
@@ -1902,8 +1902,8 @@ Cohesion: 0.50
 Nodes (3): 1. Overall Containerized Leaderboard, 2. Per-Task Breakdown Across Official Upstream Benchmarks, Containerized Official Multi-Harness Benchmark Report
 
 ### Community 560 - "Window"
-Cohesion: 0.03
-Nodes (41): test_gui_widgets(), Stress-test Control, Button, Checkbox, TextField, Window, and Dialog lifecycle., Control, Dialog, Any, Button, Add child widget to window (WINDOW.CLS:242 add)., Remove child widget by instance, ID, or Symbol (WINDOW.CLS remove). (+33 more)
+Cohesion: 0.04
+Nodes (27): Any, Add child widget to window (WINDOW.CLS:242 add)., Remove child widget by instance, ID, or Symbol (WINDOW.CLS remove)., Register an action handler for child widget events., Set focus to a child widget., Find a child by ID, identity Symbol, or title., Access child by Symbol or ID (win[#btn] in WINDOW.CLS:58)., Set child by Symbol/ID (win[#btn] := child). (+19 more)
 
 ### Community 561 - "Containerized Official Multi-Harness Benchmark Report"
 Cohesion: 0.50
@@ -1969,11 +1969,11 @@ Nodes (5): is_authentic_1993_actor_robust(), Strip nested block comments, line c
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ActorVM` connect `ActorVM` to `TestTier1FeatureCoverage`, `Button`, `TestTier2BoundaryCases`, `TestFirstClassAgentAndSubclassing`, `compile_to_bytecode`, `.set_ai_provider`, `Point`, `CompiledMethod`, `Any`, `TestTier3CrossFeatureInteractions`, `WebSocketSurface`, `ActorInheritanceHierarchy`, `parse_actor`, `actor_command`, `TestOpcodeSetExtensions`, `ActorWorkspace`, `TestActorTUIWorkflow`, `BlueZThermoProTransport`, `test_field_access_and_python_class_receiver`, `bootstrap_agent_harness`, `ThermometerUI`, `TestEmpiricalNestedClosures`, `thermopro.py`, `vm.py`, `ActorDictionary`, `ActorSet`, `TestUIActionEventDispatchAdversarial`, `TestActorObjectProtocol`, `SmartRelayDriver`, `.test_shared_reference_identity_and_cyclic_graph`, `TestIntervalAdversarialStress`, `actor_query`, `run_standard_benchmarks.py`, `TestSelfCorrectingJitAndFileOut`, `.test_receiver_guard_on_python_class`, `run_longmem_locomo_suite.py`, `ActorTUISession`, `TestRenderWidgetDOMAndBindingAdversarial`, `ActorWorkspace`, `WaylandSurface`, `VMSandboxBridge`, `Window`, `TestWorkspaceServerHardening`, `verify_r1_benchmarks.py`, `._handle_call_method`, `Agent`, `TestClassLibraryAdversarial`, `TestCollectionPackagingAndImports`, `TestDictionaryAdversarialStress`, `TestEmpiricalSieveScaling`, `TestParserVMIntegration`, `.test_nested_blocks_shared_cell`, `.test_sieve1_early_bound_and_fractal_survive_snapshot`, `TestDoesNotUnderstandAndJITSynthesis`, `TestVMClassLibraryIntegration`, `.test_actor_set_registered_in_actor_dictionary`, `run_actor_vs_hermes_bench.py`, `.test_basic_block_invocation`, `.test_inherited_method_fallback`, `test_vm_non_local_return_unwinding`, `.test_frame_local_variable_isolation`, `.save_image`, `.test_subclass_method_override`, `ThermoProTwin`, `.test_message_not_understood_fallback`, `.test_sieve_act_authentic_execution`, `run_engram_ab_bench.py`, `MonkeyPatch`, `TestEmpiricalNonLocalReturns`, `TestVMClassLibraryAdversarialIntegration`, `HostWorkspaceBridge`, `TestInterval`, `TestTracker`, `TestLiveValkyrieLLMIntegration`, `.__init__`?**
+- **Why does `ActorVM` connect `ActorVM` to `TestTier1FeatureCoverage`, `Button`, `TestTier2BoundaryCases`, `TestFirstClassAgentAndSubclassing`, `compile_to_bytecode`, `.set_ai_provider`, `Point`, `CompiledMethod`, `Any`, `TestTier3CrossFeatureInteractions`, `ActorWorkspace`, `ActorInheritanceHierarchy`, `parse_actor`, `actor_command`, `TestOpcodeSetExtensions`, `WaylandDisplay`, `TestActorTUIWorkflow`, `WebSocketSurface`, `test_field_access_and_python_class_receiver`, `bootstrap_agent_harness`, `ThermometerUI`, `TestEmpiricalNestedClosures`, `thermopro.py`, `vm.py`, `ActorDictionary`, `ActorSet`, `TestUIActionEventDispatchAdversarial`, `TestActorObjectProtocol`, `SmartRelayDriver`, `.test_shared_reference_identity_and_cyclic_graph`, `TestIntervalAdversarialStress`, `actor_query`, `run_standard_benchmarks.py`, `TestSelfCorrectingJitAndFileOut`, `.test_receiver_guard_on_python_class`, `run_longmem_locomo_suite.py`, `ActorTUISession`, `TestRenderWidgetDOMAndBindingAdversarial`, `ActorWorkspace`, `WaylandSurface`, `VMSandboxBridge`, `TestWorkspaceServerHardening`, `verify_r1_benchmarks.py`, `._handle_call_method`, `Agent`, `TestWorkspaceServerAdversarial`, `TestCollectionPackagingAndImports`, `TestDictionaryAdversarialStress`, `TestEmpiricalSieveScaling`, `TestParserVMIntegration`, `.test_nested_blocks_shared_cell`, `.test_sieve1_early_bound_and_fractal_survive_snapshot`, `TestDoesNotUnderstandAndJITSynthesis`, `TestVMClassLibraryIntegration`, `.test_actor_set_registered_in_actor_dictionary`, `run_actor_vs_hermes_bench.py`, `.test_basic_block_invocation`, `.test_inherited_method_fallback`, `test_vm_non_local_return_unwinding`, `.test_frame_local_variable_isolation`, `.save_image`, `.test_subclass_method_override`, `ThermoProTwin`, `.test_message_not_understood_fallback`, `.test_sieve_act_authentic_execution`, `run_engram_ab_bench.py`, `MonkeyPatch`, `TestEmpiricalNonLocalReturns`, `TestVMClassLibraryAdversarialIntegration`, `HostWorkspaceBridge`, `TestInterval`, `TestTracker`, `TestLiveValkyrieLLMIntegration`, `.__init__`?**
   _High betweenness centrality (0.097) - this node is a cross-community bridge._
-- **Why does `Opcode` connect `Opcode` to `TestTier1FeatureCoverage`, `TestTier2BoundaryCases`, `TestTier3CrossFeatureInteractions`, `compile_to_bytecode`, `CompiledMethod`, `Any`, `WebSocketSurface`, `ActorInheritanceHierarchy`, `parse_actor`, `actor_command`, `TestOpcodeSetExtensions`, `ActorWorkspace`, `Actor1993Parser`, `vm.py`, `BytecodeCompiler`, `actor_query`, `ActorWorkspace`, `VerificationReport`, `VMSandboxBridge`, `Window`, `_ImageSerializer`, `._handle_call_method`, `TestParserVMIntegration`, `MethodRef`, `TestTracker`?**
+- **Why does `Opcode` connect `Opcode` to `TestTier1FeatureCoverage`, `Button`, `TestTier2BoundaryCases`, `TestTier3CrossFeatureInteractions`, `compile_to_bytecode`, `CompiledMethod`, `Any`, `ActorWorkspace`, `ActorInheritanceHierarchy`, `parse_actor`, `actor_command`, `TestOpcodeSetExtensions`, `Actor1993Parser`, `WebSocketSurface`, `vm.py`, `BytecodeCompiler`, `actor_query`, `ActorWorkspace`, `VerificationReport`, `VMSandboxBridge`, `_ImageSerializer`, `._handle_call_method`, `TestParserVMIntegration`, `MethodDefNode`, `TestTracker`?**
   _High betweenness centrality (0.043) - this node is a cross-community bridge._
-- **Why does `TestTier1FeatureCoverage` connect `TestTier1FeatureCoverage` to `ActorVM`, `Opcode`, `supports_authentic_grammar`, `TestTier3CrossFeatureInteractions`, `compile_to_bytecode`, `WebSocketSurface`, `ActorInheritanceHierarchy`, `parse_actor`, `WaylandSurface`, `ActorWorkspace`, `DisplaySurface`, `reference_sieve`?**
+- **Why does `TestTier1FeatureCoverage` connect `TestTier1FeatureCoverage` to `ActorVM`, `Opcode`, `supports_authentic_grammar`, `TestTier3CrossFeatureInteractions`, `compile_to_bytecode`, `WebSocketSurface`, `ActorInheritanceHierarchy`, `parse_actor`, `WaylandSurface`, `WaylandDisplay`, `DisplaySurface`, `reference_sieve`?**
   _High betweenness centrality (0.030) - this node is a cross-community bridge._
 - **Are the 117 inferred relationships involving `ActorVM` (e.g. with `CompilerStressHarness` and `TestResult`) actually correct?**
   _`ActorVM` has 117 INFERRED edges - model-reasoned connections that need verification._

@@ -1196,7 +1196,7 @@ class ActorWorkspace:
                 or payload.get("objective", "")
                 or payload.get("message", "")
             ).strip()
-            max_steps = int(payload.get("max_steps", 6) or 6)
+            max_steps = int(payload.get("max_steps", 20) or 20)
             if not goal_str:
                 return {
                     "type": "goal_result",
@@ -1421,6 +1421,8 @@ def get_shared_workspace() -> ActorWorkspace:
             _, _SHARED_WORKSPACE.harness, _SHARED_WORKSPACE.sandbox = (
                 bootstrap_agent_harness(
                     _SHARED_WORKSPACE.vm,
+                    max_steps=20,
+                    max_failures=20,
                     fileout_dir=str(fileout_dir),
                 )
             )
@@ -1911,7 +1913,7 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             (request.path or "").split("?", 1)[1] if "?" in (request.path or "") else ""
         )
         goal_q = (qs.get("q") or qs.get("goal") or qs.get("message") or [""])[0]
-        max_steps = int((qs.get("max_steps") or ["6"])[0] or 6)
+        max_steps = int((qs.get("max_steps") or ["20"])[0] or 20)
         ws_app = get_shared_workspace()
         async with ws_app._vm_lock:
             try:

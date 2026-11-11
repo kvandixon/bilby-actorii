@@ -210,6 +210,8 @@ SEED_PRIMITIVES: List[Dict[str, str]] = [
     {"cls": "Object", "selector": "asString", "syntax": "asString(val)", "desc": "Convert integer, float, symbol, or object to String"},
     {"cls": "AgentHarness", "selector": "storeScratch", "syntax": "storeScratch(Actor[#Harness], #key, val)", "desc": "Store key-value in AgentHarness scratchpad"},
     {"cls": "AgentHarness", "selector": "readScratch", "syntax": "readScratch(Actor[#Harness], #key)", "desc": "Read value from AgentHarness scratchpad"},
+    {"cls": "AgentHarness", "selector": "setMaxSteps", "syntax": "setMaxSteps(Actor[#Harness], 20)", "desc": "Update per-turn ReAct step limit on live AgentHarness"},
+    {"cls": "AgentHarness", "selector": "setMaxFailures", "syntax": "setMaxFailures(Actor[#Harness], 20)", "desc": "Update consecutive rollback strike limit on live AgentHarness"},
     {"cls": "AgentHarness", "selector": "evolve", "syntax": "evolve(Actor[#Harness], patchCode, validationCode)", "desc": "Safely hot-patch AgentHarness methods in a shadow transaction and persist versioned Engram"},
     {"cls": "AgentHarness", "selector": "rollbackHarness", "syntax": "rollbackHarness(Actor[#Harness])", "desc": "Roll back AgentHarness to its previous version in Neo4j"},
     {"cls": "ActorMemoryGraph", "selector": "graphSchema", "syntax": "graphSchema(Actor[#Memory])", "desc": "Inspect domain node labels, properties, and relationships in Neo4j"},

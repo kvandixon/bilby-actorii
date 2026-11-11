@@ -37,7 +37,7 @@ Def initHarness(self, sandboxObj) {
     self.goal := "";
     self.status := #idle;
     self.stepCount := 0;
-    self.maxSteps := 14;
+    self.maxSteps := 20;
     self.failures := 0;
     self.maxFailures := 5;
     self.scratchpad := new(Dictionary, 32);
@@ -97,6 +97,11 @@ Def setGasLimit(self, maxOps) {
 
 Def setMaxSteps(self, limit) {
     self.maxSteps := limit;
+    ^self;
+}!!
+
+Def setMaxFailures(self, limit) {
+    self.maxFailures := limit;
     ^self;
 }!!
 

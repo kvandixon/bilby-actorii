@@ -608,8 +608,10 @@
                         <input id="agent-console-input" placeholder="Message Bilby (plain English or Actor 4.1 task — press Enter to send)..." style="flex: 1; padding: 10px 12px; background: var(--bg-input); color: #fff; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px;" onkeydown="if(event.key==='Enter'){sendAgentConsoleMessage();}">
                         <select id="agent-max-steps" style="padding: 9px; background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border-color); border-radius: 6px; font-size: 12px;" title="Max ReAct bytecode steps per turn">
                             <option value="4">4 steps</option>
-                            <option value="6" selected>6 steps</option>
                             <option value="8">8 steps</option>
+                            <option value="12">12 steps</option>
+                            <option value="20" selected>20 steps</option>
+                            <option value="30">30 steps</option>
                         </select>
                         <button class="btn btn-success" style="padding: 10px 18px; font-size: 13px;" onclick="sendAgentConsoleMessage()">
                             💬 Send
@@ -1120,7 +1122,7 @@ sieve(Sam, 100)!!</textarea>
                 threadEl.scrollTop = threadEl.scrollHeight;
             }
             addLog(`▶ Running AgentHarness: ${text}`);
-            sendWs({type: 'run_goal', objective: text, max_steps: maxSteps || 6});
+            sendWs({type: 'run_goal', objective: text, max_steps: maxSteps || 20});
         }
 
         function runStudioAgentGoal() {
@@ -1128,7 +1130,7 @@ sieve(Sam, 100)!!</textarea>
             const objective = (input ? input.value : '').trim();
             if (!objective) return;
             input.value = '';
-            dispatchAgentObjective(objective, 6);
+            dispatchAgentObjective(objective, 20);
         }
 
         function sendAgentConsoleMessage() {
@@ -1137,13 +1139,13 @@ sieve(Sam, 100)!!</textarea>
             const objective = (input ? input.value : '').trim();
             if (!objective) return;
             input.value = '';
-            const maxSteps = stepsSel ? parseInt(stepsSel.value, 10) || 6 : 6;
+            const maxSteps = stepsSel ? parseInt(stepsSel.value, 10) || 20 : 20;
             dispatchAgentObjective(objective, maxSteps);
         }
 
         function sendQuickAgentPrompt(promptText) {
             switchTab('agent');
-            dispatchAgentObjective(promptText, 6);
+            dispatchAgentObjective(promptText, 20);
         }
 
         function clearAgentChatHistory() {

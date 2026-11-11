@@ -1164,7 +1164,7 @@ class VMSandboxBridge:
 
         goal = str(harness_obj._fields.get("goal", "") or "")
         step_count = int(harness_obj._fields.get("stepCount", 1) or 1)
-        max_steps = int(harness_obj._fields.get("maxSteps", 8) or 8)
+        max_steps = int(harness_obj._fields.get("maxSteps", 20) or 20)
         last_error = str(harness_obj._fields.get("lastError", "") or "")
         last_result = harness_obj._fields.get("lastResult")
         scratch = harness_obj._fields.get("scratchpad")
@@ -1722,7 +1722,8 @@ def bootstrap_agent_harness(
     name: str = "Bilby",
     model: Optional[str] = None,
     endpoint: Optional[str] = None,
-    max_steps: int = 14,
+    max_steps: int = 20,
+    max_failures: Optional[int] = None,
     gas_limit: int = 100000,
     enable_guardrails: bool = True,
     fileout_dir: Optional[str] = None,
@@ -1822,6 +1823,8 @@ def bootstrap_agent_harness(
     )
     active_vm.eval_chunk("Actor[#Bilby] := Actor[#Harness]!!")
     active_vm.eval_chunk(f"setMaxSteps(Actor[#Harness], {int(max_steps)})!!")
+    if max_failures is not None:
+        active_vm.eval_chunk(f"setMaxFailures(Actor[#Harness], {int(max_failures)})!!")
     active_vm.eval_chunk(f"setGasLimit(Actor[#Harness], {int(gas_limit)})!!")
 
     harness_obj = active_vm.global_vars["Actor"]["Harness"]
