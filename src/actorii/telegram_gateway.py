@@ -14,6 +14,7 @@ import json
 import os
 import signal
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -59,7 +60,8 @@ class BilbyTelegramGateway:
         default_thread_id: Optional[int] = None,
         model: str = "qwen3.8:latest",
         endpoint: Optional[str] = None,
-        max_steps: int = 20,
+        max_steps: int = 0,
+        max_failures: int = 0,
         poll_timeout: int = 20,
         state_path: Optional[Path] = None,
         session: Optional[ActorTUISession] = None,
@@ -90,6 +92,7 @@ class BilbyTelegramGateway:
             model=model,
             endpoint=endpoint,
             max_steps=max_steps,
+            max_failures=max_failures,
             use_color=False,
         )
         self.offset: int = 0
@@ -98,6 +101,9 @@ class BilbyTelegramGateway:
         self.total_gas: int = 0
         self._consecutive_poll_errors: int = 0
         self._frozen: bool = False
+        self._cancel_requested: bool = False
+        self._async_goals: bool = False
+        self._goal_thread: Optional[threading.Thread] = None
         self._load_state()
         self._running = True
         self.bot_username = os.environ.get("TELEGRAM_BOT_USERNAME", "bilby_bot").strip() or "bilby_bot"
@@ -236,6 +242,10 @@ class BilbyTelegramGateway:
         no_evolve = os.environ.get("ACTORII_DISABLE_SELF_EVOLVE") == "1"
         singleton_lock = bool(getattr(self.session.vm, "lock_system_singletons", False))
         in_docker = os.environ.get("ACTORII_IN_DOCKER") == "1" or os.path.exists("/.dockerenv")
+        raw_ms = self.session.harness._fields.get("maxSteps", 0)
+        raw_mf = self.session.harness._fields.get("maxFailures", 0)
+        ms_txt = "∞ (unlimited)" if (raw_ms is not None and int(raw_ms) <= 0) else str(raw_ms)
+        mf_txt = "∞ (disabled)" if (raw_mf is not None and int(raw_mf) <= 0) else f"{raw_mf} strikes"
         return (
             "🛡️ Bilby Containment & Security Controls Report\n"
             f"• Execution State: {'❄️ FROZEN (Kill-Switch Active)' if self._frozen else '🟢 ACTIVE (Guarded)'}\n"
@@ -246,15 +256,57 @@ class BilbyTelegramGateway:
             "• Destructive Command Filter (`systemctl`, `sudo`, `nmcli`, `resolv.conf`, `crontab`, `rm -rf`): 🔒 ACTIVE (47 patterns)\n"
             f"• Ring 0/1 Kernel & Bridge Class Lock: 🔒 ACTIVE (36 classes + `AgentHarness` kernel methods)\n"
             f"• Pool Singleton Lock (`Actor[#Host]`, `Actor[#Harness]`, `Actor[#Sandbox]`): {'🔒 LOCKED' if singleton_lock else '⚠️ UNLOCKED'}\n"
-            f"• Per-Step Opcode Gas Limit: {self.session.harness._fields.get('gasLimit', 15000)} ops | Max Steps: {self.session.harness._fields.get('maxSteps', 20)} | Strike Breaker: {self.session.harness._fields.get('maxFailures', 20)} strikes\n"
+            f"• Per-Step Opcode Gas Limit: {self.session.harness._fields.get('gasLimit', 15000)} ops | Max Steps: {ms_txt} | Strike Breaker: {mf_txt}\n"
             f"• Authorized Telegram IDs: {self.allowed_users}"
+        )
+
+    def stop_active_goal(self) -> str:
+        """Interrupt an in-flight `runGoal` loop cleanly by marking `Actor[#Harness].status := #halted`."""
+        from actorii.core import Symbol
+
+        was_busy = self._goal_thread is not None and self._goal_thread.is_alive()
+        steps_now = int(self.session.harness._fields.get("stepCount", 0) or 0)
+        self._cancel_requested = True
+        self.session.harness._fields["status"] = Symbol("halted")
+        if was_busy:
+            return (
+                f"⏹ Breaking Bilby out of active loop (at step {steps_now}). "
+                "He will stop right after the current step finishes."
+            )
+        self._cancel_requested = False
+        self.session.harness._fields["status"] = Symbol("idle")
+        self.session.harness._fields["failures"] = 0
+        return "⏹ Bilby reset to `#idle` (no active loop was running)."
+
+    @staticmethod
+    def _is_immediate_control_command(text: str) -> bool:
+        """Return True if `text` is a control/inspection slash command that can execute while a goal thread runs."""
+        clean = (text or "").strip()
+        if not clean.startswith("/"):
+            return False
+        first_tok = clean.split(maxsplit=1)[0].split("@", 1)[0].lower()
+        return first_tok in (
+            "/stop",
+            "/cancel",
+            "/break",
+            "/halt",
+            "/panic",
+            "/freeze",
+            "/lock",
+            "/unlock",
+            "/controls",
+            "/lockdown",
+            "/security",
+            "/status",
+            "/help",
+            "/start",
         )
 
     def handle_text_command_or_goal(self, text: str) -> str:
         """Process a Telegram message (`slash` command or natural-language/Actor 4.1 goal) via Bilby."""
         clean = (text or "").strip()
         if not clean:
-            return "Send a message, Actor 4.1 chunk (`!!`), or `/status`, `/controls`, `/freeze`, `/twins`, `/engrams`, `/clear`."
+            return "Send a message, Actor 4.1 chunk (`!!`), or `/stop`, `/status`, `/controls`, `/freeze`, `/twins`, `/engrams`, `/clear`."
 
         # Strip @BotUsername suffix from slash commands (e.g. /status@bilby_bot)
         if clean.startswith("/"):
@@ -264,8 +316,12 @@ class BilbyTelegramGateway:
             cmd_lower = first_tok.lower()
             arg_str = rest[0].strip() if rest else ""
 
+            if cmd_lower in ("/stop", "/cancel", "/break", "/halt"):
+                return self.stop_active_goal()
+
             if cmd_lower in ("/panic", "/freeze", "/lock"):
                 self._frozen = True
+                self._cancel_requested = True
                 from actorii.core import Symbol
 
                 self.session.harness._fields["status"] = Symbol("blocked")
@@ -276,6 +332,7 @@ class BilbyTelegramGateway:
 
             if cmd_lower == "/unlock":
                 self._frozen = False
+                self._cancel_requested = False
                 from actorii.core import Symbol
 
                 self.session.harness._fields["status"] = Symbol("idle")
@@ -293,7 +350,8 @@ class BilbyTelegramGateway:
                     "🦘 Bilby (ActorII v4.2.0 Metacircular Agent Harness — Hardened Lockdown)\n"
                     "Resident System AI on valkyrie (Actor-inspired Linux VM).\n\n"
                     "Commands:\n"
-                    "• Plain English or Actor 4.1 code (`!!`) — Runs Bilby's guarded ReAct loop\n"
+                    "• Plain English or Actor 4.1 code (`!!`) — Runs Bilby's guarded ReAct loop (unlimited retries)\n"
+                    "• /stop (or /cancel) — Break Bilby out of an active ReAct loop immediately\n"
                     "• /proxy [status|links|lan|tailscale|local|pause|auth on|auth off|rotate|logs] — Manage WLAN & Tailscale `:8090` Reverse Proxy\n"
                     "• /controls — Inspect active security & containment locks\n"
                     "• /freeze | /unlock — Emergency kill-switch to freeze/unfreeze Bilby\n"
@@ -347,10 +405,14 @@ class BilbyTelegramGateway:
             if reply:
                 return reply
 
-        # If the goal halted or tripped the 3-strike circuit breaker without a COMPLETE turn, format a clear diagnostic
+        # If the goal was stopped by user or halted without a COMPLETE turn, format a clear diagnostic
         self._save_offset(self.offset)
         last_err = str(self.session.harness._fields.get("lastError") or "").strip()
         steps_used = int(self.session.harness._fields.get("stepCount", 0) or 0)
+        if self._cancel_requested and h_status in ("halted", "blocked"):
+            self._cancel_requested = False
+            return f"⏹ Goal stopped by user (`status=#{h_status}`, steps={steps_used})."
+        self._cancel_requested = False
         if h_status in ("blocked", "halted") or last_err:
             return (
                 f"⚠️ Goal halted (`status=#{h_status}`, steps={steps_used}).\n"
@@ -358,6 +420,49 @@ class BilbyTelegramGateway:
             ).strip()
         fallback = "\n".join(new_lines).strip()
         return fallback or str(self.session.harness._fields.get("lastResult") or "Completed.")
+
+    def _run_update_sync(
+        self,
+        upd_id: int,
+        chat_id: Any,
+        thread_id: Optional[int],
+        msg_id: Optional[int],
+        text: str,
+        *,
+        keep_typing: bool = False,
+    ) -> str:
+        stop_typing = threading.Event()
+
+        def _typing_loop() -> None:
+            while not stop_typing.wait(4.5):
+                self.send_typing(chat_id, thread_id=thread_id)
+
+        typing_thread: Optional[threading.Thread] = None
+        self.send_typing(chat_id, thread_id=thread_id)
+        if keep_typing:
+            typing_thread = threading.Thread(target=_typing_loop, daemon=True)
+            typing_thread.start()
+
+        t0 = time.time()
+        try:
+            reply_text = self.handle_text_command_or_goal(text)
+        except Exception as exc:
+            reply_text = f"⚠️ Bilby harness error: {type(exc).__name__}: {exc}"
+        finally:
+            stop_typing.set()
+        elapsed = time.time() - t0
+
+        self.send_message(
+            chat_id,
+            reply_text,
+            thread_id=thread_id,
+            reply_to_message_id=msg_id,
+        )
+        print(
+            f"[bilby-telegram] Replied to update #{upd_id} in {elapsed:.2f}s ({len(reply_text)} chars)",
+            flush=True,
+        )
+        return reply_text
 
     def process_update(self, update: Dict[str, Any]) -> Optional[str]:
         """Process a single Telegram update dictionary and send Bilby's reply."""
@@ -391,25 +496,36 @@ class BilbyTelegramGateway:
             f"[bilby-telegram] Inbound update #{upd_id} from user={user_id} chat={chat_id} thread={thread_id}: {text!r}",
             flush=True,
         )
-        self.send_typing(chat_id, thread_id=thread_id)
-        t0 = time.time()
-        try:
-            reply_text = self.handle_text_command_or_goal(text)
-        except Exception as exc:
-            reply_text = f"⚠️ Bilby harness error: {type(exc).__name__}: {exc}"
-        elapsed = time.time() - t0
 
-        self.send_message(
-            chat_id,
-            reply_text,
-            thread_id=thread_id,
-            reply_to_message_id=msg_id,
-        )
-        print(
-            f"[bilby-telegram] Replied to update #{upd_id} in {elapsed:.2f}s ({len(reply_text)} chars)",
-            flush=True,
-        )
-        return reply_text
+        # In live daemon mode (`_async_goals=True`), run goals in a background worker thread
+        # so `/stop`, `/cancel`, `/freeze`, and `/status` remain immediately responsive!
+        if self._async_goals:
+            goal_busy = self._goal_thread is not None and self._goal_thread.is_alive()
+            if goal_busy and text.lower() in ("stop", "cancel", "halt", "abort", "break"):
+                text = "/stop"
+            if self._is_immediate_control_command(text):
+                return self._run_update_sync(upd_id, chat_id, thread_id, msg_id, text, keep_typing=False)
+            if goal_busy:
+                steps_now = int(self.session.harness._fields.get("stepCount", 0) or 0)
+                busy_msg = (
+                    f"⏳ Bilby is currently working on the previous request (step {steps_now}). "
+                    "Send `/stop` (or `stop`) to break him out first."
+                )
+                self.send_message(chat_id, busy_msg, thread_id=thread_id, reply_to_message_id=msg_id)
+                return busy_msg
+
+            self._cancel_requested = False
+            worker = threading.Thread(
+                target=self._run_update_sync,
+                args=(upd_id, chat_id, thread_id, msg_id, text),
+                kwargs={"keep_typing": True},
+                daemon=True,
+            )
+            self._goal_thread = worker
+            worker.start()
+            return "[ASYNC_GOAL_STARTED]"
+
+        return self._run_update_sync(upd_id, chat_id, thread_id, msg_id, text, keep_typing=False)
 
     def poll_once(self) -> int:
         """Fetch and process one batch of updates from Telegram `getUpdates`."""
@@ -444,6 +560,7 @@ class BilbyTelegramGateway:
 
     def serve_forever(self, send_startup_ping: bool = False) -> None:
         """Start the continuous Telegram long-polling loop."""
+        self._async_goals = True
         me = self._api(self.token, "getMe", None, 10.0)
         if me.get("ok") and isinstance(me.get("result"), dict):
             self.bot_username = me["result"].get("username", self.bot_username)
@@ -475,6 +592,8 @@ class BilbyTelegramGateway:
 
     def _process_supervisor_inbox(self) -> int:
         """Process any local supervisor tasks/notifications dropped into `~/.actorii/supervisor_inbox.jsonl`."""
+        if self._goal_thread is not None and self._goal_thread.is_alive():
+            return 0
         if not DEFAULT_GATEWAY_INBOX.is_file():
             return 0
         try:
@@ -521,7 +640,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--model", default=os.environ.get("ACTORII_MODEL", "qwen3.8:latest"))
     parser.add_argument("--endpoint", default=os.environ.get("ACTORII_LLM_ENDPOINT"))
-    parser.add_argument("--max-steps", type=int, default=20)
+    parser.add_argument("--max-steps", type=int, default=0, help="Max steps per turn (0 = unlimited)")
     parser.add_argument("--poll-timeout", type=int, default=20)
     parser.add_argument("--startup-ping", action="store_true", help="Send a startup notification to home channel")
     args = parser.parse_args(argv)

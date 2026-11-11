@@ -130,8 +130,8 @@ class ActorTUISession:
         agent_name: str = "Bilby",
         model: Optional[str] = None,
         endpoint: Optional[str] = None,
-        max_steps: int = 20,
-        max_failures: int = 20,
+        max_steps: int = 0,
+        max_failures: int = 0,
         gas_limit: int = 100000,
         use_color: bool = True,
         remote_studio_url: Optional[str] = None,
@@ -267,8 +267,12 @@ class ActorTUISession:
     def status_ribbon_text(self) -> str:
         h = self.harness
         status = h._fields.get("status", Symbol("idle"))
-        steps = f"{h._fields.get('stepCount', 0)}/{h._fields.get('maxSteps', 20)}"
-        failures = f"{h._fields.get('failures', 0)}/{h._fields.get('maxFailures', 20)}"
+        raw_ms = h._fields.get("maxSteps", 0)
+        raw_mf = h._fields.get("maxFailures", 0)
+        ms_lbl = "∞" if (raw_ms is not None and int(raw_ms) <= 0) else str(raw_ms)
+        mf_lbl = "∞" if (raw_mf is not None and int(raw_mf) <= 0) else str(raw_mf)
+        steps = f"{h._fields.get('stepCount', 0)}/{ms_lbl}"
+        failures = f"{h._fields.get('failures', 0)}/{mf_lbl}"
         total_gas = h._fields.get("totalGasUsed", 0)
         pool_count = len(self.get_pool_objects())
         turn_count = len(self.get_chat_history(local_only=True))
@@ -363,13 +367,15 @@ class ActorTUISession:
         return True
 
     def _run_harness_goal(self, objective: str) -> Any:
-        max_steps = int(self.harness._fields.get("maxSteps", 20) or 20)
+        raw_ms = self.harness._fields.get("maxSteps")
+        max_steps = 0 if raw_ms is None else int(raw_ms)
+        ms_disp = "unlimited" if max_steps <= 0 else str(max_steps)
         if self.remote_studio_url:
             import urllib.parse
 
             self._emit(
                 f"\n{self._c(MAGENTA + BOLD, f'▶ Remote Studio AgentHarness ({self.remote_studio_url})')}\n"
-                f"  {self._c(GRAY, 'Prompt:')} {objective} (maxSteps={max_steps})"
+                f"  {self._c(GRAY, 'Prompt:')} {objective} (maxSteps={ms_disp})"
             )
             q_enc = urllib.parse.quote(objective)
             try:
@@ -393,10 +399,15 @@ class ActorTUISession:
 
         self._emit(
             f"\n{self._c(MAGENTA + BOLD, '▶ AgentHarness (`runGoal`)')}\n"
-            f"  {self._c(GRAY, 'Prompt:')} {objective} (maxSteps={max_steps}, gasLimit={self.harness._fields.get('gasLimit')})"
+            f"  {self._c(GRAY, 'Prompt:')} {objective} (maxSteps={ms_disp}, gasLimit={self.harness._fields.get('gasLimit')})"
         )
         escaped = objective.replace("\\", "\\\\").replace('"', '\\"')
-        final_res = self.vm.eval_chunk(f'runGoal(Actor[#Harness], "{escaped}", {max_steps})!!')
+        try:
+            final_res = self.vm.eval_chunk(f'runGoal(Actor[#Harness], "{escaped}", {max_steps})!!')
+        except KeyboardInterrupt:
+            self.harness._fields["status"] = Symbol("halted")
+            self._emit(self._c(YELLOW + BOLD, "\n⏹ Goal interrupted by user (Ctrl+C)."))
+            final_res = self.harness._fields.get("lastResult")
         status = self.harness._fields.get("status")
         total_gas = self.harness._fields.get("totalGasUsed", 0)
         turns_cnt = len(self.get_chat_history(local_only=True))
@@ -981,9 +992,9 @@ class ActorTUISession:
                     self.vm.eval_chunk(f'setNamespace(Actor[#Memory], "{v_clean}")!!')
                 elif k_low == "lockdown":
                     os.environ["ACTORII_HOST_LOCKDOWN"] = "1" if v_clean in ("1", "true", "on") else "0"
-                elif k_low == "max_steps" and v_clean.isdigit():
+                elif k_low == "max_steps" and v_clean.lstrip("-").isdigit():
                     self.vm.eval_chunk(f"setMaxSteps(Actor[#Harness], {int(v_clean)})!!")
-                elif k_low == "max_failures" and v_clean.isdigit():
+                elif k_low == "max_failures" and v_clean.lstrip("-").isdigit():
                     self.vm.eval_chunk(f"setMaxFailures(Actor[#Harness], {int(v_clean)})!!")
                 elif k_low == "gas_limit" and v_clean.isdigit():
                     self.vm.eval_chunk(f"setGasLimit(Actor[#Harness], {int(v_clean)})!!")
@@ -1265,8 +1276,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=20,
-        help="Default max steps per `/goal` execution (default: 20).",
+        default=0,
+        help="Default max steps per `/goal` execution (0 = unlimited, default: 0).",
     )
     parser.add_argument(
         "--gas-limit",

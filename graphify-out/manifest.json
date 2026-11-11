@@ -95,8 +95,8 @@
     "semantic_hash": "e10c3ae2089986cdf94e5d0ab82adf8c"
   },
   "websocket_server.py": {
-    "mtime": 1794429755.4698062,
-    "ast_hash": "95a11c41cefda64636afb1b58f940ef5",
+    "mtime": 1794436285.126108,
+    "ast_hash": "c6903e17cd8ea5e7197a1ed549b3c500",
     "semantic_hash": ""
   },
   "ARCHITECTURE.md": {
@@ -110,8 +110,8 @@
     "semantic_hash": ""
   },
   "browser_client.html": {
-    "mtime": 1794429759.5019932,
-    "ast_hash": "535b0dfa9fe2e36fbf9ca08b751c1ee9",
+    "mtime": 1794436290.4703538,
+    "ast_hash": "b04bc5c6ffa7fb6edb433e21a8fd791d",
     "semantic_hash": ""
   },
   "docs/HISTORICAL_ACTOR_SPEC.md": {
@@ -325,8 +325,8 @@
     "semantic_hash": "0e9c86c32fcc21efeb8d34aef3550f01"
   },
   "src/actorii/harness/__init__.py": {
-    "mtime": 1794429673.1549919,
-    "ast_hash": "6e9334ee3864d1a1b77d99a2b8b70223",
+    "mtime": 1794436100.63162,
+    "ast_hash": "99dc05c83d88ca5113949be2bb1b8f19",
     "semantic_hash": ""
   },
   "src/actorii/harness/benchmark.py": {
@@ -335,8 +335,8 @@
     "semantic_hash": "da8483fdd0045a01f931b9ebcd256f30"
   },
   "src/actorii/harness/grammar_graph.py": {
-    "mtime": 1794429675.405096,
-    "ast_hash": "9ac912ade0668e8d65f965ed7ce89160",
+    "mtime": 1794436103.2287395,
+    "ast_hash": "b0f3a27919ebf0e00af285200fe593a2",
     "semantic_hash": ""
   },
   "src/actorii/harness/host_bridge.py": {
@@ -355,13 +355,13 @@
     "semantic_hash": ""
   },
   "src/actorii/tui.py": {
-    "mtime": 1794429708.545632,
-    "ast_hash": "9d4f6cf4b5b36eb67a2ba94dc51371b3",
+    "mtime": 1794436148.3068135,
+    "ast_hash": "c5c0e26202a77d84f9c083c72bec5f4b",
     "semantic_hash": ""
   },
   "tests/test_agent_harness_and_tui.py": {
-    "mtime": 1794278023.3377955,
-    "ast_hash": "c23af0fe278fd77db417331cc0571c24",
+    "mtime": 1794436437.5791116,
+    "ast_hash": "aa121cc265f8ff0e2a6fba5c8585f193",
     "semantic_hash": ""
   },
   "tests/test_memory_engrams.py": {
@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "src/actorii/telegram_gateway.py": {
-    "mtime": 1794429750.9915988,
-    "ast_hash": "a3f5f8606525f126fcfb855767d9f606",
+    "mtime": 1794436235.0788054,
+    "ast_hash": "44c4a275a5ad66edaf6cb63d370f428f",
     "semantic_hash": ""
   },
   "benchmarks/run_longmem_locomo_suite.py": {

@@ -1164,7 +1164,8 @@ class VMSandboxBridge:
 
         goal = str(harness_obj._fields.get("goal", "") or "")
         step_count = int(harness_obj._fields.get("stepCount", 1) or 1)
-        max_steps = int(harness_obj._fields.get("maxSteps", 20) or 20)
+        raw_max_steps = harness_obj._fields.get("maxSteps")
+        max_steps = 20 if raw_max_steps is None else int(raw_max_steps)
         last_error = str(harness_obj._fields.get("lastError", "") or "")
         last_result = harness_obj._fields.get("lastResult")
         scratch = harness_obj._fields.get("scratchpad")
@@ -1232,7 +1233,11 @@ class VMSandboxBridge:
         prompt_lines.extend(
             [
                 f"\nLIVE POOL SUMMARY: {pool_info}",
-                f"STEP: {step_count} of {max_steps}",
+                (
+                    f"STEP: {step_count} of {max_steps}"
+                    if max_steps > 0
+                    else f"STEP: {step_count} (unlimited)"
+                ),
                 f"SCRATCHPAD (`Actor[#Harness].scratchpad`): {scratch_dict}",
                 f"LAST RESULT: {self.formatLastResult(harness_obj)}",
             ]
@@ -1461,7 +1466,8 @@ class VMSandboxBridge:
             harness_obj._fields["totalGasUsed"] = prev_total_gas + gas_used
 
             failures = int(harness_obj._fields.get("failures", 0) or 0) + 1
-            max_failures = int(harness_obj._fields.get("maxFailures", 3) or 3)
+            raw_max_failures = harness_obj._fields.get("maxFailures")
+            max_failures = 5 if raw_max_failures is None else int(raw_max_failures)
             err_msg = f"{type(exc).__name__}: {exc}"
 
             exc_name = type(exc).__name__
@@ -1495,7 +1501,7 @@ class VMSandboxBridge:
             harness_obj._fields["lastErrorContext"] = self._build_error_context_dict(
                 err_kind, err_msg, frame_info
             )
-            if failures >= max_failures:
+            if max_failures > 0 and failures >= max_failures:
                 harness_obj._fields["status"] = Symbol("blocked")
 
             entry = {
@@ -1524,7 +1530,8 @@ class VMSandboxBridge:
                 chat_log.pop()
 
         failures = int(harness_obj._fields.get("failures", 0) or 0) + 1
-        max_failures = int(harness_obj._fields.get("maxFailures", 3) or 3)
+        raw_max_failures = harness_obj._fields.get("maxFailures")
+        max_failures = 5 if raw_max_failures is None else int(raw_max_failures)
         last_res = harness_obj._fields.get("lastResult")
         err_msg = f"OutcomeVerificationError: {reason} (lastResult={last_res!r})"
 
@@ -1535,9 +1542,9 @@ class VMSandboxBridge:
             err_msg,
             {"failedClass": getattr(harness_obj, "class_name", "AgentHarness"), "failedSelector": "verifyOutcome", "bytecodeOffset": 0, "localBindings": {"outcome": repr(last_res)[:120]}},
         )
-        if failures >= max_failures:
+        if max_failures > 0 and failures >= max_failures:
             harness_obj._fields["status"] = Symbol("blocked")
-        else:
+        elif harness_obj._fields.get("status") != Symbol("halted"):
             harness_obj._fields["status"] = Symbol("running")
 
         step_log = harness_obj._fields.get("stepLog")
@@ -1668,12 +1675,14 @@ class VMSandboxBridge:
         ns = self.memory_graph.namespace if self.memory_graph is not None else "default"
         engrams_on = self.memory_graph.enable_engrams if self.memory_graph is not None else False
 
+        sub_max_steps = 4 if max_steps is None else int(max_steps)
         child_vm, child_harness, _ = bootstrap_agent_harness(
             child_vm,
             name="SubHarness",
             model=parent_model,
             endpoint=parent_endpoint,
-            max_steps=int(max_steps or 4),
+            max_steps=sub_max_steps,
+            max_failures=0,
             gas_limit=int(gas_limit or 25000),
             enable_memory_graph=(self.memory_graph is not None),
             enable_engrams=engrams_on,
@@ -1689,7 +1698,7 @@ class VMSandboxBridge:
             )
 
         res = child_vm.eval_chunk(
-            f"runGoal(Actor[#Harness], {str(sub_goal)!r}, {int(max_steps or 4)})!!"
+            f"runGoal(Actor[#Harness], {str(sub_goal)!r}, {sub_max_steps})!!"
         )
         return res
 

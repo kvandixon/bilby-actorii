@@ -484,6 +484,25 @@ class ActorWorkspace:
             raw = json.loads(message)
         else:
             raw = message
+        msg_type = raw.get("type", "")
+        if msg_type in ("stop_goal", "cancel_goal"):
+            actor_dict = self.vm.global_vars.get("Actor", {})
+            harness_obj = actor_dict.get("Harness")
+            if harness_obj is not None and hasattr(harness_obj, "_fields"):
+                harness_obj._fields["status"] = Symbol("halted")
+                step_cnt = int(harness_obj._fields.get("stepCount", 0) or 0)
+                return {
+                    "type": "goal_stopped",
+                    "success": True,
+                    "steps_count": step_cnt,
+                    "message": f"Interrupted active AgentHarness loop at step {step_cnt}.",
+                }
+            return {
+                "type": "goal_stopped",
+                "success": True,
+                "steps_count": 0,
+                "message": "No active AgentHarness loop.",
+            }
         async with self._vm_lock:
             return await self._handle_message_unlocked(raw, websocket=websocket)
 
@@ -1196,7 +1215,8 @@ class ActorWorkspace:
                 or payload.get("objective", "")
                 or payload.get("message", "")
             ).strip()
-            max_steps = int(payload.get("max_steps", 20) or 20)
+            raw_ms = payload.get("max_steps", 0)
+            max_steps = 0 if raw_ms is None else int(raw_ms)
             if not goal_str:
                 return {
                     "type": "goal_result",
@@ -1208,7 +1228,9 @@ class ActorWorkspace:
 
                 actor_dict = self.vm.global_vars.get("Actor", {})
                 if "Harness" not in actor_dict:
-                    _, self.harness, self.sandbox = bootstrap_agent_harness(self.vm)
+                    _, self.harness, self.sandbox = bootstrap_agent_harness(
+                        self.vm, max_steps=0, max_failures=0
+                    )
                 harness_obj = self.vm.global_vars["Actor"]["Harness"]
                 escaped = goal_str.replace("\\", "\\\\").replace('"', '\\"')
                 loop = asyncio.get_running_loop()
@@ -1421,8 +1443,8 @@ def get_shared_workspace() -> ActorWorkspace:
             _, _SHARED_WORKSPACE.harness, _SHARED_WORKSPACE.sandbox = (
                 bootstrap_agent_harness(
                     _SHARED_WORKSPACE.vm,
-                    max_steps=20,
-                    max_failures=20,
+                    max_steps=0,
+                    max_failures=0,
                     fileout_dir=str(fileout_dir),
                 )
             )
@@ -1908,19 +1930,38 @@ async def process_http_request(connection: Any, request: Any) -> Any:
             json.dumps(payload).encode("utf-8"),
         )
 
+    if req_path == "/api/goal/stop":
+        ws_app = get_shared_workspace()
+        harness_obj = ws_app.vm.global_vars.get("Actor", {}).get("Harness")
+        if harness_obj is not None and hasattr(harness_obj, "_fields"):
+            harness_obj._fields["status"] = Symbol("halted")
+            step_cnt = int(harness_obj._fields.get("stepCount", 0) or 0)
+            payload = {"status": "ok", "success": True, "steps_count": step_cnt}
+        else:
+            payload = {"status": "ok", "success": True, "steps_count": 0}
+        return _http_response(
+            200,
+            "OK",
+            "application/json; charset=utf-8",
+            json.dumps(payload).encode("utf-8"),
+        )
+
     if req_path in ("/api/goal", "/api/chat"):
         qs = urllib.parse.parse_qs(
             (request.path or "").split("?", 1)[1] if "?" in (request.path or "") else ""
         )
         goal_q = (qs.get("q") or qs.get("goal") or qs.get("message") or [""])[0]
-        max_steps = int((qs.get("max_steps") or ["20"])[0] or 20)
+        raw_qms = (qs.get("max_steps") or ["0"])[0]
+        max_steps = int(raw_qms) if str(raw_qms).strip().lstrip("-").isdigit() else 0
         ws_app = get_shared_workspace()
         async with ws_app._vm_lock:
             try:
                 from actorii.harness import bootstrap_agent_harness
 
                 if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
-                    _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(ws_app.vm)
+                    _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(
+                        ws_app.vm, max_steps=0, max_failures=0
+                    )
                 harness_obj = ws_app.vm.global_vars["Actor"]["Harness"]
                 sb = getattr(ws_app, "sandbox", None)
                 escaped = goal_q.replace("\\", "\\\\").replace('"', '\\"')

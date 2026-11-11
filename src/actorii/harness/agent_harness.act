@@ -186,7 +186,11 @@ Def buildStepPrompt(self, engramCtx, grammarCtx, policyTxt | p turnsTxt stepsTxt
         p := p + "\n\n" + stepsTxt;
     endif;
     p := p + "\n\nLIVE POOL SUMMARY: " + poolSummary(self.sandbox) + "\n";
-    p := p + "STEP: " + asString(self.stepCount) + " of " + asString(self.maxSteps) + "\n";
+    if self.maxSteps > 0 then
+        p := p + "STEP: " + asString(self.stepCount) + " of " + asString(self.maxSteps) + "\n";
+    else
+        p := p + "STEP: " + asString(self.stepCount) + " (unlimited)\n";
+    endif;
     p := p + "SCRATCHPAD (`Actor[#Harness].scratchpad`): " + formatScratchpad(self.sandbox, self) + "\n";
     p := p + "LAST RESULT: " + formatLastResult(self.sandbox, self);
     if self.lastError <> "" then
@@ -230,13 +234,23 @@ Def step(self | engramCtx grammarCtx policyTxt promptText rawReply rawAction act
     if self.status == #complete then
         ^self.lastResult;
     endif;
-    if self.failures >= self.maxFailures then
-        self.status := #blocked;
+    if self.status == #halted then
+        ^"HALT: Interrupted by user";
+    endif;
+    if self.status == #blocked then
         ^"HALT: Circuit breaker tripped";
     endif;
-    if self.stepCount >= self.maxSteps then
-        self.status := #halted;
-        ^"HALT: Max steps reached";
+    if self.maxFailures > 0 then
+        if self.failures >= self.maxFailures then
+            self.status := #blocked;
+            ^"HALT: Circuit breaker tripped";
+        endif;
+    endif;
+    if self.maxSteps > 0 then
+        if self.stepCount >= self.maxSteps then
+            self.status := #halted;
+            ^"HALT: Max steps reached";
+        endif;
     endif;
 
     self.stepCount := self.stepCount + 1;
@@ -252,6 +266,12 @@ Def step(self | engramCtx grammarCtx policyTxt promptText rawReply rawAction act
         promptText := buildStepPrompt(self, engramCtx, grammarCtx, policyTxt);
     endif;
     rawReply := invokeModel(self, promptText);
+    if self.status == #halted then
+        ^"HALT: Interrupted by user";
+    endif;
+    if self.status == #blocked then
+        ^"HALT: Circuit breaker tripped";
+    endif;
     rawAction := parseModelReply(self, rawReply);
     actionText := transformAction(self, rawAction);
     self.lastAction := actionText;
@@ -273,14 +293,20 @@ Def runGoal(self, goalText, maxSteps) {
     loop
         while (self.status == #running)
     begin
-        if self.stepCount >= self.maxSteps then
-            self.status := #halted;
-        else
-            if self.failures >= self.maxFailures then
-                self.status := #blocked;
-            else
-                step(self);
+        if self.maxSteps > 0 then
+            if self.stepCount >= self.maxSteps then
+                self.status := #halted;
             endif;
+        endif;
+        if self.status == #running then
+            if self.maxFailures > 0 then
+                if self.failures >= self.maxFailures then
+                    self.status := #blocked;
+                endif;
+            endif;
+        endif;
+        if self.status == #running then
+            step(self);
         endif;
     endLoop;
     ^self.lastResult;
