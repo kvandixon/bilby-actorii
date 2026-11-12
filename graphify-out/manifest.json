@@ -60,8 +60,8 @@
     "semantic_hash": ""
   },
   "src/actorii/vm.py": {
-    "mtime": 1794327603.4629362,
-    "ast_hash": "6a8b727e2a1233e6f5e9109b4d07be1c",
+    "mtime": 1794517525.7658954,
+    "ast_hash": "6e3ee1c68d9bbe56864aa197ae65548f",
     "semantic_hash": ""
   },
   "start_server.sh": {
@@ -325,8 +325,8 @@
     "semantic_hash": "0e9c86c32fcc21efeb8d34aef3550f01"
   },
   "src/actorii/harness/__init__.py": {
-    "mtime": 1794490413.0355814,
-    "ast_hash": "6f9eeaf3bff76f16631613da2bf5d81e",
+    "mtime": 1794517776.505193,
+    "ast_hash": "d38cdab6b65c8f35b570606c5dd374d3",
     "semantic_hash": ""
   },
   "src/actorii/harness/benchmark.py": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "tests/test_product_learner.py": {
-    "mtime": 1794490483.584837,
-    "ast_hash": "30a179a264088f0b89357104f9a29cb7",
+    "mtime": 1794517727.5940201,
+    "ast_hash": "ea5c61183b568796bcf7198646da2402",
     "semantic_hash": ""
   }
 }

@@ -3132,8 +3132,31 @@ class ActorVM:
         saved_bridge_objects = {}
         saved_bridge_by_id = {}
         saved_live_objects = {}
+        saved_live_by_id = {}
         actor_dict = self.global_vars.get("Actor", {})
         if isinstance(actor_dict, dict):
+            def _collect_nested_bridges(val: Any, seen_scan: set[int]) -> None:
+                if id(val) in seen_scan:
+                    return
+                seen_scan.add(id(val))
+                if hasattr(val, "_bridge_specs") and hasattr(val, "obj_id"):
+                    saved_bridge_by_id[str(val.obj_id)] = val
+                    return
+                if isinstance(val, ActorObject) and not isinstance(val, ActorClass):
+                    for fv in getattr(val, "_fields", {}).values():
+                        _collect_nested_bridges(fv, seen_scan)
+                elif isinstance(val, list):
+                    for item in val:
+                        _collect_nested_bridges(item, seen_scan)
+                elif isinstance(val, dict):
+                    for dv in val.values():
+                        _collect_nested_bridges(dv, seen_scan)
+                elif hasattr(val, "_items") and isinstance(getattr(val, "_items"), list):
+                    _collect_nested_bridges(val._items, seen_scan)
+                elif hasattr(val, "_data") and isinstance(getattr(val, "_data"), dict):
+                    _collect_nested_bridges(val._data, seen_scan)
+
+            scan_seen: set[int] = set()
             for k, v in actor_dict.items():
                 if hasattr(v, "_bridge_specs"):
                     saved_bridge_objects[k] = (v, dict(getattr(v, "_fields", {})))
@@ -3141,11 +3164,46 @@ class ActorVM:
                         saved_bridge_by_id[str(v.obj_id)] = v
                 elif isinstance(v, ActorObject) and not isinstance(v, ActorClass):
                     saved_live_objects[k] = v
+                    if hasattr(v, "obj_id"):
+                        saved_live_by_id[str(v.obj_id)] = v
+                    _collect_nested_bridges(v, scan_seen)
 
         saved_call_stack = list(self.call_stack)
         saved_stack = list(self.stack)
 
         def _restore_all() -> None:
+            def _rebind_ref(val: Any, seen: set[int]) -> Any:
+                if isinstance(val, ActorObject) and not isinstance(val, ActorClass):
+                    oid = str(getattr(val, "obj_id", ""))
+                    if oid in saved_bridge_by_id:
+                        return saved_bridge_by_id[oid]
+                    if oid in saved_live_by_id:
+                        return saved_live_by_id[oid]
+                    if id(val) not in seen:
+                        seen.add(id(val))
+                        for nfk, nfv in list(getattr(val, "_fields", {}).items()):
+                            val._fields[nfk] = _rebind_ref(nfv, seen)
+                    return val
+                if isinstance(val, list):
+                    if id(val) not in seen:
+                        seen.add(id(val))
+                        for idx, item in enumerate(val):
+                            val[idx] = _rebind_ref(item, seen)
+                    return val
+                if isinstance(val, dict):
+                    if id(val) not in seen:
+                        seen.add(id(val))
+                        for dk, dv in list(val.items()):
+                            val[dk] = _rebind_ref(dv, seen)
+                    return val
+                if hasattr(val, "_items") and isinstance(getattr(val, "_items"), list):
+                    _rebind_ref(val._items, seen)
+                    return val
+                if hasattr(val, "_data") and isinstance(getattr(val, "_data"), dict):
+                    _rebind_ref(val._data, seen)
+                    return val
+                return val
+
             self.restore_from_dict(checkpoint, clear_existing=True)
             self.call_stack = list(saved_call_stack)
             for f in self.call_stack:
@@ -3157,8 +3215,11 @@ class ActorVM:
                 if isinstance(self.global_vars.get("Actor"), dict):
                     self.global_vars["Actor"][cname] = bcls
             if isinstance(self.global_vars.get("Actor"), dict):
+                rebind_seen: set[int] = set()
                 for k, (bobj, fields_copy) in saved_bridge_objects.items():
-                    bobj._fields = dict(fields_copy)
+                    bobj._fields = {
+                        fk: _rebind_ref(fv, rebind_seen) for fk, fv in fields_copy.items()
+                    }
                     target_py = getattr(bobj, "_target", None)
                     if target_py is not None and hasattr(target_py, "clear_shadow_vfs"):
                         target_py.clear_shadow_vfs()
@@ -3166,10 +3227,10 @@ class ActorVM:
                 for k, orig_obj in saved_live_objects.items():
                     restored_obj = self.global_vars["Actor"].get(k)
                     if isinstance(restored_obj, ActorObject):
-                        new_fields = dict(restored_obj._fields)
-                        for fk, fv in list(new_fields.items()):
-                            if isinstance(fv, ActorObject) and str(getattr(fv, "obj_id", "")) in saved_bridge_by_id:
-                                new_fields[fk] = saved_bridge_by_id[str(fv.obj_id)]
+                        new_fields = {
+                            fk: _rebind_ref(fv, rebind_seen)
+                            for fk, fv in restored_obj._fields.items()
+                        }
                         orig_obj._fields = new_fields
                         restored_cls = self.hierarchy.get(orig_obj.class_name)
                         if restored_cls is not None:

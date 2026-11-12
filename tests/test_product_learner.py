@@ -250,3 +250,101 @@ class TestProductLearnerSkill:
                 called_argv = mock_run.call_args[0][0]
                 assert "\x00" not in called_argv[-1]
                 assert "\\0" in called_argv[-1]
+
+    def test_product_learner_bridge_survives_transactional_rollback_and_runtime_storm_guard(self) -> None:
+        ns = "pytest_product_rollback"
+        vm, harness, sandbox = bootstrap_agent_harness(
+            enable_memory_graph=True,
+            enable_engrams=True,
+            memory_namespace=ns,
+        )
+        assert sandbox.memory_graph is not None
+        sandbox.memory_graph.clearProducts()
+        vm.eval_chunk('setGoal(Actor[#Harness], "Learn Google Oxygen after rollback")!!')
+
+        # Trigger real `eval_transactional` runtime rollbacks first — previously `_restore_all()`
+        # unlinked `Actor[#ProductLearner].web` from live `Actor[#Web]` (leaving `.net` as a non-bridge ActorObject)!
+        rb1 = str(sandbox.executeStepAction(harness, "(1 / 0)!!"))
+        assert "ZeroDivisionError" in rb1
+        harness._fields["stepCount"] = 2
+        rb2 = str(sandbox.executeStepAction(harness, "(2 / 0)!!"))
+        assert "ZeroDivisionError" in rb2
+        harness._fields["stepCount"] = 3
+
+        # Verify `Actor[#ProductLearner].web` is still the live `Actor[#Web]` whose `.net` is `Actor[#Net]` bridge
+        learner_obj = vm.global_vars["Actor"][vm.eval_chunk("#ProductLearner!!")]
+        web_obj = vm.global_vars["Actor"][vm.eval_chunk("#Web!!")]
+        net_obj = vm.global_vars["Actor"][vm.eval_chunk("#Net!!")]
+        assert learner_obj._fields["web"] is web_obj
+        assert web_obj._fields["net"] is net_obj
+        assert hasattr(web_obj._fields["net"], "_bridge_specs")
+
+        # Execute live uncached `learnProduct` dispatching all the way through `firecrawlPostSearch` & `firecrawlPostScrape`
+        harness.custom_provider = lambda prompt, sys_p="", meta=None: json.dumps(
+            {
+                "name": "Google Oxygen Model",
+                "category": "AI / Cloud Model",
+                "version": "1.0",
+                "keywords": ["google", "oxygen", "model"],
+                "summary": "Mocked Oxygen technical specification verified post-rollback.",
+                "subsystems": [{"name": "Inference Core", "driver": "TPU/GPU", "description": "Core runtime", "commands": []}],
+                "procedures": [],
+                "gotchas": [],
+                "chunks": [{"title": "Overview", "content": "Google Oxygen model architecture overview."}],
+                "sources": [{"url": "https://research.google/pubs/oxygen/", "title": "Google Oxygen Spec"}],
+            }
+        )
+        from actorii.core import Symbol
+        from actorii.harness.twins import _to_actor_dict
+
+        try:
+            with patch.object(
+                net_obj._target,
+                "firecrawlPostSearch",
+                return_value=_to_actor_dict(
+                    {
+                        "ok": True,
+                        "provider": Symbol("firecrawl"),
+                        "query": "Google Oxygen",
+                        "hits": [
+                            {
+                                "title": "Google Oxygen Spec",
+                                "url": "https://research.google/pubs/oxygen/",
+                                "snippet": "Technical overview.",
+                            }
+                        ],
+                        "error": "",
+                    }
+                ),
+            ), patch.object(
+                net_obj._target,
+                "firecrawlPostScrape",
+                return_value=_to_actor_dict(
+                    {
+                        "ok": True,
+                        "provider": Symbol("firecrawl"),
+                        "url": "https://research.google/pubs/oxygen/",
+                        "title": "Google Oxygen Spec",
+                        "content": "# Google Oxygen\nTechnical details.",
+                        "error": "",
+                    }
+                ),
+            ):
+                res = str(
+                    sandbox.executeStepAction(
+                        harness,
+                        'learnProduct(Actor[#ProductLearner], "Google Oxygen", "architecture capabilities")!!',
+                    )
+                )
+                assert "Learned Product 'Google Oxygen Model'" in res
+
+            # Also verify 4 consecutive identical non-syntax runtime failures (with varied arguments) emit the storm guard
+            harness._fields["maxFailures"] = 0
+            for step_idx in range(4):
+                harness._fields["stepCount"] = 10 + step_idx
+                err_out = str(sandbox.executeStepAction(harness, f"({10 + step_idx} / 0)!!"))
+                assert "ZeroDivisionError" in err_out
+            diag_text = sandbox.formatErrorDiagnostic(harness)
+            assert "[CRITICAL — REPEATED RUNTIME/BRIDGE ERROR (4+ IDENTICAL FAILURES)]" in diag_text
+        finally:
+            sandbox.memory_graph.clearProducts()

@@ -1094,8 +1094,10 @@ class VMSandboxBridge:
             return ""
         step_log = getattr(target, "_fields", {}).get("stepLog")
         prev_bad = ""
+        repeated_runtime_guard = ""
         if isinstance(step_log, (ActorOrderedCollection, list)) and len(step_log) > 0:
-            last_entry = list(step_log)[-1]
+            entries = list(step_log)
+            last_entry = entries[-1]
             if isinstance(last_entry, dict) and last_entry.get("status") == "error":
                 raw_bad = str(last_entry.get("action", ""))
                 if "__HALLUCINATED_XML_TOOL_CALL__" in raw_bad:
@@ -1104,6 +1106,20 @@ class VMSandboxBridge:
                     prev_bad = self._compact_step_action_for_history(raw_bad)
                     if len(raw_bad) > 2000:
                         prev_bad += " [TRUNCATED AT MAX_TOKENS — write a compact Python script (< 70 lines, no comments) so it fits cleanly!]"
+            if len(entries) >= 4 and "ParseError" not in last_error:
+                tail4 = entries[-4:]
+                if all(
+                    isinstance(e, dict)
+                    and e.get("status") == "error"
+                    and str(e.get("error", "") or "") == last_error
+                    for e in tail4
+                ):
+                    repeated_runtime_guard = (
+                        "[CRITICAL — REPEATED RUNTIME/BRIDGE ERROR (4+ IDENTICAL FAILURES)]:\n"
+                        "Stop retrying this exact broken call with minor argument tweaks in an infinite loop! "
+                        "Either switch to an alternative pool object/method to achieve the goal, or immediately "
+                        "reply with `COMPLETE: <clear explanation of the exact error blocking execution>` so the user is not left waiting.\n"
+                    )
         diag = (
             self.grammar_graph.diagnoseError(last_error)
             if self.grammar_graph is not None
@@ -1134,6 +1150,7 @@ class VMSandboxBridge:
             + f"Error: {last_error}\n"
             + ctx_line
             + method_src_hint
+            + repeated_runtime_guard
             + (f"{diag}\n" if diag else "")
             + "Fix the Actor 4.1 syntax, ivar declaration, or logic error in your next chunk."
         )
@@ -1406,6 +1423,7 @@ class VMSandboxBridge:
                 "result": summary,
                 "timestamp": time.time(),
             }
+            step_log = harness_obj._fields.get("stepLog")
             if isinstance(step_log, ActorOrderedCollection):
                 step_log.add(entry)
             self._record_completed_turn(harness_obj, summary, last_exec_result=prev_exec_result)
@@ -1429,6 +1447,7 @@ class VMSandboxBridge:
             gas_used = int(getattr(self.vm, "last_eval_opcodes", 0))
             prev_total_gas = int(harness_obj._fields.get("totalGasUsed", 0) or 0)
             prev_error = str(harness_obj._fields.get("lastError", "") or "")
+            step_log = harness_obj._fields.get("stepLog")
             if prev_error and self.grammar_graph is not None:
                 prev_bad = ""
                 if isinstance(step_log, ActorOrderedCollection) and len(step_log) > 0:
@@ -1464,6 +1483,7 @@ class VMSandboxBridge:
                 "auto_engrams": auto_engrams,
                 "timestamp": time.time(),
             }
+            step_log = harness_obj._fields.get("stepLog")
             if isinstance(step_log, ActorOrderedCollection):
                 step_log.add(entry)
             self._notify_step(entry)
@@ -1544,6 +1564,7 @@ class VMSandboxBridge:
                 "failures": failures,
                 "timestamp": time.time(),
             }
+            step_log = harness_obj._fields.get("stepLog")
             if isinstance(step_log, ActorOrderedCollection):
                 step_log.add(entry)
             self._notify_step(entry)
