@@ -51,6 +51,7 @@ from actorii.vm import ActorVM, CompiledMethod, Opcode
 
 HARNESS_ACT_PATH = Path(__file__).resolve().parent / "agent_harness.act"
 WEB_SCRAPER_ACT_PATH = Path(__file__).resolve().parent / "web_scraper.act"
+PRODUCT_LEARNER_ACT_PATH = Path(__file__).resolve().parent / "product_learner.act"
 OOP_FOUNDATION_ACT_PATH = Path(__file__).resolve().parent / "oop_foundation.act"
 DEFAULT_PERSONA_PATH = Path.home() / ".actorii" / "persona.md"
 
@@ -91,7 +92,11 @@ DEFAULT_HARNESS_SYSTEM_PROMPT = (
     "`Actor[#Jetson]` (`summary(Actor[#Jetson])!!`, `telemetry(Actor[#Jetson])!!`, `discover(Actor[#Jetson])!!`, `scanLan(Actor[#Jetson])!!` [scans `192.168.68.0/22` for SSH/RTSP edge boards without host shell!], `setHost(Actor[#Jetson], ip)!!`, `cameraStatus(Actor[#Jetson])!!`, `exec(Actor[#Jetson], \"uname -a\")!!` [guarded SSH command on the NVIDIA Jetson board]), "
     "`Actor[#Web]` (`summary(Actor[#Web])!!`, `scrape(Actor[#Web], url)!!`, `extract(Actor[#Web], url)!!`, `search(Actor[#Web], query, 5)!!`, `cleanUrl(Actor[#Web], url)!!`, `renderBrowser(Actor[#Web], url)!!`, `clearCache(Actor[#Web])!!`), "
     "`Actor[#PDF]` (`summary(Actor[#PDF])!!`, `fetchUrl(Actor[#PDF], url)!!`, `info(Actor[#PDF], pathOrUrl)!!`, `pageCount(Actor[#PDF], pathOrUrl)!!`, `readPages(Actor[#PDF], pathOrUrl, startPage, endPage, maxChars)!!`, `searchText(Actor[#PDF], pathOrUrl, query, maxHits, maxChars)!!`), "
+    "`Actor[#ProductLearner]` (`summary(Actor[#ProductLearner])!!`, `learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")!!`, `ingestManual(Actor[#ProductLearner], \"Product Name\", urlOrPdfOrPath, \"focus topics\")!!`, `recallProduct(Actor[#ProductLearner], \"Product Name\", \"query topic\")!!`, `listProducts(Actor[#ProductLearner])!!`), "
     "`Actor[#Hue]` (virtual in-memory smart-light twin), and `Actor[#Bench]` (`listTasks(Actor[#Bench])!!`, `runTask(Actor[#Bench], #alg_primes)!!`).\n"
+    "- LEARN HOW TO LEARN — READ THE MANUAL BEFORE GUESSING (`Actor[#ProductLearner]`):\n"
+    "  * Learned `:Product` manuals are auto-hydrated into your prompt whenever a user mentions a known product/subsystem.\n"
+    "  * Whenever asked to learn about a product/device/library, OR when operating unfamiliar hardware/software (such as `Actor[#Jetson]`, sensors, display stacks, drivers, or SDKs) and no `[AUTO-RECALLED PRODUCT TECHNICAL MANUAL]` covers the topic (or after 2 failed probes), STOP guessing in shell loops! Call `recallProduct(Actor[#ProductLearner], \"Product Name\", \"topic\")!!` or `learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")!!` (or `ingestManual(...)!!` for a specific URL/PDF) so you research the official manual, distill its exact drivers/commands/gotchas into Neo4j + `:8084` vector memory, and execute with precision!\n"
     "- MEMORY + SKILL POLICY (`Actor[#Memory]`): For casual conversational questions, answer directly in 1 step (`COMPLETE: ...`). "
     "When the user shares structured facts, rules, or domain formulas to remember, store the nodes in Neo4j via `cypherWrite(Actor[#Memory], ...)` "
     "and define a parameterized 1993 Actor class/method (`inherit(GraphService, #SkillCls, ...)!! now(SkillCls)!! Def ... !!`) to read and compute over those nodes (any compiled user class is automatically crystallized into Neo4j as a reusable `:ActorEngram` with `[:SUBCLASS_OF]` and `[:OPERATES_ON]` edges).\n"
@@ -535,6 +540,9 @@ class VMSandboxBridge:
             "PDF",
             "Net",
             "Web",
+            "ProductLearner",
+            "Jetson",
+            "Proxy",
             "Telegram",
             "ReverseEngineer",
             "REA",
@@ -1029,17 +1037,25 @@ class VMSandboxBridge:
         recent_steps = list(step_log)[-12:]
         n_recent = len(recent_steps)
         consec_readonly = 0
+        consec_edge_probes = 0
         has_mutated = False
         for idx_s, s_entry in enumerate(recent_steps):
             if isinstance(s_entry, dict):
                 st = s_entry.get("status", "ok")
                 raw_act = str(s_entry.get("action", ""))
                 act = self._compact_step_action_for_history(raw_act)
-                if any(m in raw_act for m in ("editFile", "writeFile", "execShell", "storeScratch", "Def ", "inherit(")):
+                if any(m in raw_act for m in ("editFile", "writeFile", "execShell", "storeScratch", "Def ", "inherit(", "learnProduct", "ingestManual")):
                     has_mutated = True
                     consec_readonly = 0
+                    consec_edge_probes = 0
                 elif any(r in raw_act for r in ("searchFile", "readFile")):
                     consec_readonly += 1
+                elif "Actor[#Jetson]" in raw_act and ("exec(" in raw_act or "runCommand(" in raw_act):
+                    res_obj = s_entry.get("result")
+                    failed_ssh = (st == "error") or (isinstance(res_obj, Dictionary) and not bool(res_obj.at("ok")))
+                    is_probe = any(p in raw_act for p in ("ls ", "find ", "which ", "grep ", "cat ", "dpkg ", "apt-cache"))
+                    if failed_ssh or is_probe:
+                        consec_edge_probes += 1
                 if st == "error":
                     cur_step_lines.append(
                         f"- Step {s_entry.get('step')} [ERROR]: `{act}` -> {s_entry.get('error')}"
@@ -1058,6 +1074,12 @@ class VMSandboxBridge:
                 f"\n[ACTION REQUIRED — {consec_readonly} CONSECUTIVE READ-ONLY STEPS WITHOUT EDITING]: "
                 "Stop searching/reading! Apply your fix NOW using `editFile(Actor[#Host], \"/workspace/...\", \"\"\"old\"\"\", \"\"\"new\"\"\")!!` "
                 "(or `writeFile` / `execShell`), then verify it with `execShell`."
+            )
+        if consec_edge_probes >= 3:
+            cur_step_lines.append(
+                f"\n[READ THE MANUAL BEFORE GUESSING — {consec_edge_probes} CONSECUTIVE EDGE PROBES/FAILURES]: "
+                "Stop blind trial-and-error shell probing! Call `recallProduct(Actor[#ProductLearner], \"NVIDIA Jetson TX1\", \"<topic>\")!!` "
+                "or `learnProduct(Actor[#ProductLearner], \"NVIDIA Jetson TX1 L4T R32.7.6\", \"<subsystem/driver>\")!!` to research and store the official manual in Neo4j first, or reply `COMPLETE: <findings>` if you already have the answer!"
             )
         return "\n".join(cur_step_lines)
 
@@ -1132,6 +1154,7 @@ class VMSandboxBridge:
                 "   - To search, read, write, patch, or test files in `/workspace` (`Actor[#Host]`): call `searchFile(Actor[#Host], \"/workspace\", \"pattern\", 15)!!` (searches a whole directory or a single file!), `readFile(Actor[#Host], \"/workspace/file.py\", 1, 120)!!`, `editFile(Actor[#Host], \"/workspace/file.py\", \"\"\"old\"\"\", \"\"\"new\"\"\")!!`, `writeFile(Actor[#Host], \"/workspace/file.py\", \"\"\"full multi-line text\"\"\")!!` (use triple-quoted strings `\"\"\"...\"\"\"` for multi-line code!), or `execShell(Actor[#Host], \"python3 -m pytest -q\", 15)!!`. When fixing inheritance/attribute bugs across a repo, use `searchFile` on `/workspace` to inspect the base classes too. When writing deprecation/removal error messages in a Python library, use the library's canonical import alias in backticks if standard (e.g. `` `nx.<func>` `` in NetworkX, or check existing docstrings/tests via `searchFile`).",
                 "   - When parsing or aggregating log, CSV, JSON, or Parquet files, ALWAYS inspect sample lines/schemas first (`execShell(Actor[#Host], \"head -n 5 /workspace/logs/*.log | head -n 20\", 10)!!`) and match exact bracketed severity tags (`[ERROR]`, `[WARNING]`, `[INFO]`) or exact schema columns rather than loose substring checks (`\"ERROR\" in line`).",
                 "   - To read or search local or remote PDF documents (`Actor[#PDF]`): call `fetchUrl(Actor[#PDF], \"https://.../doc.pdf\")!!`, `info(Actor[#PDF], pathOrUrl)!!`, `readPages(Actor[#PDF], pathOrUrl, 1, 5, 6000)!!`, or `searchText(Actor[#PDF], pathOrUrl, \"keyword\", 8, 6000)!!`. Never use `execShell` to `curl` PDFs when `Actor[#PDF]` is available!",
+                "   - To research, learn, and remember technical manuals for ANY hardware/software product (`Actor[#ProductLearner]`): call `learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")!!` (searches web + PDFs, distills specs/drivers/commands/gotchas, and saves Dual-Mode Neo4j `:Product` graph + `:8084` vector `:ProductManualChunk` memory), `ingestManual(Actor[#ProductLearner], \"Product Name\", urlOrPdfOrPath, \"focus topics\")!!`, `recallProduct(Actor[#ProductLearner], \"Product Name\", \"topic\")!!`, or `listProducts(Actor[#ProductLearner])!!`.",
                 "   - To add a button to the ThermoPro UI (`Actor[#ThermoUI]`): call `addButton(Actor[#ThermoUI], \"← Back to Studio\", \"/\")!!`.",
                 "   - To set up or run the built-in benchmark suite in `Actor[#Bench]`: call `setupTask(Actor[#Bench], #bugfix_hotpatch)!!`, `runTask(Actor[#Bench], #alg_primes)!!`, or `runAll(Actor[#Bench])!!`.",
                 "   - To search archived multi-session conversation episodes in Neo4j (`:ActorEpisode` + `:8084` vector hybrid): passive top-K episodes are hydrated automatically above, and you can actively run targeted keyword/semantic searches via `recallEpisodes(Actor[#Memory], \"specific keyword or topic\", 8)!!`.",
@@ -1287,24 +1310,28 @@ class VMSandboxBridge:
 
         chunk_src, comp_summary = _split_code_and_complete(raw)
 
-        # 0. Guard against identical consecutive no-op step repetition: if the model emitted the exact same
-        # code chunk that already succeeded in the immediately preceding step (and didn't attach COMPLETE),
-        # reject it with an explicit instruction to inspect `SCRATCHPAD` / `LAST RESULT` or reply `COMPLETE:`.
+        # 0. Guard against identical recent step repetition (including A-B-A-B ping-pong across warnings):
+        # inspect the last 4 steps in `step_log` so a warning step never resets duplicate detection.
         if chunk_src and comp_summary is None and isinstance(step_log, (ActorOrderedCollection, list)) and len(step_log) > 0:
-            prev_entry = list(step_log)[-1]
-            if (
-                isinstance(prev_entry, dict)
-                and prev_entry.get("status") == "ok"
-                and str(prev_entry.get("action", "")).strip() == chunk_src.strip()
-            ):
+            norm_chunk = chunk_src.strip()
+            matched_prev = None
+            for cand_entry in reversed(list(step_log)[-4:]):
+                if (
+                    isinstance(cand_entry, dict)
+                    and cand_entry.get("status") == "ok"
+                    and str(cand_entry.get("action", "")).strip() == norm_chunk
+                ):
+                    matched_prev = cand_entry
+                    break
+            if matched_prev is not None:
                 dup_msg = (
                     "DuplicateStepWarning: You just re-emitted the exact same Actor 4.1 code chunk that already "
-                    f"executed in Step {prev_entry.get('step')} (result={prev_entry.get('result')!r}, "
+                    f"executed in Step {matched_prev.get('step')} (result={matched_prev.get('result')!r}, "
                     f"scratchpad={self.formatScratchpad(harness_obj)}). "
-                    "Do NOT repeat identical code! If the values in SCRATCHPAD are already what you need, reply "
-                    "`COMPLETE: <summary>`. If a value in SCRATCHPAD is wrong (e.g. `passScore: 0.0`), inspect the "
-                    "method definition (`sourceOf(Actor[#VM], #ClassName, #selector)!!`) or check the exact Dictionary keys "
-                    "and instance variables (`Actor[#Inst].ivar`)!"
+                    "Do NOT repeat identical code! If the values in SCRATCHPAD or LAST RESULT already answer the goal, reply "
+                    "`COMPLETE: <summary>`. If you are unsure of the exact driver/command for a device or library, call "
+                    "`recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` or `learnProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` "
+                    "instead of repeating the same probe! If a method value is wrong, inspect `sourceOf(Actor[#VM], #ClassName, #selector)!!`."
                 )
                 harness_obj._fields["lastError"] = dup_msg
                 dup_entry = {
@@ -1827,6 +1854,12 @@ def bootstrap_agent_harness(
     active_vm.eval_chunk(web_source)
     active_vm.eval_chunk(
         'Actor[#Web] := initWeb(new(WebScraper), Actor[#Net], "https://api.firecrawl.dev", 8000)!!'
+    )
+
+    learner_source = PRODUCT_LEARNER_ACT_PATH.read_text(encoding="utf-8")
+    active_vm.eval_chunk(learner_source)
+    active_vm.eval_chunk(
+        "Actor[#ProductLearner] := initLearner(new(ProductLearner), Actor[#Web], Actor[#PDF], Actor[#Net], at(Actor, #Memory))!!"
     )
 
     act_source = HARNESS_ACT_PATH.read_text(encoding="utf-8")

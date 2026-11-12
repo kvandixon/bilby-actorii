@@ -1158,6 +1158,74 @@ class NetTransportBridge:
             lines.append(f"{idx}. {t} ({u})\n   {s}".strip())
         return "\n".join(lines)[:limit]
 
+    @actor_query
+    def extractUrls(self, text: str, max_urls: int = 3) -> Any:
+        """Extract prioritized official documentation HTTP(S) URLs from search results as an Actor `Array`."""
+        import re as _re
+        from actorii.classes.collections import ActorArray
+
+        raw_txt = str(text or "")
+        lim = max(1, min(10, int(max_urls or 3)))
+        raw_matches = _re.findall(r"https?://[^\s\)\]>\"']+", raw_txt)
+        cleaned: List[str] = []
+        seen = set()
+        for m in raw_matches:
+            u = m.rstrip(".,;:!?)")
+            if not u or u in seen:
+                continue
+            low = u.lower()
+            if any(skip in low for skip in ("duckduckgo.com", "google.com/search", "bing.com/search", "youtube.com/watch")):
+                continue
+            seen.add(u)
+            cleaned.append(u)
+
+        def _doc_priority(url_s: str) -> int:
+            ul = url_s.lower()
+            score = 0
+            if any(k in ul for k in ("docs.", "developer.", "manual", "guide", "datasheet", "reference", ".pdf", "readthedocs", "github.com")):
+                score -= 10
+            if any(k in ul for k in ("reddit.com", "quora.com", "pinterest.", "facebook.com")):
+                score += 10
+            return score
+
+        cleaned.sort(key=_doc_priority)
+        top = cleaned[:lim]
+        arr = ActorArray(len(top))
+        for idx, u in enumerate(top):
+            arr.atPut(idx, u)
+        return arr
+
+    @actor_query
+    def isPdfSource(self, url_or_path: str) -> bool:
+        """Return True if `url_or_path` (ignoring query string/fragment) ends in `.pdf`."""
+        base = str(url_or_path or "").strip().split("?", 1)[0].split("#", 1)[0].lower()
+        return base.endswith(".pdf")
+
+    @actor_query
+    def isHttpUrl(self, url_or_path: str) -> bool:
+        """Return True if `url_or_path` starts with `http://` or `https://`."""
+        low = str(url_or_path or "").strip().lower()
+        return low.startswith("http://") or low.startswith("https://")
+
+    @actor_query
+    def readLocalManual(self, path_str: str, max_chars: int = 12000) -> str:
+        """Read a local non-restricted text/markdown documentation file (`FORBIDDEN_READ_PREFIXES` enforced)."""
+        from actorii.harness.host_bridge import FORBIDDEN_READ_PREFIXES
+
+        raw = str(path_str or "").strip()
+        if not raw:
+            return "ERROR: Empty file path"
+        p = Path(raw).expanduser().resolve()
+        p_str = str(p)
+        for fp in FORBIDDEN_READ_PREFIXES:
+            if p_str == fp or p_str.startswith(fp + "/"):
+                raise PermissionError(f"Access to restricted path '{p_str}' is forbidden.")
+        if not p.is_file():
+            return f"ERROR: Documentation file not found: {raw}"
+        limit = max(500, min(30000, int(max_chars or 12000)))
+        txt = p.read_text(encoding="utf-8", errors="replace").strip()
+        return f"[LocalManual: {p.name}]\n{txt[:limit]}"
+
 
 @actor_bridge(name="PDFDocumentTwin")
 class PDFDocumentTwin:
@@ -1719,7 +1787,8 @@ class JetsonEdgeTwin:
         ]
         if self._key_file.is_file():
             argv.extend(["-i", str(self._key_file), "-o", "IdentitiesOnly=yes"])
-        argv.extend([f"{user}@{host}", remote_cmd])
+        safe_cmd = str(remote_cmd or "").replace("\x00", "\\0")
+        argv.extend([f"{user}@{host}", safe_cmd])
 
         try:
             self._state_dir.mkdir(parents=True, exist_ok=True)

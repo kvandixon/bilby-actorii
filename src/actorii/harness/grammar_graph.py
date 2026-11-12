@@ -232,6 +232,10 @@ SEED_PRIMITIVES: List[Dict[str, str]] = [
     {"cls": "JetsonEdgeTwin", "selector": "scanLan", "syntax": "scanLan(Actor[#Jetson])", "desc": "Scan 192.168.68.0/22 LAN for SSH (:22) and RTSP (:8554) edge devices without host shell"},
     {"cls": "JetsonEdgeTwin", "selector": "discover", "syntax": "discover(Actor[#Jetson])", "desc": "Auto-discover Jetson IP via mDNS / LAN SSH banner scan"},
     {"cls": "JetsonEdgeTwin", "selector": "exec", "syntax": "exec(Actor[#Jetson], \"uname -a\", 20)", "desc": "Execute a guarded command over SSH on the NVIDIA Jetson board and return Dictionary (#ok, #exitCode, #stdout, #stderr)"},
+    {"cls": "ProductLearner", "selector": "learnProduct", "syntax": "learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")", "desc": "Search official web/PDF manuals for a product, distill specs/drivers/commands/gotchas via LLM, and persist Dual-Mode Neo4j `:Product` graph + `:8084` vector `:ProductManualChunk` memory"},
+    {"cls": "ProductLearner", "selector": "ingestManual", "syntax": "ingestManual(Actor[#ProductLearner], \"Product Name\", urlOrPdfOrPath, \"focus topics\")", "desc": "Ingest a specific manual URL, PDF datasheet, or local doc into Neo4j `:Product` graph + `:8084` vector manual chunks"},
+    {"cls": "ProductLearner", "selector": "recallProduct", "syntax": "recallProduct(Actor[#ProductLearner], \"Product Name\", \"query topic\")", "desc": "Hybrid Neo4j Cypher + `:8084` vector recall of a learned product's subsystems, exact commands, gotchas, and manual excerpts"},
+    {"cls": "ProductLearner", "selector": "listProducts", "syntax": "listProducts(Actor[#ProductLearner])", "desc": "List all learned `:Product` technical manuals stored in Neo4j"},
 ]
 
 SEED_ERROR_PATTERNS: List[Dict[str, str]] = [

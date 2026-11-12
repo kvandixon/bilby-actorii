@@ -71,6 +71,7 @@ PROTECTED_SYSTEM_CLASSES: Set[str] = {
     "NetTransportBridge",
     "PDFDocumentTwin",
     "WebScraper",
+    "ProductLearner",
 }
 
 SYNTHESIZABLE_TWIN_CLASSES: Set[str] = {
@@ -108,9 +109,12 @@ PROTECTED_POOL_SINGLETONS: Set[str] = {
     "ReverseEngineer",
     "REA",
     "Telegram",
+    "Proxy",
+    "Jetson",
     "Net",
     "Web",
     "PDF",
+    "ProductLearner",
 }
 
 
@@ -259,7 +263,7 @@ class ActorLinter:
         # 1. Protected system class check & Ring 1 AgentHarness kernel guard
         if is_overwrite_check and self.protect_system_classes:
             if target_cls in PROTECTED_SYSTEM_CLASSES:
-                if target_cls != "WebScraper" or getattr(self.vm, "lock_system_singletons", False):
+                if target_cls not in ("WebScraper", "ProductLearner") or getattr(self.vm, "lock_system_singletons", False):
                     cls_obj = self.vm.hierarchy.get(target_cls) if hasattr(self.vm, "hierarchy") else None
                     if cls_obj is not None and cls_obj.has_method(selector):
                         issues.append(

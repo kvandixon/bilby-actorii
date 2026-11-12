@@ -67,6 +67,7 @@ RING_1_CLASSES: Set[str] = {
     "NetTransportBridge",
     "PDFDocumentTwin",
     "WebScraper",
+    "ProductLearner",
 }
 
 

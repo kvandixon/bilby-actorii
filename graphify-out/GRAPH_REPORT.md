@@ -1,55 +1,55 @@
-# Graph Report - ActorII  (2026-11-11)
+# Graph Report - ActorII  (2026-11-12)
 
 ## Corpus Check
-- 153 files · ~466,309 words
+- 154 files · ~471,449 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 7162 nodes · 11927 edges · 584 communities (371 shown, 213 thin omitted)
-- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 1201 edges (avg confidence: 0.55)
+- 7197 nodes · 12010 edges · 621 communities (367 shown, 254 thin omitted)
+- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 1206 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `fd9bbeb4`
+- Built from commit: `6e9aade7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - ActorVM
 - TestTier1FeatureCoverage
-- Window
+- WindowsObject
 - TestTier2BoundaryCases
 - TestTier3CrossFeatureInteractions
 - compile_to_bytecode
 - WebSocketSurface
 - Point
 - Opcode
-- BlockClosure
+- ._handle_call_method
 - CostModel
 - ReverseProxyTwin
-- Button
-- ActorInheritanceHierarchy
-- parse_actor
-- actor_command
-- xfail
 - ActorWorkspace
+- ActorInheritanceHierarchy
+- test_actor_1993_grammar.py
+- actor_command
+- parse_actor
+- test_wayland_websocket.py
 - Actor1993Parser
 - TestActorTUIWorkflow
 - Milestone M1 Analysis & Specification: Expressions, Closures, Indexing, Early-Bound & Control Flow
 - WebSocketSurface
-- .render
+- Any
 - bootstrap_agent_harness
-- ActorWorkspace
+- WebSocketSurface
 - TestEmpiricalNestedClosures
 - reference_sieve
-- thermopro.py
-- vm.py
+- datetime
+- ActorObject
 - BytecodeCompiler
 - BilbyTelegramGateway
 - 2. Full Language Grammar & Syntax Specification
-- Expr
+- vm.py
 - WaylandDisplay
-- TestUIActionEventDispatchAdversarial
+- Any
 - ActorII Exploration & Baseline Gap Analysis Report
 - Actor Professional 4.1 Clean-Room Display Layer Architecture
 - M2 Compiler Architecture & Algorithm Design
@@ -59,13 +59,13 @@
 - M2 Technical Analysis: Block Closures, Control Flow Jumps & Early-Binding Compilation
 - ValkyrieSystemTwin
 - ActorTUISession
-- TestRenderWidgetDOMAndBindingAdversarial
+- TestIntervalAdversarialStress
 - Milestone M1 Analysis: Class, Method, and Action Handler AST & Parser Rules
-- teamwork_preview_explorer_m5_1/proposed_test_workspace_integration.py
+- ActorWorkspace
 - VerificationReport
 - Any
 - CostModel
-- Dictionary
+- ActorOrderedCollection
 - feal.c
 - JetsonEdgeTwin
 - scoreboard.py
@@ -75,8 +75,8 @@
 - WaylandSurface
 - Agent
 - ActorIndexedCollection
-- TestDictionaryAdversarialStress
-- parser/__init__.py
+- Dictionary
+- _tokenize
 - db-wal-recovery/tests/test_outputs.py
 - MethodRef
 - Handoff Report — Milestone M2 Remediation Verification (Reviewer 2)
@@ -92,7 +92,7 @@
 - Milestone M1 Gate Review & Adversarial Challenge Report
 - run_industry_harness_suite.py
 - 4.2 Concrete Code Patches
-- ActorBenchSuite
+- .runTask
 - .file_out_class
 - constraints-scheduling/tests/test_outputs.py
 - ThermoProTwin
@@ -109,17 +109,17 @@
 - Project ActorII — Ground Truth Status & Architecture Session
 - run_engram_ab_bench.py
 - .get_method
-- test_bilby_security_hardening.py
+- MonkeyPatch
 - ASTNode
 - Milestone M6 Empirical Challenge Report (Challenger 2: Surfaces, Workspace & Class Library)
-- ActorMethodSynthesizer
+- run_self_hosting_project.py
 - TestVMClassLibraryAdversarialIntegration
-- teamwork_preview_explorer_m5_2/proposed_test_workspace_integration.py
+- start_ephemeral_workspace_server
 - Technical Analysis: Dual-Mode Discriminator Leak Remediation in `is_authentic_1993_actor`
 - Handoff Report: Dictionary, Interval, and Geometry/Math Classes (Milestone M4)
 - 5. Verification Method
 - HostWorkspaceBridge
-- SymbolLiteralNode
+- Identifier
 - Requirements
 - Handoff Report — Milestone M2 Remediation: Stack Balance & Statement Execution Defects
 - 1. Observation
@@ -128,7 +128,7 @@
 - 1. Observation
 - 2. Logic Chain
 - 1. Observation
-- TestTracker
+- challenge_core_vm.py
 - Handoff Report: Milestone M1 Remediation — CARET Return Assignment Precedence Fix
 - Handoff Report: 1993 Whitewater Actor Collection Hierarchy & Standard Library Design (Milestone 4)
 - 1. Observation
@@ -137,7 +137,7 @@
 - PROJECT_GOAL.md
 - hello
 - Key Details
-- create_driver
+- test_actor.py
 - Forensic Audit Report — Milestone M2 Remediation Gate
 - Handoff Report — Milestone M2 Remediation Quality & Adversarial Review
 - Handoff Report — Reviewer M4: Authentic 1993 Standard Class Library Port
@@ -178,7 +178,7 @@
 - BRIEFING — 2026-10-21T10:44:00Z
 - 1. Observation
 - FEAL Differential Cryptanalysis
-- ActorGrammarGraph
+- ._run_cypher
 - TestMilestone1Remediation
 - Forensic Audit Report — Milestone M4: Authentic 1993 Standard Class Library Port
 - BRIEFING — 2026-10-21T04:48:00Z
@@ -265,18 +265,18 @@
 - Milestone M3 Adversarial Review & Quality Report: Reviewer 2
 - Handoff Report — Milestone M2 Remediation Implementation
 - 1. Core Language Grammar & Syntax
-- _ImageSerializer
+- Any
 - Any
 - .__init__
 - test_tokenizer_prototype.py
-- Identifier
+- .syncLive
 - Handoff Report: Milestone M1 Remediation — Lexer, Parser & Discriminator Remediation
 - Dispatch: Worker M5 (Interactive Visual Workspace & Surfaces)
 - What Was Done
-- TestMilestoneM2Remediations
+- .history
 - verify_bytecode_vm_compat.py
-- ClassDefNode
-- TestCollectionsAndSetHardening
+- _split_code_and_complete
+- .test_actor_set_registered_in_actor_dictionary
 - Sentinel Handoff Report — Project ActorII
 - Forensic Integrity Audit Report — Milestone M2 Gate
 - Forensic Audit Report — Milestone M4 Remediation (Iteration 2)
@@ -306,19 +306,19 @@
 - Handoff Report — Milestone M4: Authentic 1993 Whitewater Actor Standard Class Library Port
 - Handoff Report — Milestone M4 Remediation Implementation Worker (Iteration 2)
 - Handoff Report: Milestone M5 Interactive Visual Workspace & Surfaces Implementation
-- TestCompileBytecode
+- .size
 - ._norm
 - TestActorDigitalTwinAndCollaborators
-- Cell
+- .test_subclass_method_override
 - Tournament Summary
 - Summary Results
 - Fix Git Task
 - Git Leak Recovery
 - Progress - Forensic Auditor M5-1
-- TestVMHardening
+- .test_non_local_return_caller_resumption
 - E2E Test Infra: ActorII 1993 Whitewater Actor 4.1
 - E2E Test Infra: ActorII 1993 Whitewater Actor 4.1
-- ActorCollection
+- .asArray
 - Log Summary Date Ranges
 - Progress Heartbeat
 - Progress — M2 Remediation Gate Empirical Challenge
@@ -327,8 +327,8 @@
 - Progress — Milestone M4 Implementation
 - Progress: Worker M4 Remediation
 - TestEmpiricalDeepRecursion
-- TestWorkspaceServerHardening
-- TestDictionary
+- ._led
+- TestGUIHierarchy
 - ActorII AgentHarness — Official OpenAI HumanEval & GSM8K Benchmark Report
 - valkyrie-rgb-ctl
 - multi-source-data-merger/tests/test_outputs.py
@@ -538,7 +538,7 @@
 - fix-code-vulnerability/tests/test.sh
 - Results Comparison: No-Think Clade vs Thinking Clade (`ACTORII_ENABLE_THINKING=1`)
 - llm-inference-batching-scheduler/tests/test.sh
-- test_pathway_upgrades.py
+- TestParserVMIntegration
 - judge_deterministic_only
 - test.sh script
 - setup.sh
@@ -550,7 +550,7 @@
 - .atPut
 - Head-to-Head Benchmark Report: `ActorII AgentHarness` vs. `Hermes Agent` (Option C — 30 Tasks)
 - Containerized Official Multi-Harness Benchmark Report
-- TestWaylandSurfaceResizeAdversarial
+- ._nud
 - Empirical A/B/C Benchmark Report: Active Engrams (Memory+Skill) vs Passive Graph-RAG vs RAM-Only OOP
 - TestSelfCorrectingJitAndFileOut
 - Containerized Official Multi-Harness Benchmark Report
@@ -559,7 +559,7 @@
 - Containerized Official Multi-Harness Benchmark Report
 - Containerized Official Multi-Harness Benchmark Report
 - Containerized Official Multi-Harness Benchmark Report
-- Any
+- TestEmpiricalNonLocalReturns
 - Containerized Official Multi-Harness Benchmark Report
 - Containerized Official Multi-Harness Benchmark Report
 - telegram_api_request
@@ -567,26 +567,62 @@
 - Containerized Official Multi-Harness Benchmark Report
 - Containerized Official Multi-Harness Benchmark Report
 - llm_socket_bridge.py
-- OpcodeValue
+- TestOpcodeSetExtensions
 - Any
-- WaylandDriver
+- Assignment
 - TestCollectionPackagingAndImports
-- AttributeAccess
+- .middlePoint
 - TestLivePhysicalTP358WHardware
-- .poolSummary
-- .register_object
-- TestBlockClosuresAndLexicalScoping
-- .unregister_object
-- test_ai_oop_bridge.py
-- CallNode
+- TestGeometry
+- DisplaySurface
+- .test_shared_mutable_cell_in_loop
+- TestActorObjectProtocol
+- .test_synthesized_methods_and_agents_persist_across_image_save_and_load
+- .attachTwin
 - test_benchmark_scoreboard.py
+- verify_r1_benchmarks.py
+- .summary
 - _eval_block
+- UnaryOp
+- ._handle_return_value
+- .contains
+- test_ask_actorii_peer_cli_bridge
+- test_vm_recursion_limit
+- test_vm_non_local_return_unwinding
+- test_field_access_and_python_class_receiver
+- .asPoint
+- .middlePoint
+- .set
+- .setX
+- .set_ai_provider
+- .test_agent_memory_tools_inspection_and_delegation_in_actor_syntax
 - is_authentic_1993_actor_robust
+- .test_actor_level_does_not_understand_and_1993_fail_hooks
+- .test_jit_method_synthesis_on_invoice_and_geometry
+- .test_shared_reference_identity_and_cyclic_graph
+- .test_sieve1_early_bound_and_fractal_survive_snapshot
+- .test_closures_lexical_cells_and_nonlocal_return_survive_snapshot
+- .test_actor_set_execution_in_vm
+- .test_call_stack_cleanup_on_unhandled_exception
+- .test_recursion_guard_raises_stack_overflow
+- .test_field_access_dot_syntax_and_stack_neutrality
+- .test_receiver_guard_on_python_class
+- .test_message_not_understood_fallback
+- .test_nested_blocks_shared_cell
+- .test_non_local_return_aborts_loop
+- .test_array_fill_primitive
+- .test_interval_over_and_overby
+- .test_sieve_act_authentic_execution
+- .test_sieve1_act_early_bound_execution
+- .test_fractal_act_projection_execution
+- .test_multi_frame_stack_push_pop
+- .test_recursive_method_execution
+- BlockNode
 
 ## God Nodes (most connected - your core abstractions)
 1. `ActorVM` - 366 edges
 2. `parse_actor()` - 184 edges
-3. `actor_query()` - 107 edges
+3. `actor_query()` - 114 edges
 4. `Dictionary` - 103 edges
 5. `ActorWorkspace` - 97 edges
 6. `Opcode` - 96 edges
@@ -610,47 +646,47 @@
 ## Import Cycles
 - None detected.
 
-## Communities (584 total, 213 thin omitted)
+## Communities (621 total, 254 thin omitted)
 
 ### Community 0 - "ActorVM"
 Cohesion: 0.03
-Nodes (34): Independent Forensic Verification Script for R1 (Authentic 1993 Benchmarks)., test_fractal(), test_sieve(), test_sieve1(), test_hierarchy_and_globals(), test_vm_execution_of_classes(), Operand, ActorVM (+26 more)
+Nodes (27): test_hierarchy_and_globals(), test_vm_execution_of_classes(), Operand, ActorVM, Return from block closure to immediate caller., Collection indexing read: pop index and collection, push item., Collection indexing write: pop value, index, collection, set item., Invoke built-in runtime primitive (max, min, sqrt, asInt, dec, inc, fill, abs). (+19 more)
 
 ### Community 1 - "TestTier1FeatureCoverage"
-Cohesion: 0.03
-Nodes (38): Tier 1: Comprehensive feature coverage verifying core features F1-F16., F4.4: Register action method on ActorClass and verify lookup., F4.5: Dispatch simulated UI message event through ActorObject., F5.4: Execute simulated block closure and verify return value., F5.5: Verify block closure properly captures outer variable state., F6.4: Execute array indexing read and write operations., F6.5: Execute dictionary indexing with symbol string keys., F8.3: Verify global Actor dictionary holds references and returns objects. (+30 more)
+Cohesion: 0.02
+Nodes (42): Tier 1: Comprehensive feature coverage verifying core features F1-F16., F4.4: Register action method on ActorClass and verify lookup., F4.5: Dispatch simulated UI message event through ActorObject., F5.4: Execute simulated block closure and verify return value., F5.5: Verify block closure properly captures outer variable state., F6.4: Execute array indexing read and write operations., F6.5: Execute dictionary indexing with symbol string keys., F8.3: Verify global Actor dictionary holds references and returns objects. (+34 more)
 
-### Community 2 - "Window"
+### Community 2 - "WindowsObject"
 Cohesion: 0.04
-Nodes (32): Control, Any, Add child widget to window (WINDOW.CLS:242 add)., Remove child widget by instance, ID, or Symbol (WINDOW.CLS remove)., Register an action handler for child widget events., Set focus to a child widget., Find a child by ID, identity Symbol, or title., Access child by Symbol or ID (win[#btn] in WINDOW.CLS:58). (+24 more)
+Nodes (33): Any, Button, Add child widget to window (WINDOW.CLS:242 add)., Remove child widget by instance, ID, or Symbol (WINDOW.CLS remove)., Register an action handler for child widget events., Set focus to a child widget., Find a child by ID, identity Symbol, or title., Access child by Symbol or ID (win[#btn] in WINDOW.CLS:58). (+25 more)
 
 ### Community 3 - "TestTier2BoundaryCases"
 Cohesion: 0.02
-Nodes (52): B2.2: Scoping to metaclass defines class-level methods., B4.1: Action handler registered for single numeric ID (e.g. 101)., B4.2: Action handler selector range spanning [102..106]., B4.3: Action handler handling inverted or empty range bounds safely., B4.4: Dispatching event with ID outside any registered action selector., B4.5: Action handler receiving structured payload with childID and state., B5.1: Block closure with 0 arguments., B5.2: Three levels of nested block closures. (+44 more)
+Nodes (51): B2.2: Scoping to metaclass defines class-level methods., B4.1: Action handler registered for single numeric ID (e.g. 101)., B4.2: Action handler selector range spanning [102..106]., B4.3: Action handler handling inverted or empty range bounds safely., B4.5: Action handler receiving structured payload with childID and state., B5.1: Block closure with 0 arguments., B5.2: Three levels of nested block closures., B5.3: Non-local return unwinding using exception-based control flow. (+43 more)
 
 ### Community 4 - "TestTier3CrossFeatureInteractions"
 Cohesion: 0.03
-Nodes (55): ReusableThreadingHTTPServer, run_server(), Button, Checkbox, DisplaySurface, HTML5Surface, HTML5 canvas display surface for ActorII. Adapts the abstract DisplaySurface to…, Set keyboard focus to a widget. (+47 more)
+Nodes (49): ReusableThreadingHTTPServer, run_server(), Button, Checkbox, HTML5Surface, setter, HTML5 canvas display surface for ActorII. Adapts the abstract DisplaySurface to…, Set keyboard focus to a widget. (+41 more)
 
 ### Community 5 - "compile_to_bytecode"
 Cohesion: 0.03
-Nodes (33): CompilerStressHarness, compile_to_bytecode(), Compile an AST into bytecode for the ActorVM. Returns (instructions, constants,…, Slot 0 is self, parameters are 1..N, declared locals are N+1..M., Methods without an explicit ^ return self (LOAD_LOCAL 0, RETURN_VALUE 0)., A bare caret return (^;) explicitly returns self., Explicit ^expr returns the evaluated expression., Method with completely empty body safely returns self. (+25 more)
+Nodes (37): CompilerStressHarness, TestResult, compile_to_bytecode(), Compile an AST into bytecode for the ActorVM. Returns (instructions, constants,…, Slot 0 is self, parameters are 1..N, declared locals are N+1..M., Methods without an explicit ^ return self (LOAD_LOCAL 0, RETURN_VALUE 0)., A bare caret return (^;) explicitly returns self., Explicit ^expr returns the evaluated expression. (+29 more)
 
 ### Community 6 - "WebSocketSurface"
 Cohesion: 0.03
 Nodes (48): ABC, DisplayDriver, GraphicsContext, Pixel format string (e.g., 'argb32', 'rgb24', 'xrgb8888')., Get pixel color at coordinates (x, y). Returns color as hex string (e.g.,…, Set pixel color at coordinates (x, y)., Present the completed frame to the display. Wayland: commit the buffer…, Mark a region as needing redisplay. Wayland: wl_surface.damage(x, y, w, h)… (+40 more)
 
 ### Community 7 - "Point"
-Cohesion: 0.02
-Nodes (35): Stress-test Point, Point3D vector math, division by zero, and Rect…, Point, Point3D, Any, setter, Round coordinates to nearest integers., Midpoint of two 2D points with optional random displacement., Authentic 1993 Whitewater Actor Point3D class (POINT3D.CLS). 3D coordinate… (+27 more)
+Cohesion: 0.09
+Nodes (8): Point, Round coordinates to nearest integers., Authentic 1993 Whitewater Actor Point class (POINT.CLS). 2D coordinate point…, Set y coordinate and return new y., Return 2D projection of self (identity for Point)., Authentic 1993 Whitewater Actor projection formula: Point(x, y - (z * 9) // 8)., Adversarial stress tests for 2D Point., TestPointAdversarial
 
 ### Community 8 - "Opcode"
-Cohesion: 0.05
-Nodes (63): Exception, IntEnum, actor_bridge(), Class decorator that prepares a Python class for registration in ActorII., ActorFileOutManager, Automatic `.act` Source File-Out Manager (`actorii.guardrails.fileout`). Solves…, Exports live `ActorClass` definitions and `CompiledMethod` sources to `.act`…, Guardrails Subsystem for ActorII (`actorii.guardrails`). Provides: -… (+55 more)
+Cohesion: 0.03
+Nodes (101): Exception, IntEnum, ActorMethodSynthesizer, extract_and_normalize_actor_method(), format_inspection_for_prompt(), _get_class_lineage(), inspect_actor_object(), _is_local_llamacpp_or_vllm() (+93 more)
 
-### Community 9 - "BlockClosure"
+### Community 9 - "._handle_call_method"
 Cohesion: 0.04
-Nodes (32): Instruction, BlockClosure, Any, setter, Invoke block closure., Execute dynamic message send: receiver-based polymorphic method dispatch., Runtime representation of an instantiated block closure., Execute a 'do' iteration loop over a collection with a block closure or… (+24 more)
+Nodes (34): Instruction, Any, setter, Invoke block closure., Execute dynamic message send: receiver-based polymorphic method dispatch., Execute a 'do' iteration loop over a collection with a block closure or…, Invoke a block closure synchronously, properly handling non-local return…, Extract Actor class name string from any receiver object. (+26 more)
 
 ### Community 10 - "CostModel"
 Cohesion: 0.07
@@ -660,37 +696,37 @@ Nodes (29): align(), CostConsts, CostModel, Encapsulates the cost and latency ca
 Cohesion: 0.07
 Nodes (45): IPv4Address, IPv6Address, Digital Twin (`Actor[#Proxy]`) enabling Bilby to inspect and manage the…, One-line operational summary of the Bilby Reverse Proxy., Detailed proxy status, active mode, network URLs, CIDRs, and auth gate., Return ready-to-open WLAN and Tailscale Studio & Benchmark URLs (including…, Set reverse proxy access mode: `lan`, `tailscale_only`, `local_only`, or…, Enable or disable the passcode / 1-tap magic-link cookie gate (`true` /… (+37 more)
 
-### Community 12 - "Button"
-Cohesion: 0.04
-Nodes (45): test_gui_widgets(), run_ui_action_tests(), Stress tests _eval_source, ui_event, and inspect_object in websocket_server.py., Reproduce the defect where statement expressions return None in ws._eval_source., Verify that delegating ws._eval_source to vm.eval_chunk fixes statement…, Stress-test ui_event on non-existent widget IDs: must return handled: False., Stress-test inspect_object on ActorClass: returns both _methods and…, Stress-test Control, Button, Checkbox, TextField, Window, and Dialog lifecycle. (+37 more)
+### Community 12 - "ActorWorkspace"
+Cohesion: 0.02
+Nodes (119): Verify authentic widget resolution, error handling on missing widgets, and eval…, test_workspace_widget_resolution_and_eval(), test_gui_widgets(), test_workspace_and_websocket_live(), test_section_5_inspect_object(), run_ui_action_tests(), Verify that WaylandDriver.resize cleanly calls surface.resize without crash., Stress tests _eval_source, ui_event, and inspect_object in websocket_server.py. (+111 more)
 
 ### Community 13 - "ActorInheritanceHierarchy"
-Cohesion: 0.04
-Nodes (29): ActorInheritanceHierarchy, Manages the single-inheritance hierarchy for actor language classes. The 1993…, Register a class in the hierarchy., B1.4: Verify re-registering class with updated method cleanly replaces…, B1.5: Verify class names with digits (Point3D, Vector2D) parse and register., B2.1: Repeatedly toggling active scoping between classes., B2.5: Hierarchy lookup on undeclared class returns None gracefully., B7.1: Early-bound call qualified explicitly to root Object. (+21 more)
+Cohesion: 0.03
+Nodes (31): ActorInheritanceHierarchy, Manages the single-inheritance hierarchy for actor language classes. The 1993…, Register a class in the hierarchy., ActorVM executes compiled addition and returns expected value., ActorVM correctly branches on compiled IfNode., ActorVM executes compiled INVOKE_PRIM max., ActorVM executes compiled INVOKE_PRIM fill., Loop condition operand is popped on each iteration (0 leaked booleans after 100… (+23 more)
 
-### Community 14 - "parse_actor"
-Cohesion: 0.05
-Nodes (26): parse_actor(), Parse actor language source code into an AST list. Automatically routes to…, Comprehensive unit tests for authentic 1993 Whitewater Actor 4.1 syntax and…, Test dynamic class creation inherit(Super, #Class, #(ivars), classType, nil)!!, Test now(Class)!! and now(class(Class))!! compilation scoping., Test Def method definitions, receivers, arguments, locals, and returns., Test UI Action message handlers: Action name(self, msg) #[selectors] { ... }!!, Test Prim primitive declarations: Prim name(self, args):ReturnType!! (+18 more)
+### Community 14 - "test_actor_1993_grammar.py"
+Cohesion: 0.06
+Nodes (15): Comprehensive unit tests for authentic 1993 Whitewater Actor 4.1 syntax and…, Test dynamic class creation inherit(Super, #Class, #(ivars), classType, nil)!!, Test now(Class)!! and now(class(Class))!! compilation scoping., Test Def method definitions, receivers, arguments, locals, and returns., Test UI Action message handlers: Action name(self, msg) #[selectors] { ... }!!, Test Prim primitive declarations: Prim name(self, args):ReturnType!!, Test block closures: {using(args | locals) body; } and invocation., Test array/dictionary indexing coll[i] and early-bound target:Class[i]. (+7 more)
 
 ### Community 15 - "actor_command"
-Cohesion: 0.06
-Nodes (47): RuntimeError, actor_command(), Decorator marking a Python method as a Tier 2 Side-Effecting Actor command., Save an atomic whole-world `.img` snapshot of the VM., _actor_to_py_value(), ActorMemoryGraph, _build_cypher_params(), _compute_embedding() (+39 more)
+Cohesion: 0.04
+Nodes (54): RuntimeError, actor_command(), Decorator marking a Python method as a Tier 2 Side-Effecting Actor command., Save an atomic whole-world `.img` snapshot of the VM., _actor_to_py_value(), ActorMemoryGraph, _build_cypher_params(), _compute_embedding() (+46 more)
 
-### Community 16 - "xfail"
+### Community 16 - "parse_actor"
 Cohesion: 0.03
-Nodes (30): F1.3: Parse authentic 1993 inherit directive into ClassDef / ClassDefNode., F1.4: Parse authentic inherit with instance variables #(x y)., F2.1: Parse now(Sieve)!! active compilation scoping directive., F2.2: Parse now(class(FractalWindow))!! active metaclass scoping., F2.3: Verify Def parsed under now(ClassName)!! is associated with ClassName., F2.4: Verify sequential now(A)!! ... now(B)!! switches active class target., F3.2: Parse authentic 1993 Def method(self, cnt | flags count) syntax., F3.3: Verify locals '| flags count' recorded in method AST. (+22 more)
+Nodes (43): parse_actor(), Parse actor language source code into an AST list. Automatically routes to…, Test if-then-else-endif; and loop-while-begin-endLoop;., Test tokenization of comments, symbols, arrays, ranges, and escape sequences., Parse real historical 1993 Whitewater Actor 4.1 files., TestCommentsAndLiterals, TestControlFlow, TestHistoricalActorFiles (+35 more)
 
-### Community 17 - "ActorWorkspace"
-Cohesion: 0.06
-Nodes (48): Verify authentic widget resolution, error handling on missing widgets, and eval…, test_workspace_widget_resolution_and_eval(), main(), test_section_1_eval_persistence(), test_section_2_complex_expressions(), test_section_3_error_recovery(), test_section_4_get_classes(), test_section_5_inspect_object() (+40 more)
+### Community 17 - "test_wayland_websocket.py"
+Cohesion: 0.05
+Nodes (39): Tests for Wayland display surfaces, WebSocket surfaces, and interactive…, Verify ActorWorkspace initializes ActorVM with all core standard library…, Verify eval handler computes arithmetic expression ending in !!., Verify eval handler computes expressions with explicit return operator (^)., Verify eval handler maintains global state across multiple evaluation chunks., Verify loading authentic SIEVE.ACT and evaluating sieve(Sam, 100) returns 25., Verify dynamic class definition (inherit) and method definition via eval., Verify eval handles syntax errors gracefully without crashing the workspace. (+31 more)
 
 ### Community 18 - "Actor1993Parser"
-Cohesion: 0.16
-Nodes (19): Actor1993Parser, Authentic 1993 Whitewater Actor 4.1 recursive-descent and Pratt expression…, Parse all top-level statements, definitions, and evaluation chunks., Parse: inherit(SuperClass, #ClassName, #(ivars...), classType, nil)!!, Parse: now(ClassName)!! or now(class(ClassName))!!, Parse method definition: Def methodName(self, args | locals) { body;…, Parse: Action actionName(self, msg) #[selectors] { body }!!, Parse: Prim name(self, args):ReturnType!! (+11 more)
+Cohesion: 0.22
+Nodes (13): Actor1993Parser, _parse_actor_1993(), Authentic 1993 Whitewater Actor 4.1 recursive-descent and Pratt expression…, Parse all top-level statements, definitions, and evaluation chunks., Parse: inherit(SuperClass, #ClassName, #(ivars...), classType, nil)!!, Parse: now(ClassName)!! or now(class(ClassName))!!, Parse method definition: Def methodName(self, args | locals) { body;…, Parse: Action actionName(self, msg) #[selectors] { body }!! (+5 more)
 
 ### Community 19 - "TestActorTUIWorkflow"
-Cohesion: 0.07
-Nodes (17): extract_actor_action(), _is_likely_actor_code(), Extract clean Actor bytecode or a `COMPLETE:` directive from raw LLM output., Transpile Qwen `<function=writeFile|execShell|readFile|editFile>` XML tool…, Strip Qwen/Hermes `<tool_call>` / `<parameter=code>` XML wrappers if emitted by…, Return True if `text` is 1993 Actor 4.1 code (including code with syntax/lint…, If an LLM response contains conversational preamble or trailing prose around…, Separate executable Actor 4.1 code chunks from any trailing `COMPLETE:` or… (+9 more)
+Cohesion: 0.11
+Nodes (6): extract_actor_action(), Extract clean Actor bytecode or a `COMPLETE:` directive from raw LLM output., Extract clean 1993 Actor code or a `COMPLETE:` directive from an LLM response., Path, Tests the Hermes/Antigravity-style TUI session and slash commands., TestActorTUIWorkflow
 
 ### Community 20 - "Milestone M1 Analysis & Specification: Expressions, Closures, Indexing, Early-Bound & Control Flow"
 Cohesion: 0.05
@@ -698,59 +734,55 @@ Nodes (43): 10. Summary & Sign-off, 1. Executive Summary, 2.1 Current Expression
 
 ### Community 21 - "WebSocketSurface"
 Cohesion: 0.05
-Nodes (34): Independent Forensic Verification Script for R3 (Interactive Visual Workspace)., test_wayland_shm(), test_workspace_and_websocket_live(), Tests `ThermometerUI` / `ThermometerWindow` child controls, Wayland/WebSocket…, test_websocket_driver_resize(), _build_mobile_thermometer_page(), create_surface(), get_shared_workspace() (+26 more)
+Nodes (35): main(), test_section_1_eval_persistence(), test_section_2_complex_expressions(), test_section_3_error_recovery(), test_section_4_get_classes(), test_section_6_network_roundtrip(), TestHarness, test_websocket_driver_resize() (+27 more)
 
-### Community 22 - ".render"
-Cohesion: 0.25
-Nodes (4): Generate canvas drawing commands from pixel data. Creates JavaScript…, Render the window and all children to HTML5-ready format. Generates an HTML div…, Serialize pixel data as HTML-ready representation., Return a fully-formed, mobile-ready HTML5 document. Builds an interactive Actor…
+### Community 22 - "Any"
+Cohesion: 0.13
+Nodes (15): _draw_line(), _fill_rect(), Any, Button, Render this ThermoProTwin's thermometer, hygrometer, and history graph onto an…, Fill a rectangle on any surface supporting `set_pixel(x, y, color)`., Bresenham line drawing onto an Actor surface., Render the ThermoProTwin thermometer tube, humidity gauge, and history plot… (+7 more)
 
 ### Community 23 - "bootstrap_agent_harness"
-Cohesion: 0.05
-Nodes (42): main(), Any, run_audit(), bootstrap_agent_harness(), Load `agent_harness.act` into `vm` and instantiate `Actor[#Harness]` /…, Tests the 1993 Actor 4.1 `AgentHarness` class (`agent_harness.act`) inside…, TestActorNativeAgentHarness, Verify `VMSandboxBridge.executeStepAction` auto-crystallizes user classes into… (+34 more)
+Cohesion: 0.04
+Nodes (53): main(), Any, run_audit(), bootstrap_agent_harness(), Load `agent_harness.act` into `vm` and instantiate `Actor[#Harness]` /…, Tests the 1993 Actor 4.1 `AgentHarness` class (`agent_harness.act`) inside…, TestActorNativeAgentHarness, Verify neither system classes, bridge classes, nor AgentHarness kernel methods… (+45 more)
 
-### Community 24 - "ActorWorkspace"
-Cohesion: 0.09
-Nodes (11): ActorWorkspace, create_surface(), Concrete WebSocket display driver for ActorII., HTML5 canvas surface driven via WebSocket commands., Interactive Actor 4.1 execution session maintaining live VM and display state., Evaluate Actor code on VM, handling implicit return for final expression…, Dispatch an incoming JSON protocol message and return structured response., _run_sieve() (+3 more)
+### Community 24 - "WebSocketSurface"
+Cohesion: 0.10
+Nodes (8): create_surface(), Concrete WebSocket display driver for ActorII., HTML5 canvas surface driven via WebSocket commands., Dispatch an incoming JSON protocol message and return structured response., _run_sieve(), _solve_n_queens(), WebSocketDriver, WebSocketSurface
 
 ### Community 25 - "TestEmpiricalNestedClosures"
-Cohesion: 0.05
-Nodes (23): parametrize, Stress tests deeply nested closures (3+ levels) with Cell mutation., 3 levels of nested closures mutate shared outer variable via Cell., Variables defined at distinct lexical levels are captured and modified…, Triple nested do loop iterates 3 * 3 * 3 = 27 times mutating cell., Quadruple nested do loop iterates 2 * 2 * 2 * 2 = 16 times., Sibling closures created in the same frame share the identical Cell., Escaped block closure retains Cell across multiple invocations. (+15 more)
+Cohesion: 0.07
+Nodes (17): parametrize, Stress tests deeply nested closures (3+ levels) with Cell mutation., 3 levels of nested closures mutate shared outer variable via Cell., Variables defined at distinct lexical levels are captured and modified…, Triple nested do loop iterates 3 * 3 * 3 = 27 times mutating cell., Quadruple nested do loop iterates 2 * 2 * 2 * 2 = 16 times., Sibling closures created in the same frame share the identical Cell., Escaped block closure retains Cell across multiple invocations. (+9 more)
 
 ### Community 26 - "reference_sieve"
 Cohesion: 0.07
 Nodes (16): Authoritative reference implementation of Eratosthenes sieve from SIEVE.ACT., B9.1: Sieve benchmark with limit 0 produces 0 primes., B9.2: Sieve benchmark with limit 1 produces 0 primes., B9.3: Sieve benchmark with limit 2 produces exactly 1 prime (2)., B9.4: Sieve benchmark with limit 3 produces exactly 2 primes (2, 3)., B9.5: Sieve benchmark with limit 1000 produces exactly 168 primes., B10.1: Early-bound sieve with limit 0 produces 0 primes., B10.2: Early-bound sieve with limit 2 produces 1 prime. (+8 more)
 
-### Community 27 - "thermopro.py"
-Cohesion: 0.12
-Nodes (20): datetime, BlueZThermoProTransport, c_to_f(), compute_comfort_symbol(), compute_dew_point_c(), decode_advertisement_bytes(), decode_history_stream(), make_datetime_sync_cmd() (+12 more)
+### Community 27 - "datetime"
+Cohesion: 0.27
+Nodes (8): datetime, decode_history_stream(), make_datetime_sync_cmd(), make_history_request_cmds(), Build the required `0xA5` datetime-sync handshake packet., Build the 3-command sequence (`0xCCCC` framed) to request `count` 1-minute…, Deterministically decode a `cccc 01 ... 6666` GATT history stream into…, Connect to the TP358W/TP358S over GATT, sync clock, and download `count`…
 
-### Community 28 - "vm.py"
+### Community 28 - "ActorObject"
 Cohesion: 0.04
-Nodes (52): Showcase: Zero-Boilerplate Python-to-Actor Hardware Twin…, expose_python_object(), Capability-Gated Python-to-Actor FFI Bridge (`actorii.bridge`). Allows any…, Register a Python class in `vm.hierarchy` so `new(ClassName, ...)` creates an…, Wrap a live Python object as an `ActorBridgeObject` and optionally bind…, register_bridge_class(), First-Class OOP `Agent` Class for the 1993 Whitewater Actor 4.1 Hierarchy.…, ActorClass (+44 more)
+Nodes (52): Independent forensic verification script for Milestone M6. Audits authentic…, Independent Forensic Verification Script for R2 (Core 1993 Class Library Port)., Independent Forensic Verification Script for R3 (Interactive Visual Workspace)., main(), record_result(), run_demo_wayland_test(), run_render_widget_tests(), run_wayland_surface_tests() (+44 more)
 
 ### Community 29 - "BytecodeCompiler"
-Cohesion: 0.14
-Nodes (12): BytecodeCompiler, EarlyBoundDescriptor, IndexSetNode, setter, Descriptor for compile-time early-bound dispatch., Lexical scope tracking local variables, parameters, and closures., Define a local variable or parameter slot., Look up variable slot index in immediate local scope. (+4 more)
+Cohesion: 0.13
+Nodes (11): BytecodeCompiler, EarlyBoundDescriptor, Any, setter, Descriptor for compile-time early-bound dispatch., Lexical scope tracking local variables, parameters, and closures., Define a local variable or parameter slot., Look up variable slot index in immediate local scope. (+3 more)
 
 ### Community 30 - "BilbyTelegramGateway"
-Cohesion: 0.09
-Nodes (19): load_telegram_credentials(), Load Telegram token, allowed users, and home channel from `.env` or environment., BilbyTelegramGateway, main(), Any, Path, Telegram Long-Polling Gateway for the ActorII Metacircular Bilby Harness…, Send one or more chunked messages to `chat_id` (preserving forum… (+11 more)
+Cohesion: 0.10
+Nodes (18): load_telegram_credentials(), Load Telegram token, allowed users, and home channel from `.env` or environment., BilbyTelegramGateway, main(), Any, Path, Send one or more chunked messages to `chat_id` (preserving forum…, Return a real-time audit report of all active Bilby containment & security… (+10 more)
 
 ### Community 31 - "2. Full Language Grammar & Syntax Specification"
 Cohesion: 0.06
 Nodes (33): 1. Executive Summary, 2.10 Operators and Expressions, 2.11 Control Flow Constructs, 2.1 Lexical Elements, 2.2 Dynamic Class Definition (`inherit`), 2.3 Active Class Scoping (`now`), 2.4 Method Definitions (`Def`), 2.5 Primitive Declarations (`Prim`) (+25 more)
 
-### Community 32 - "Expr"
-Cohesion: 0.05
-Nodes (20): BlockNode, BooleanLiteral, EarlyBoundNode, Expr, IndexGetNode, NilLiteral, RangeCollectionNode, Represents a floating-point real literal. (+12 more)
+### Community 32 - "vm.py"
+Cohesion: 0.02
+Nodes (81): Showcase: Zero-Boilerplate Python-to-Actor Hardware Twin…, ActorFileOutManager, Automatic `.act` Source File-Out Manager (`actorii.guardrails.fileout`). Solves…, Exports live `ActorClass` definitions and `CompiledMethod` sources to `.act`…, Neo4j-Backed Computational Memory & Active Engram Subsystem (`Actor[#Memory]`).…, ArrayLiteralNode, AttributeAccess, BinaryOp (+73 more)
 
 ### Community 33 - "WaylandDisplay"
 Cohesion: 0.04
-Nodes (27): Manages a Wayland display connection using pywayland. In headless/test mode,…, WaylandDisplay, B16.1: Set and verify pixels at all four bounding corners of Wayland surface., B16.2: Set pixel out of bounds does not raise IndexError., B16.3: Wayland surface created with 1x1 minimal dimension., B16.4: Consecutive clear operations across varying color codes., X12 (F16+F11): Project Point3D coordinate and plot pixel on Wayland surface., F16.1: Initialize WaylandDisplay in headless mode. (+19 more)
-
-### Community 34 - "TestUIActionEventDispatchAdversarial"
-Cohesion: 0.12
-Nodes (9): Button inside Window routes action to window.action_handlers mapping., Clicking standard OK and Cancel buttons closes Dialog with appropriate code., Checkbox toggles between #checked and #unChecked states on successive clicks., Checkbox inside Window dispatches checked and unChecked action events to parent., Custom widget selector invokes matching widget method with arguments., Stress-test unhandled widget IDs, missing IDs, None, and numeric ID lookup., Stress-test ui_event -> ActorVM.dispatch_action event routing., Button click via ui_event invokes callback and restores pressed state. (+1 more)
+Nodes (35): Verify authentic buffer reallocation, pixel preservation, and clamping in…, test_wayland_resize_authenticity(), test_wayland_shm(), create_driver(), Manages a Wayland display connection using pywayland. In headless/test mode,…, # NOTE: pywayland is a client library that connects to an existing Wayland, Concrete Wayland display driver for ActorII. Translates ActorII drawing…, Get the underlying surface. (+27 more)
 
 ### Community 35 - "ActorII Exploration & Baseline Gap Analysis Report"
 Cohesion: 0.06
@@ -765,12 +797,12 @@ Cohesion: 0.06
 Nodes (31): 1. Executive Summary, 2.1 Inspection of `compile_to_bytecode` (`src/actorii/parser/__init__.py:2203-2292`), 2.2 Inspection of VM Opcodes (`src/actorii/vm.py:29-73`), 2.3 Inspection of M1 AST Node Classes, 2. Codebase Investigation & Ground-Truth Findings, 3.1 Scope Hierarchy & Slot Allocation Contract, 3.2 Symbol Resolution Table, 3. Lexical Scoping & Local Slot Architecture (+23 more)
 
 ### Community 38 - "Interval"
-Cohesion: 0.04
-Nodes (29): Stress-test Interval step directions, bounds, and progression calculation., Interval, Any, Authentic 1993 Interval 'in' test. Source: INTERVAL.CLS:95, Evaluate aBlock over each element. Returns the last number evaluated or self., Evaluate aBlock over each element and return collected elements., Convert interval to Array., Authentic 1993 Whitewater Actor Interval collection. Represents an arithmetic… (+21 more)
+Cohesion: 0.06
+Nodes (27): Stress-test Interval step directions, bounds, and progression calculation., object_as_string(), object_clone(), object_error(), object_init(), object_is_equal(), object_is_identical(), object_is_not_equal() (+19 more)
 
 ### Community 39 - "actor_query"
 Cohesion: 0.05
-Nodes (19): EnvironmentNodeDriver, Python hardware driver wrapped for ActorII with capability-gated selectors., actor_query(), Decorator marking a Python method or `@property` as a Tier 0 Read-Only Actor…, Execute `source` in copy-on-write speculative shadow mode (`shadow_only=True`)., Return the active Neo4j memory namespace., Return a summary of all tracked light zones and their current state/brightness., Return total number of `:Recipe` nodes in Neo4j. (+11 more)
+Nodes (22): EnvironmentNodeDriver, Python hardware driver wrapped for ActorII with capability-gated selectors., actor_query(), Decorator marking a Python method or `@property` as a Tier 0 Read-Only Actor…, List all 5 benchmark tasks and their categories., Execute `source` in copy-on-write speculative shadow mode (`shadow_only=True`)., Return the active Neo4j memory namespace., Return True if `url_or_path` (ignoring query string/fragment) ends in `.pdf`. (+14 more)
 
 ### Community 40 - "run_standard_benchmarks.py"
 Cohesion: 0.25
@@ -788,41 +820,41 @@ Nodes (16): Check whether a local TCP service port (`8080`, `8082`, `11434`, `76
 Cohesion: 0.21
 Nodes (10): ActorTUISession, _configure_readline(), _looks_like_actor_code(), main(), Any, Path, Launch the full-screen split-pane Curses TUI dock with live Object Pool sidebar., Manages the live `ActorVM`, `AgentHarness`, and command dispatch for the TUI. (+2 more)
 
-### Community 44 - "TestRenderWidgetDOMAndBindingAdversarial"
-Cohesion: 0.14
-Nodes (8): Stress-test render_widget HTML generation, clamping, and global Actor binding., render_widget creates button with correct attributes and binds to Actor., render_widget creates checkbox with checked attribute when True and binds., render_widget creates textfield input and binds to Actor global dictionary., render_widget clamps coordinates between 1.0%-82.0% (left) and 6.0%-88.0% (top)., render_widget handles unsupported widget_type gracefully with generic div., End-to-end flow: render button -> inspect -> click via ui_event -> check state., TestRenderWidgetDOMAndBindingAdversarial
+### Community 44 - "TestIntervalAdversarialStress"
+Cohesion: 0.09
+Nodes (12): Factory: create interval from start to stop with step., Stress tests and boundary checks for Interval., Step of zero is invalid and must raise ValueError., Positive steps: compare list(itv), itv.size(), and itv.at(i)., Negative steps: progression down from start towards stop (exclusive)., Empty intervals return size 0, empty list, and raise IndexError on…, Out-of-bounds indexing raises IndexError., in_interval and 'in' operator test membership for positive and negative steps. (+4 more)
 
 ### Community 45 - "Milestone M1 Analysis: Class, Method, and Action Handler AST & Parser Rules"
 Cohesion: 0.07
 Nodes (29): 1. Executive Summary, 2.1 File Location & Structure, 2.2 Observed Deficiencies vs 1993 Whitewater Actor Requirements, 2. Investigation of Current Parser Baseline, 3.1 Top-Level Script / Chunk Grammar, 3.2 Dynamic Class Definition (`inherit`), 3.3 Active Compilation Scoping (`now`), 3.4 Method Definitions (`Def`) (+21 more)
 
-### Community 46 - "teamwork_preview_explorer_m5_1/proposed_test_workspace_integration.py"
+### Community 46 - "ActorWorkspace"
 Cohesion: 0.06
-Nodes (34): End-to-end and protocol integration test suite for Milestone M5 Interactive…, Verify dynamic class definition (inherit) and method definition via eval., Verify eval handles syntax errors gracefully without crashing the workspace., Verify get_classes returns all registered classes, supers, methods, and ivars., Verify inspect_object returns class and field attributes of registered objects., Verify inspect_object returns found=False for non-existent keys., Verify ui_event dispatches to button callback and records execution., Verify ui_event triggers window Action method registered in action_handlers. (+26 more)
+Nodes (40): End-to-end and protocol integration test suite for Milestone M5 Interactive…, Verify dynamic class definition (inherit) and method definition via eval., Verify eval handles syntax errors gracefully without crashing the workspace., Verify get_classes returns all registered classes, supers, methods, and ivars., Verify inspect_object returns class and field attributes of registered objects., Verify inspect_object returns found=False for non-existent keys., Verify ui_event dispatches to button callback and records execution., Verify ui_event triggers window Action method registered in action_handlers. (+32 more)
 
 ### Community 47 - "VerificationReport"
 Cohesion: 0.18
 Nodes (21): benchmark_parsing_throughput(), main(), Empirical verification harness for 1993 Whitewater Actor 4.1 Parser & AST.…, Verify AST node structure matches 1993 Actor spec for SIEVE1.ACT (early…, Verify AST node structure matches 1993 Actor spec for FRACTAL.ACT., Verify parsing of key benchmark scripts from ORIGINAL_REQUEST.md., Verify all AST nodes have required attributes per M1<->M2 contract, and audit…, Stress-test dual-mode discriminator for false positives and false negatives. (+13 more)
 
 ### Community 48 - "Any"
-Cohesion: 0.07
-Nodes (19): Any, Compact multi-KB `writeFile` / `editFile` string literals in step history so…, Format steps executed so far in the current goal turn (append-only uniform…, Format Neo4j error diagnostics when `self.lastError` is non-empty., Return default Actor 4.1 generation instructions for…, Ask the `AgentHarness` LLM brain to plan the next Actor 4.1 step toward…, Metacircular planner invoked by `AgentHarness>>step` with Actor-selected…, Execute a single planned step inside a guarded transaction with gas metering. (+11 more)
+Cohesion: 0.09
+Nodes (16): Any, Format recent multi-turn conversation history for…, Compact multi-KB `writeFile` / `editFile` string literals in step history so…, Format steps executed so far in the current goal turn (append-only uniform…, Format Neo4j error diagnostics when `self.lastError` is non-empty., Return default Actor 4.1 generation instructions for…, Ask the `AgentHarness` LLM brain to plan the next Actor 4.1 step toward…, Metacircular planner invoked by `AgentHarness>>step` with Actor-selected… (+8 more)
 
 ### Community 49 - "CostModel"
 Cohesion: 0.13
 Nodes (12): build_plan(), load_requests(), main(), _plan_for_requests(), Baseline: fixed GRAN/MAX_SHAPES, writes both bucket plans., Load a list of request objects from a JSON Lines file., Return a plan list of records using prompt-only shapes with a shape cap., _write_plan() (+4 more)
 
-### Community 50 - "Dictionary"
+### Community 50 - "ActorOrderedCollection"
 Cohesion: 0.04
-Nodes (81): test_collections_and_set(), Stress tests edge cases across foundational classes in src/actorii/classes/., Stress-test ActorArray boundary conditions and copyFrom., Stress-test ActorOrderedCollection and ActorList underflow, bounds, and remove., Stress-test Dictionary symbol normalization, missing keys, and iteration., TestClassLibraryAdversarial, is_kind_of(), object_as_string() (+73 more)
+Nodes (46): Verify authentic set semantics, uniqueness, unhashable handling, and VM…, test_actorset_authenticity(), Disassembler, Disassembles bytecode into formatted, symbolically annotated text., TestTracker, Stress-test ActorOrderedCollection and ActorList underflow, bounds, and remove., int, is_kind_of() (+38 more)
 
 ### Community 51 - "feal.c"
 Cohesion: 0.21
 Nodes (11): create_random_keys(), encrypt(), f_function(), g_function(), get_keys(), getleft(), getright(), merge() (+3 more)
 
 ### Community 52 - "JetsonEdgeTwin"
-Cohesion: 0.08
-Nodes (24): JetsonEdgeTwin, NetTransportBridge, Any, Search via the Keyless MCP Ring (Keenable / Exa / Parallel)., Fallback search via DuckDuckGo (`duckduckgo_search` / `ddgs` or HTML lite)., Format an Actor `Dictionary` scrape response into clean Markdown with provider…, Format an Actor `Dictionary` search response into numbered results., Guarded Edge Digital Twin (`Actor[#Jetson]`) for the NVIDIA Jetson dev board on… (+16 more)
+Cohesion: 0.07
+Nodes (25): JetsonEdgeTwin, NetTransportBridge, Any, Search via the Keyless MCP Ring (Keenable / Exa / Parallel)., Fallback search via DuckDuckGo (`duckduckgo_search` / `ddgs` or HTML lite)., Format an Actor `Dictionary` scrape response into clean Markdown with provider…, Format an Actor `Dictionary` search response into numbered results., Extract prioritized official documentation HTTP(S) URLs from search results as… (+17 more)
 
 ### Community 53 - "scoreboard.py"
 Cohesion: 0.21
@@ -841,44 +873,44 @@ Cohesion: 0.07
 Nodes (26): 1.1 Why Conventional LLM Agent Harnesses Hit a Wall, 1.2 The Core Insight of `ActorII`, 1. Executive Thesis & Problem Statement, 2.1 The Smalltalk + LLM Paradox, 2.2 Why Actor Is the Sweet Spot, 2. Why the Actor Language? (Solving the Smalltalk + LLM Paradox), 3.1 The Three Capability Rings, 3. System Architecture & Protection Rings (+18 more)
 
 ### Community 57 - "WaylandSurface"
-Cohesion: 0.09
-Nodes (16): main(), Render a button widget on the Wayland surface. Draws a blue border with light…, Render a checkbox widget on the Wayland surface. Draws a 30x30 square frame; a…, Render a text field label on the Wayland surface., render_button(), render_checkbox(), render_textfield(), Get pixel color from the Wayland buffer. Args: x: X coordinate y: Y coordinate… (+8 more)
+Cohesion: 0.07
+Nodes (20): main(), Render a button widget on the Wayland surface. Draws a blue border with light…, Render a checkbox widget on the Wayland surface. Draws a 30x30 square frame; a…, Render a text field label on the Wayland surface., render_button(), render_checkbox(), render_textfield(), Get pixel color from the Wayland buffer. Args: x: X coordinate y: Y coordinate… (+12 more)
 
 ### Community 58 - "Agent"
 Cohesion: 0.07
 Nodes (18): Agent, _norm_key(), Any, setter, Store a semantic fact or object reference in the Agent's persistent Dictionary., Retrieve a value from the Agent's semantic memory by key or Symbol., Remove a key from the Agent's semantic memory., Clear episodic conversation history. (+10 more)
 
 ### Community 59 - "ActorIndexedCollection"
-Cohesion: 0.05
-Nodes (23): list, ActorIndexedCollection, Abstract formal superclass for 0-based indexed collections. Source:…, Return element at 0-based index. Raises IndexError if out of bounds. Source:…, Store val at 0-based index. Raises IndexError if out of bounds., Authentic 1993 Actor indexing write: put(coll, val, index). Source:…, Fill elements with anObject. If count specified, fill up to count elements., Return new collection with elements from begIdx to endIdx - 1 inclusive. (+15 more)
+Cohesion: 0.06
+Nodes (18): list, ActorIndexedCollection, Abstract formal superclass for 0-based indexed collections. Source:…, Return element at 0-based index. Raises IndexError if out of bounds. Source:…, Store val at 0-based index. Raises IndexError if out of bounds., Authentic 1993 Actor indexing write: put(coll, val, index). Source:…, Fill elements with anObject. If count specified, fill up to count elements., Return new collection with elements from begIdx to endIdx - 1 inclusive. (+10 more)
 
-### Community 60 - "TestDictionaryAdversarialStress"
-Cohesion: 0.12
-Nodes (9): Stress tests and edge cases for Dictionary and ActorDictionary., Colliding keys like 'key', '#key', Symbol('key'), Symbol('#key') must map to…, do must iterate over values; keysDo must iterate over keys; assocsDo over [k,…, Insert 5,000 key-value pairs, read all back, delete half, verify remainder., Modifying dictionary while iterating with do, keysDo, assocsDo should not crash., Looking up or removing non-existent keys returns None or False cleanly., Dictionary supports integer, float, and tuple keys., ActorDictionary VM globals synchronization, symbol key extraction, and volume. (+1 more)
+### Community 60 - "Dictionary"
+Cohesion: 0.04
+Nodes (61): test_collections_and_set(), Stress-test ActorArray boundary conditions and copyFrom., Stress-test Dictionary symbol normalization, missing keys, and iteration., actor_bridge(), Capability-Gated Python-to-Actor FFI Bridge (`actorii.bridge`). Allows any…, Class decorator that prepares a Python class for registration in ActorII., ActorArray, Fixed-size sequential indexed collection. Source:… (+53 more)
 
-### Community 61 - "parser/__init__.py"
-Cohesion: 0.09
-Nodes (18): ArrayLiteralNode, BlockDescriptor, _decode_string_literal(), _decode_triple_quoted_string(), _get_lbp(), _match_operator_symbol(), NowNode, _parse_actor_1993() (+10 more)
+### Community 61 - "_tokenize"
+Cohesion: 0.22
+Nodes (8): _decode_string_literal(), _decode_triple_quoted_string(), _match_operator_symbol(), Decode multi-line triple-quoted string literals (`\"\"\"...\"\"\"` or…, Decode string/char literals with standard C escape sequences., Match operator symbol following #, such as #+, #-, #*, #/, #<=, etc., Tokenize actor language source code. Returns a list of (token_type,…, _tokenize()
 
 ### Community 62 - "db-wal-recovery/tests/test_outputs.py"
 Cohesion: 0.13
 Nodes (14): Test that the recovered.json file is valid JSON., Test that the recovered data has the correct structure., Test that the recovered data is sorted by id., Test that all expected data is recovered including WAL changes., Test that the recovered.json file exists., Test that there are no duplicate IDs in the recovered data., Test that the agent successfully decrypted the WAL file., test_no_duplicate_ids() (+6 more)
 
 ### Community 63 - "MethodRef"
-Cohesion: 0.18
-Nodes (6): CapturedVar, MethodRef, str, 3-tuple representing captured lexical variable (name, depth, outer_slot) with…, String subclass representing a method selector with attached call arity., tuple
+Cohesion: 0.25
+Nodes (3): MethodRef, str, String subclass representing a method selector with attached call arity.
 
 ### Community 64 - "Handoff Report — Milestone M2 Remediation Verification (Reviewer 2)"
 Cohesion: 0.08
 Nodes (23): 1.1 Test Suite & Empirical Harness Execution, 1.2 Verification of Specific Prior Defect Findings, 1. Observation, 2. Logic Chain, 3. Caveats, 4. Conclusion, 5. Verification Method, 6. Detailed Review Report (+15 more)
 
 ### Community 66 - "TestVMClassLibraryIntegration"
-Cohesion: 0.15
+Cohesion: 0.14
 Nodes (7): Tests VM class table registration, execution, and action event dispatch., Simulate UI action dispatch from button into registered window action handler., Higher-order collection methods with VM block evaluation., Execute compiled Actor method utilizing OrderedCollection., Execute compiled Actor method utilizing Dictionary and Symbols., Execute compiled Actor method projecting Point3D to Point., TestVMClassLibraryIntegration
 
 ### Community 67 - "ActorBridgeObject"
-Cohesion: 0.10
-Nodes (20): ActorBridgeObject, ActorBridgeSecurityError, BridgeAuditEntry, BridgeMemberSpec, _infer_callable_arity(), introspect_bridge_specs(), Any, Collect allowed `BridgeMemberSpec` entries from decorators or explicit… (+12 more)
+Cohesion: 0.09
+Nodes (24): ActorBridgeObject, ActorBridgeSecurityError, BridgeAuditEntry, BridgeMemberSpec, expose_python_object(), _infer_callable_arity(), introspect_bridge_specs(), Any (+16 more)
 
 ### Community 68 - "Milestone M1: Lexer & Tokenizer Extensions Analysis"
 Cohesion: 0.09
@@ -916,9 +948,9 @@ Nodes (73): BaseHTTPRequestHandler, CladeRunNode, evaluate_polyglot_clade(), eva
 Cohesion: 0.10
 Nodes (19): 1.1 Direct Defect Observations in Source Code, 1.2 Reproduction in Benchmark and Challenger Test Suites, 1. Observation, 1. Verification of Block Naming Uniqueness, Parameter Slots, and Lexical Capture, 2. Logic Chain, 2. Verification of Authentic Historical Benchmarks, 3. Caveats, 3. Verification of Entire Repository Test Suite (+11 more)
 
-### Community 77 - "ActorBenchSuite"
-Cohesion: 0.19
-Nodes (10): ActorBenchSuite, _norm_id(), Any, In-image benchmark harness exposed at `Actor[#Bench]`., List all 5 benchmark tasks and their categories., Return a summary table of all benchmark task results recorded so far., Seed the live Actor object pool with the initial state required for `task_id`., Verify ground-truth postconditions in the live object pool for `task_id`. (+2 more)
+### Community 77 - ".runTask"
+Cohesion: 0.22
+Nodes (7): _norm_id(), Any, Return a summary table of all benchmark task results recorded so far., Seed the live Actor object pool with the initial state required for `task_id`., Verify ground-truth postconditions in the live object pool for `task_id`., Seed, execute via `Actor[#Harness]`, and verify a single benchmark task., Run all 5 benchmark tasks sequentially through `Actor[#Harness]` and return the…
 
 ### Community 78 - ".file_out_class"
 Cohesion: 0.33
@@ -929,8 +961,8 @@ Cohesion: 0.31
 Nodes (11): _dt(), _hard_ok(), _overlap(), _r(), Hard constraints + business hours + no conflicts vs repo calendars., Earliest (minute), avoid Monday when tied, prefer morning, Carol late buffer., ICS structure/headers, VEVENT, title/ATTENDEE, 1h, Jan 15–19 weekdays., _repo() (+3 more)
 
 ### Community 80 - "ThermoProTwin"
-Cohesion: 0.05
-Nodes (35): _draw_line(), _fill_rect(), Any, Button, Render this ThermoProTwin's thermometer, hygrometer, and history graph onto an…, Fill a rectangle on any surface supporting `set_pixel(x, y, color)`., Bresenham line drawing onto an Actor surface., Render the ThermoProTwin thermometer tube, humidity gauge, and history plot… (+27 more)
+Cohesion: 0.15
+Nodes (5): Update all child controls and fields from the bound `ThermoProTwin`., Render interactive HTML5 + SVG Thermometer & Hygrometer UI window for the Actor…, Digital Twin of the ThermoPro TP358W / TP358S Bluetooth Thermometer in ActorII., Auto-sync via BlueZ BLE if no live reading/history has been ingested yet or if…, ThermoProTwin
 
 ### Community 81 - "feal.py"
 Cohesion: 0.22
@@ -981,32 +1013,32 @@ Cohesion: 0.23
 Nodes (13): _clean_bench_graph(), evaluate_condition(), _extract_answer_from_vm(), generate_markdown_report(), main(), Any, QuerySpec, Clean all benchmark domain nodes and `:ActorEngram` nodes in `BENCH_NAMESPACE`. (+5 more)
 
 ### Community 93 - ".get_method"
-Cohesion: 0.12
-Nodes (11): callable, Add a class method (bound to the class, not instances)., Check if this class defines a method., Get a method from the class definition., Get a class by name, traversing inheritance if needed., Resolve a method through the inheritance chain., Execute the message on the receiver., Check if object responds to a message/method. (+3 more)
+Cohesion: 0.11
+Nodes (12): callable, Add a class method (bound to the class, not instances)., Check if this class defines a method., Get a method from the class definition., Get a class by name, traversing inheritance if needed., Resolve a method through the inheritance chain., Execute the message on the receiver., Check if object responds to a message/method. (+4 more)
 
-### Community 94 - "test_bilby_security_hardening.py"
-Cohesion: 0.13
-Nodes (21): load_harness_system_prompt(), Build the active harness system prompt, appending an optional local host…, MonkeyPatch, Path, Dedicated security & containment hardening tests for Bilby (`Actor[#Bilby]` /…, Verify the destructive command patterns (2026-10-18 Bilby remediation…, Verify `evolveHarness` works on Ring 1 cognitive hooks during…, Verify `BilbyTelegramGateway` enforces fail-closed auth, `/controls`, and… (+13 more)
+### Community 94 - "MonkeyPatch"
+Cohesion: 0.18
+Nodes (14): MonkeyPatch, Path, Verify the destructive command patterns (2026-10-18 Bilby remediation…, Verify `evolveHarness` works on Ring 1 cognitive hooks during…, Verify `BilbyTelegramGateway` enforces fail-closed auth, `/controls`, and…, Verify `websocket_server.py` blocks GET eval/CSRF, cross-origin WS/HTTP,…, Verify `DEFAULT_HARNESS_SYSTEM_PROMPT` is host-agnostic while…, Verify `ACTORII_HOST_LOCKDOWN=1` blocks `Actor[#Host]>>execShell` on the host… (+6 more)
 
 ### Community 95 - "ASTNode"
-Cohesion: 0.10
-Nodes (13): Assignment, AssignNode, ASTNode, IfNode, LoopNode, PrimDefNode, Any, Specialized node for primitive declarations: Prim name(self, ...):Type!! (+5 more)
+Cohesion: 0.12
+Nodes (6): ASTNode, LoopNode, Represents a method or block return: ^value., Represents a loop construct: loop [pre;] while cond [begin] body; endLoop;, Base class for all AST nodes., ReturnNode
 
 ### Community 96 - "Milestone M6 Empirical Challenge Report (Challenger 2: Surfaces, Workspace & Class Library)"
 Cohesion: 0.12
 Nodes (16): 1.1 Baseline Test Suite & Display Demo Execution, 1.2 Standalone Adversarial Challenge Suite (`challenge_surfaces_workspace.py`), 1.3 Verified Defects & Empirical Discrepancies, 1. Observation, 2. Logic Chain, 3. Caveats, 4. Conclusion & Structured Worker Remediation Specification, 5. Verification Method (+8 more)
 
-### Community 97 - "ActorMethodSynthesizer"
-Cohesion: 0.06
-Nodes (41): Convert ActorVM runtime values into JSON-serializable primitives., _serialize_value(), main(), Self-Hosting Dogfood Orchestrator: ActorII Implements 3 Novel Pathway Upgrades…, run_spec(), SpecResult, ActorMethodSynthesizer, extract_and_normalize_actor_method() (+33 more)
+### Community 97 - "run_self_hosting_project.py"
+Cohesion: 0.70
+Nodes (4): main(), Self-Hosting Dogfood Orchestrator: ActorII Implements 3 Novel Pathway Upgrades…, run_spec(), SpecResult
 
 ### Community 98 - "TestVMClassLibraryAdversarialIntegration"
 Cohesion: 0.17
 Nodes (9): Empirically challenge class library operations compiled and run on ActorVM., ActorVM bytecode execution for Array instantiation, indexing, and fill., ActorVM bytecode execution for Dictionary symbol keys, string keys, and lookup., ActorVM executes Interval do block closures with positive and negative steps., ActorVM executes collect, select, and reject blocks., ActorVM authentic iteration semantics: do (values), keysDo (keys), assocsDo…, ActorVM OrderedCollection add, pop, first, last., ActorVM Interval reverse and asArray. (+1 more)
 
-### Community 99 - "teamwork_preview_explorer_m5_2/proposed_test_workspace_integration.py"
-Cohesion: 0.11
-Nodes (23): Milestone M5 End-to-End WebSocket Interactive Workspace Integration Test Suite.…, Verify querying classes list from ActorInheritanceHierarchy over WebSocket., Verify inspecting live objects in the Actor global dictionary over WebSocket., Verify querying a non-existent object returns graceful not found response., Verify ui_event routes action messages (#selected) into ActorVM., Verify drawing commands: clear, set_pixel, get_pixel, damage, resize., Verify render_widget emits HTML for button, checkbox, and textfield., Verify server returns clean error responses on syntax or protocol errors. (+15 more)
+### Community 99 - "start_ephemeral_workspace_server"
+Cohesion: 0.09
+Nodes (22): Verify querying classes list from ActorInheritanceHierarchy over WebSocket., Verify inspecting live objects in the Actor global dictionary over WebSocket., Verify querying a non-existent object returns graceful not found response., Verify ui_event routes action messages (#selected) into ActorVM., Verify drawing commands: clear, set_pixel, get_pixel, damage, resize., Verify render_widget emits HTML for button, checkbox, and textfield., Verify server returns clean error responses on syntax or protocol errors., Start websocket_server handler on an ephemeral port (port 0) for safe test… (+14 more)
 
 ### Community 100 - "Technical Analysis: Dual-Mode Discriminator Leak Remediation in `is_authentic_1993_actor`"
 Cohesion: 0.12
@@ -1024,9 +1056,9 @@ Nodes (15): 1.1 Existing Display Surface Architecture (`src/actorii/display/`), 
 Cohesion: 0.10
 Nodes (20): PermissionError, HostWorkspaceBridge, is_host_lockdown(), Path, Return True when running in production host-lockdown mode…, Validate that `cmd_str` contains no forbidden host/service/network/cron…, Transactional Host Workspace I/O & Shell Bridge exposed as `Actor[#Host]`., Discard all uncommitted Copy-on-Write VFS overlay buffers. (+12 more)
 
-### Community 104 - "SymbolLiteralNode"
-Cohesion: 0.14
-Nodes (6): Represents an interned symbolic literal (#symbol)., SymbolLiteralNode, Test global dictionary Actor[#Key] access and top-level trigger !!., Test tokenization of comments, symbols, arrays, ranges, and escape sequences., TestCommentsAndLiterals, TestGlobalDictionary
+### Community 104 - "Identifier"
+Cohesion: 0.17
+Nodes (6): Identifier, Represents an identifier (variable or method name)., Represents an interned symbolic literal (#symbol)., SymbolLiteralNode, Test global dictionary Actor[#Key] access and top-level trigger !!., TestGlobalDictionary
 
 ### Community 105 - "Requirements"
 Cohesion: 0.13
@@ -1060,9 +1092,9 @@ Nodes (13): 1.1 Empirical Verification Test Suite & Execution Results, 1.2 Full 
 Cohesion: 0.14
 Nodes (13): 1. Baseline Test Suite Verification, 1. Observation, 2. Logic Chain, 2. Standalone Adversarial Challenge Harness (`challenge_surfaces_actions.py`), 3. Caveats, 3. Integrated Pytest Suite Execution (`tests/test_m5_surfaces_actions_adversarial.py`), 4. Conclusion, 4. Full Repository Regression Test Suite (+5 more)
 
-### Community 113 - "TestTracker"
-Cohesion: 0.34
-Nodes (10): main(), test_section_1(), test_section_2(), test_section_3(), test_section_4(), test_section_5(), test_section_6(), test_section_7() (+2 more)
+### Community 113 - "challenge_core_vm.py"
+Cohesion: 0.40
+Nodes (9): main(), test_section_1(), test_section_2(), test_section_3(), test_section_4(), test_section_5(), test_section_6(), test_section_7() (+1 more)
 
 ### Community 114 - "Handoff Report: Milestone M1 Remediation — CARET Return Assignment Precedence Fix"
 Cohesion: 0.14
@@ -1096,9 +1128,9 @@ Nodes (11): hello(), Main module for Project ActorII., Return a greeting for the
 Cohesion: 0.18
 Nodes (10): Conflict Resolution, Environment, Field Mappings, Input Data, Key Details, Multi-Source Data Merger, Overview, Required Outputs (+2 more)
 
-### Community 122 - "create_driver"
-Cohesion: 0.11
-Nodes (17): Verify authentic buffer reallocation, pixel preservation, and clamping in…, test_wayland_resize_authenticity(), main(), record_result(), run_demo_wayland_test(), run_render_widget_tests(), run_wayland_surface_tests(), create_driver() (+9 more)
+### Community 122 - "test_actor.py"
+Cohesion: 0.09
+Nodes (21): Test module for Project ActorII core and display modules. Verifies the clean-…, Test Window instantiation and rendering., Test Button widget creation and event handling., Test Checkbox widget creation and state., Test TextField widget creation and text handling., Test HTML5Surface rendering output., Test basic ActorObject instantiation and message passing., Test method dispatch via message passing. Note: Methods must be registered via… (+13 more)
 
 ### Community 123 - "Forensic Audit Report — Milestone M2 Remediation Gate"
 Cohesion: 0.15
@@ -1256,13 +1288,13 @@ Nodes (11): 1.1 Repository Hygiene & `.gitignore`, 1.2 Documentation Ground-Trut
 Cohesion: 0.29
 Nodes (6): Environment Details, FEAL Differential Cryptanalysis, Key Details, Overview, Skills Tested, Verification
 
-### Community 163 - "ActorGrammarGraph"
-Cohesion: 0.16
-Nodes (9): ActorGrammarGraph, Any, Neo4j-backed 1993 Actor syntax, primitive & error-remediation knowledge graph…, Idempotently seed `:ActorSyntaxConstruct`, `:ActorPrimitive`, and…, Return live counts of 1993 Actor grammar nodes & learned fixes in Neo4j., Query Neo4j for a specific 1993 Actor syntax construct or keyword., Query Neo4j for all 1993 Actor grammar rules and primitives relevant to a task., Traverse `(:ActorErrorPattern)-[:REMEDIATED_BY]->(:ActorSyntaxConstruct)` in… (+1 more)
+### Community 163 - "._run_cypher"
+Cohesion: 0.13
+Nodes (7): Any, Idempotently seed `:ActorSyntaxConstruct`, `:ActorPrimitive`, and…, Return live counts of 1993 Actor grammar nodes & learned fixes in Neo4j., Query Neo4j for a specific 1993 Actor syntax construct or keyword., Query Neo4j for all 1993 Actor grammar rules and primitives relevant to a task., Traverse `(:ActorErrorPattern)-[:REMEDIATED_BY]->(:ActorSyntaxConstruct)` in…, Persist a verified self-correction `(Error) -> (Fixed Actor Code)` into Neo4j.
 
 ### Community 164 - "TestMilestone1Remediation"
-Cohesion: 0.11
-Nodes (8): CharLiteral, is_authentic_1993_actor(), Strip nested block comments, line comments, and string literals. Preserves…, Determine whether source string should be parsed with the 1993 Actor grammar.…, Represents a character literal., _strip_comments_and_strings(), Regression tests for Milestone M1 Remediation: 1. CARET return assignment…, TestMilestone1Remediation
+Cohesion: 0.09
+Nodes (10): CharLiteral, is_authentic_1993_actor(), Strip nested block comments, line comments, and string literals. Preserves…, Determine whether source string should be parsed with the 1993 Actor grammar.…, Represents a character literal., Represents self keyword literal., SelfLiteral, _strip_comments_and_strings() (+2 more)
 
 ### Community 165 - "Forensic Audit Report — Milestone M4: Authentic 1993 Standard Class Library Port"
 Cohesion: 0.18
@@ -1469,8 +1501,8 @@ Cohesion: 0.20
 Nodes (5): Handle an event, propagating to children if unhandled. First tries focused…, Handle mouse events on this button. Returns True if the event was handled., Handle mouse click events to toggle checkbox state., Handle keyboard events for text input., Post an event to the event queue.
 
 ### Community 217 - "PDFDocumentTwin"
-Cohesion: 0.12
-Nodes (10): PDFDocumentTwin, Path, Read-only PDF Document & URL Reader Twin exposed at `Actor[#PDF]`. Safely…, Return status of `Actor[#PDF]` and list cached PDF files in…, Download a remote PDF URL into `/tmp/actorii_pdf_cache/` and return its local…, Return page count, file size, and PDF metadata for a local path or remote URL., Return integer total number of pages in `path_or_url`., Extract clean text from pages `start_page..end_page` (1-based inclusive) of a… (+2 more)
+Cohesion: 0.11
+Nodes (11): PDFDocumentTwin, Path, Read a local non-restricted text/markdown documentation file…, Read-only PDF Document & URL Reader Twin exposed at `Actor[#PDF]`. Safely…, Return status of `Actor[#PDF]` and list cached PDF files in…, Download a remote PDF URL into `/tmp/actorii_pdf_cache/` and return its local…, Return page count, file size, and PDF metadata for a local path or remote URL., Return integer total number of pages in `path_or_url`. (+3 more)
 
 ### Community 218 - "BRIEFING — 2026-10-21T03:46:35Z"
 Cohesion: 0.22
@@ -1600,9 +1632,9 @@ Nodes (8): 1.1 Baseline Defect Status Prior to Remediation, 1.2 Implemented Chan
 Cohesion: 0.22
 Nodes (8): 1.1 Class Definitions (`inherit`), 1.2 Method Declarations (`Def`), 1.3 Event / Message Handlers (`Action`), 1.4 Literal Syntax, 1. Core Language Grammar & Syntax, 2. Directory Layout of Extracted Source (`historical_actor_41_source/`), 3. How to Bridge Historical Actor to Modern ActorII, Historical 1993 Actor Professional 4.1 Specification & Ground Truth
 
-### Community 250 - "_ImageSerializer"
-Cohesion: 0.17
-Nodes (12): setter, Checkbox state tracking (used by widget rendering)., _ImageSerializer, Capture the complete state of `vm` into a JSON-serializable dictionary., Serialize a CompiledMethod object to a JSON-compatible dictionary., Serializes live ActorVM classes, globals, and object graph with identity…, Encode any runtime value into a JSON-compatible representation or object ref., Serialize the entire live ActorVM state into a portable snapshot dictionary. (+4 more)
+### Community 250 - "Any"
+Cohesion: 0.11
+Nodes (20): setter, Checkbox state tracking (used by widget rendering)., deserialize_compiled_method(), load_image(), Any, Path, Capture the complete state of `vm` into a JSON-serializable dictionary., Restore the state of `vm` from a previously captured snapshot dictionary. (+12 more)
 
 ### Community 251 - "Any"
 Cohesion: 0.08
@@ -1612,9 +1644,9 @@ Nodes (15): _is_int(), Any, Map receiver to a new collection using a one-argumen
 Cohesion: 0.32
 Nodes (7): _decode_string_literal(), _match_operator_symbol(), Prototype tokenizer verification script for ActorII Milestone M1. Demonstrates…, Tokenize actor language source code with authentic 1993 Whitewater Actor…, Match operator symbol following #, such as #+, #-, #*, #/, #<=, etc., Parse and decode a string literal with C-style escape sequences. Returns…, tokenize()
 
-### Community 254 - "Identifier"
-Cohesion: 0.12
-Nodes (12): BinaryOp, Identifier, Integer, _parse_assignment_stmt(), _parse_expression(), _parse_method_body(), Parse an expression starting at the given position in legacy mode., Parse an assignment statement: target ASSIGN value in legacy mode. (+4 more)
+### Community 254 - ".syncLive"
+Cohesion: 0.14
+Nodes (12): c_to_f(), compute_comfort_symbol(), compute_dew_point_c(), decode_advertisement_bytes(), Scan BlueZ for the TP358W/TP358S device and decode its live advertisement., Convert Celsius to Fahrenheit rounded to 1 decimal place., Compute dew point (°C) using the Magnus-Tetens approximation., Deterministically decode and apply a raw BLE advertisement hex frame. (+4 more)
 
 ### Community 255 - "Handoff Report: Milestone M1 Remediation — Lexer, Parser & Discriminator Remediation"
 Cohesion: 0.25
@@ -1628,21 +1660,17 @@ Nodes (7): 2026-10-21T09:32:00Z, Detailed Requirements, Dispatch: Worker M5 (Int
 Cohesion: 0.25
 Nodes (7): Files Modified, Key Features Implemented, Notes, Usage, Verification, Wayland Display Backend Implementation — COMPLETE, What Was Done
 
-### Community 258 - "TestMilestoneM2Remediations"
-Cohesion: 0.12
-Nodes (9): Tests verified remediation fixes for M2 compiler and VM invariants., Loop condition operand is popped on each iteration (0 leaked booleans after 100…, Return of assignment expression (^left := lft;) leaves assigned value on stack., Chained assignment (a := b := 5) sets both variables and leaves assigned value…, Unused expression statements (arithmetic, literals) are cleanly popped from…, cand and cor short-circuit evaluation without evaluating right-hand side when…, Opcode.BINARY_MOD (0x5D) compiles for % and mod, and executes cleanly on VM., _handle_call_early extracts attributes from EarlyBoundDescriptor and dispatches… (+1 more)
+### Community 258 - ".history"
+Cohesion: 0.19
+Nodes (4): Observer callback invoked automatically whenever `twin` updates., Deterministically decode a `cccc01...6666` GATT history hex stream into…, Connect to the physical TP358W via GATT, download `count` minute records, and…, Send `onSensorUpdate(observer, self)` to all registered Actor observers.
 
 ### Community 259 - "verify_bytecode_vm_compat.py"
-Cohesion: 0.18
-Nodes (15): Disassembler, Test 1: Verify completeness and non-collision of Opcode registry., Test 2: Verify disassembly fidelity across synthetic, historical ACT, and…, Test 3: Verify exact instruction sequences for SIEVE.ACT and SIEVE1.ACT., Test 4: Verify backward compatibility with legacy Pythonic AST nodes., Test 5: Measure compiler throughput across historical classes and benchmarks., Test 6: Verify direct execution of compiled bytecodes in ActorVM., Disassembles bytecode into formatted, symbolically annotated text. (+7 more)
+Cohesion: 0.20
+Nodes (13): Test 1: Verify completeness and non-collision of Opcode registry., Test 2: Verify disassembly fidelity across synthetic, historical ACT, and…, Test 3: Verify exact instruction sequences for SIEVE.ACT and SIEVE1.ACT., Test 4: Verify backward compatibility with legacy Pythonic AST nodes., Test 5: Measure compiler throughput across historical classes and benchmarks., Test 6: Verify direct execution of compiled bytecodes in ActorVM., run_all_verification(), verify_backward_compatibility() (+5 more)
 
-### Community 260 - "ClassDefNode"
-Cohesion: 0.14
-Nodes (10): ClassDef, ClassDefNode, MethodDef, _parse_method(), _parse_tokens(), Authentic 1993 dynamic class definition node (inherit)., Parse a legacy method definition., Parse a token list into AST ClassDef nodes in legacy mode. (+2 more)
-
-### Community 261 - "TestCollectionsAndSetHardening"
-Cohesion: 0.17
-Nodes (7): Adversarial tests for ActorCollection safe protocols and ActorSet., Verify that ActorCollection direct instantiation supports len() and size()…, Verify Set uniqueness, add, remove, and membership testing., Verify Set iteration, do() block execution, and copy., Verify Set is registered in Actor dictionary and VM global scope., Verify Set instantiation and operations directly in Actor bytecode., TestCollectionsAndSetHardening
+### Community 260 - "_split_code_and_complete"
+Cohesion: 0.21
+Nodes (11): _is_likely_actor_code(), Transpile Qwen `<function=writeFile|execShell|readFile|editFile>` XML tool…, Strip Qwen/Hermes `<tool_call>` / `<parameter=code>` XML wrappers if emitted by…, Return True if `text` is 1993 Actor 4.1 code (including code with syntax/lint…, If an LLM response contains conversational preamble or trailing prose around…, Separate executable Actor 4.1 code chunks from any trailing `COMPLETE:` or…, Invoke the active LLM directly from Actor bytecode (`complete(Actor[#LLM],…, _split_code_and_complete() (+3 more)
 
 ### Community 262 - "Sentinel Handoff Report — Project ActorII"
 Cohesion: 0.29
@@ -1760,21 +1788,17 @@ Nodes (6): 1. Observation, 2. Logic Chain, 3. Caveats, 4. Conclusion, 5. Verific
 Cohesion: 0.29
 Nodes (6): 1. Observation, 2. Logic Chain, 3. Caveats, 4. Conclusion, 5. Verification Method, Handoff Report: Milestone M5 Interactive Visual Workspace & Surfaces Implementation
 
-### Community 291 - "TestCompileBytecode"
-Cohesion: 0.25
-Nodes (5): Direct tests of compile_to_bytecode function., Non-empty AST should produce bytecode., Bytecode should include class name as constant., Bytecode should include method names as constants., TestCompileBytecode
+### Community 291 - ".size"
+Cohesion: 0.20
+Nodes (5): Reverse interval: start and stop swapped, step negated., Authentic 1993 Actor 4.1 size formula. Source: INTERVAL.CLS:88 Def size(self) {…, First element in interval progression, or raises IndexError if empty., Last element in interval progression, or raises IndexError if empty., 0-based indexed access into interval progression.
 
 ### Community 292 - "._norm"
 Cohesion: 0.29
 Nodes (3): Return the state (`on`/`off` and brightness %) of a room or light., Return integer brightness (0..100) for `room`., Update digital twin light state (`on`/`off`) and brightness (0..100).
 
 ### Community 293 - "TestActorDigitalTwinAndCollaborators"
-Cohesion: 0.29
-Nodes (4): Tests the 1993 Actor Digital Twin program (`examples/tp358w_digital_twin.act`)., Tests synthesizing a new method onto ThermoProTwin and saving/restoring `.img`., Tests WebSocket `render_thermometer` and interactive `ui_event` unit toggle on…, TestActorDigitalTwinAndCollaborators
-
-### Community 294 - "Cell"
-Cohesion: 0.05
-Nodes (28): Cell, A mutable storage cell for captured lexical variables across scopes., Receiver is strictly bound to slot 0 and arguments to slots 1..N., Tests dynamic receiver-based polymorphic dispatch and inheritance lookup., Subclass override takes precedence over base class implementation., Child instance inherits parent method when not overridden., Sending undefined message returns None or invokes fallback handler., Tests non-local returns unwinding through block closures up to home frame. (+20 more)
+Cohesion: 0.22
+Nodes (5): Tests the 1993 Actor Digital Twin program (`examples/tp358w_digital_twin.act`)., Tests synthesizing a new method onto ThermoProTwin and saving/restoring `.img`., Tests `ThermometerUI` / `ThermometerWindow` child controls, Wayland/WebSocket…, Tests WebSocket `render_thermometer` and interactive `ui_event` unit toggle on…, TestActorDigitalTwinAndCollaborators
 
 ### Community 295 - "Tournament Summary"
 Cohesion: 0.33
@@ -1796,10 +1820,6 @@ Nodes (6): Environment Details, Git Leak Recovery, Overview, Skills Tested, Task
 Cohesion: 0.40
 Nodes (4): Completed Steps, Current Step, Progress - Forensic Auditor M5-1, Upcoming Steps
 
-### Community 300 - "TestVMHardening"
-Cohesion: 0.17
-Nodes (7): Adversarial tests for VM call stack, non-local return, and field access., Verify non-local return allows caller activation records to resume., Verify zombie activation frames are cleaned up when an exception occurs., Verify deep recursion hits max_stack_depth limit rather than hanging., Verify dot instance variable access and mutation on ActorObject., Verify passing a Python class subclassing ActorObject does not crash with…, TestVMHardening
-
 ### Community 301 - "E2E Test Infra: ActorII 1993 Whitewater Actor 4.1"
 Cohesion: 0.40
 Nodes (4): Core Features Under Test (Requirements R1, R2, R3), E2E Test Infra: ActorII 1993 Whitewater Actor 4.1, Real-World Application Scenarios (Tier 4), Test Philosophy
@@ -1807,10 +1827,6 @@ Nodes (4): Core Features Under Test (Requirements R1, R2, R3), E2E Test Infra: A
 ### Community 302 - "E2E Test Infra: ActorII 1993 Whitewater Actor 4.1"
 Cohesion: 0.40
 Nodes (4): Core Features Under Test (Requirements R1, R2, R3), E2E Test Infra: ActorII 1993 Whitewater Actor 4.1, Real-World Application Scenarios (Tier 4), Test Philosophy
-
-### Community 303 - "ActorCollection"
-Cohesion: 0.05
-Nodes (37): Independent forensic verification script for Milestone M6. Audits authentic…, Verify max_stack_depth triggers StackOverflowError and prevents infinite hang., Verify authentic Smalltalk/Actor non-local return through multiple nested…, Verify authentic set semantics, uniqueness, unhashable handling, and VM…, Verify dot field access stack neutrality and Python class receiver guard., test_actorset_authenticity(), test_field_access_and_python_class_receiver(), test_vm_non_local_return_unwinding() (+29 more)
 
 ### Community 304 - "Log Summary Date Ranges"
 Cohesion: 0.29
@@ -1844,13 +1860,13 @@ Nodes (3): Checklist, Current Status, Progress: Worker M4 Remediation
 Cohesion: 0.20
 Nodes (6): Stress tests call stack depth up to depth 80 and verifies memory neutrality., Recursive factorial to depth 50 unwinds cleanly with empty stack., Tree recursion verifies branching activation frames pop correctly., Linear recursion to depth 80 verifies deep activation records., 100 repeated runs of depth 50 recursion exhibit strict memory neutrality., TestEmpiricalDeepRecursion
 
-### Community 312 - "TestWorkspaceServerHardening"
-Cohesion: 0.20
-Nodes (6): Adversarial tests for ActorWorkspace expression eval, widget resolution, and…, Verify _eval_source delegates to eval_chunk and returns statement expression…, Verify _eval_source accurately evaluates benchmark code., Verify ui_event returns handled: False with error for nonexistent widgets., Verify inspect_object returns instance_methods, class_methods, and combined…, TestWorkspaceServerHardening
+### Community 312 - "._led"
+Cohesion: 0.17
+Nodes (7): EarlyBoundNode, _get_lbp(), IndexSetNode, Return left-binding power (precedence) for token in Pratt expression parsing., Left denotation: infix binary operators, postfix calls, indexing, dot notation., Represents indexed assignment: target[index] := value., Represents compile-time early-bound qualification: target:ClassName.
 
-### Community 313 - "TestDictionary"
-Cohesion: 0.22
-Nodes (5): Tests KeyedCollection, Dictionary, and ActorDictionary., Symbol and string keys must resolve transparently to the same entry., In 1993 Whitewater Actor (DICTIONA.CLS:107), do iterates over VALUES!, ActorDictionary provides live sync with globals and hierarchy., TestDictionary
+### Community 313 - "TestGUIHierarchy"
+Cohesion: 0.11
+Nodes (7): Tests KeyedCollection, Dictionary, and ActorDictionary., Symbol and string keys must resolve transparently to the same entry., In 1993 Whitewater Actor (DICTIONA.CLS:107), do iterates over VALUES!, ActorDictionary provides live sync with globals and hierarchy., Tests WindowsObject, Window, Dialog, Control, Button, TextField, Checkbox., TestDictionary, TestGUIHierarchy
 
 ### Community 314 - "ActorII AgentHarness — Official OpenAI HumanEval & GSM8K Benchmark Report"
 Cohesion: 0.40
@@ -1896,9 +1912,9 @@ Nodes (3): Detect if authentic 1993 Actor syntax parsing is active in the parser
 Cohesion: 0.40
 Nodes (4): 1. `TB2.1-Hard/llm-inference-batching-scheduler` (ML Systems / Non-Linear Cost Optimization, 45m Expert Est.), 2. `TB2.1-Hard/feal-differential-cryptanalysis` (4-Round FEAL Chosen-Plaintext Key Recovery, 480m Expert Est.), Bounded System-2 Reasoning (`ACTORII_ENABLE_THINKING=1`) on the 2 Unsolved `Terminal-Bench 2.1` Hard Tasks, Results Comparison: No-Think Clade vs Thinking Clade (`ACTORII_ENABLE_THINKING=1`)
 
-### Community 524 - "test_pathway_upgrades.py"
-Cohesion: 0.25
-Nodes (8): Path, Verification suite for the 3 Self-Implemented Novel Pathway Upgrades in…, Verify `formatStepHistory` pages out step results older than the 2 most recent…, Verify `readSymbol(Actor[#Host], path, symbol_name)` extracts exact AST…, Verify `_auto_verify_python_edit` flags regressions when passing tests drop and…, test_spec1_l1_result_paging(), test_spec2_ast_read_symbol(), test_spec3_godel_test_ratchet_and_undo()
+### Community 524 - "TestParserVMIntegration"
+Cohesion: 0.17
+Nodes (7): Test creating instances of parsed classes on ActorVM., Integration tests: parse source → compile → execute on ActorVM., Test that simple assignment and return works on ActorVM., Test integer arithmetic operations on ActorVM., Test string operations on ActorVM., Test binary operations (==, !=, +, -) on ActorVM., TestParserVMIntegration
 
 ### Community 525 - "judge_deterministic_only"
 Cohesion: 0.60
@@ -1912,9 +1928,9 @@ Nodes (3): 1. Executive Summary (`ActorII AgentHarness` vs. `Hermes Agent`), 2. 
 Cohesion: 0.50
 Nodes (3): 1. Overall Containerized Leaderboard, 2. Per-Task Breakdown Across Official Upstream Benchmarks, Containerized Official Multi-Harness Benchmark Report
 
-### Community 542 - "TestWaylandSurfaceResizeAdversarial"
-Cohesion: 0.25
-Nodes (5): Verify that WaylandDriver.resize cleanly calls surface.resize without crash., Stress tests buffer management and resize operations on WaylandSurface & Driver., Document that WaylandDriver.resize currently raises AttributeError because…, Empirically test the reference implementation of WaylandSurface.resize., TestWaylandSurfaceResizeAdversarial
+### Community 542 - "._nud"
+Cohesion: 0.29
+Nodes (5): Parse statements separated by semicolons until a stop token is encountered., Parse: if cond then stmts [else stmts] endif;, Parse: loop [pre;] while cond [begin] body; endLoop;, Pratt expression parser climbing precedence with right-binding power rbp., Null denotation: atoms, literals, groups, block closures, unary operators.
 
 ### Community 543 - "Empirical A/B/C Benchmark Report: Active Engrams (Memory+Skill) vs Passive Graph-RAG vs RAM-Only OOP"
 Cohesion: 0.50
@@ -1948,9 +1964,9 @@ Nodes (3): 1. Overall Containerized Leaderboard, 2. Per-Task Breakdown Across Of
 Cohesion: 0.50
 Nodes (3): 1. Overall Containerized Leaderboard, 2. Per-Task Breakdown Across Official Upstream Benchmarks, Containerized Official Multi-Harness Benchmark Report
 
-### Community 560 - "Any"
-Cohesion: 0.32
-Nodes (3): __getattr__(), Any, Lazy resolution of standard library classes to prevent circular imports.
+### Community 560 - "TestEmpiricalNonLocalReturns"
+Cohesion: 0.20
+Nodes (6): Stress tests non-local caret (^) returns unwinding through nested contexts., Caret return inside 3-level nested loop unwinds all intermediate loops., Caret return inside 4-level nested loop unwinds cleanly., Non-local return unwinds across intermediate method activation records., Non-local return in escaped block raises CannotReturn RuntimeError., TestEmpiricalNonLocalReturns
 
 ### Community 561 - "Containerized Official Multi-Harness Benchmark Report"
 Cohesion: 0.50
@@ -1980,49 +1996,49 @@ Nodes (3): 1. Overall Containerized Leaderboard, 2. Per-Task Breakdown Across Of
 Cohesion: 0.47
 Nodes (9): _handle_tcp_to_unix(), _handle_unix_to_tcp(), main(), _pipe(), Path, StreamReader, StreamWriter, run_container_side() (+1 more)
 
-### Community 568 - "OpcodeValue"
-Cohesion: 0.04
-Nodes (32): TestResult, int, OpcodeValue, Integer opcode that preserves its mnemonic in string representation., Indexing opcodes GET_INDEX and SET_INDEX., Relational comparisons and stack duplication opcodes., Control flow jump additions., Closure, return, early-binding, and primitive opcodes. (+24 more)
+### Community 568 - "TestOpcodeSetExtensions"
+Cohesion: 0.11
+Nodes (10): Indexing opcodes GET_INDEX and SET_INDEX., Relational comparisons and stack duplication opcodes., Control flow jump additions., Closure, return, early-binding, and primitive opcodes., Opcode values contain their mnemonic in str() for test assertions., Verifies that all M2 opcodes and aliases are defined correctly., All 25 baseline opcodes retain their exact numeric values., Variable store and load opcodes have expected non-colliding values. (+2 more)
 
 ### Community 569 - "Any"
-Cohesion: 0.07
-Nodes (13): dict, ActorDictionary, Any, Check if key exists in dictionary., Return list of values., Remove entry with given key. Returns the removed value or None. Source:…, Authentic 1993 Actor global dictionary. Contains all top-level symbols,…, Return deduplicated list of Symbol keys for all globals, storage, and classes. (+5 more)
+Cohesion: 0.06
+Nodes (15): dict, ActorDictionary, Any, Check if key exists in dictionary., Return list of values., Remove entry with given key. Returns the removed value or None. Source:…, Evaluate aBlock over the VALUES of the dictionary. Authentic 1993 Whitewater…, Authentic 1993 Actor global dictionary. Contains all top-level symbols,… (+7 more)
 
-### Community 570 - "WaylandDriver"
-Cohesion: 0.10
-Nodes (11): Present the Wayland buffer to the display compositor. Commits the surface,…, Post an event to the Wayland surface. In headless mode, just records the event…, Concrete Wayland display driver for ActorII. Translates ActorII drawing…, Get the underlying surface., Present the rendered buffer to the Wayland compositor., Handle surface resize via Wayland driver., Process Wayland input events. Maps: - key events → ActorII keyboard messages -…, Clear the Wayland surface to the given color. (+3 more)
+### Community 570 - "Assignment"
+Cohesion: 0.25
+Nodes (4): Assignment, AssignNode, Represents an assignment statement (x = value, self.x = value)., Authentic assignment expression: target := value.
 
 ### Community 571 - "TestCollectionPackagingAndImports"
 Cohesion: 0.20
 Nodes (6): Verify that collection modules can be imported directly in fresh Python…, Direct import of actorii.classes.collections without prior actorii.core import., Direct import of actorii.classes.dictionary without prior actorii.core import., Direct import of actorii.classes.interval without prior actorii.core import., Direct import of actorii.classes without prior actorii.core import., TestCollectionPackagingAndImports
 
-### Community 572 - "AttributeAccess"
-Cohesion: 0.25
-Nodes (4): AttributeAccess, Represents self keyword literal., Represents an attribute/dot access (obj.field)., SelfLiteral
-
 ### Community 573 - "TestLivePhysicalTP358WHardware"
 Cohesion: 0.50
 Nodes (3): skipif, Live BLE hardware test against 00:11:22:33:44:55 (`TP358S (Demo)`) on valkyrie., TestLivePhysicalTP358WHardware
 
-### Community 574 - ".poolSummary"
-Cohesion: 0.40
-Nodes (3): Path, Export a live class to `<fileout_dir>/<class_name>.act`., Return a structured summary of live objects and user classes in `Actor[...]`.
+### Community 574 - "TestGeometry"
+Cohesion: 0.29
+Nodes (3): Tests 2D Point, 3D Point3D, and Rect., Authentic 1993 projection: point(x, y - (z * 9) / 8). Source:…, TestGeometry
 
-### Community 576 - "TestBlockClosuresAndLexicalScoping"
-Cohesion: 0.20
-Nodes (6): Tests BlockClosure, parameter binding, Cell shared environments, and do loops., Block closure accepts parameter and returns evaluated expression., Block mutations of outer variables via Cell persist to enclosing method., Multiple nested blocks read and modify the exact same outer cell., Array.do iterates items through block closure., TestBlockClosuresAndLexicalScoping
-
-### Community 578 - "test_ai_oop_bridge.py"
-Cohesion: 0.09
-Nodes (14): Path, Track 2 Test Suite: The AI + OOP Bridge (`doesNotUnderstand` JIT Synthesis &…, Custom LLM provider synthesizes a method once; subsequent calls run native…, Tests the native `Agent` class, memory, tools, object inspection, and multi-…, Agents remember/recall facts, inspect live objects, invoke closure tools, and…, Tests that JIT-synthesized bytecode methods and live `Agent` objects survive…, Save an image containing JIT-synthesized classes and stateful Agents; restore…, WebSocket `jit_synthesize` and `list_synthesized_methods` commands work end-to-… (+6 more)
+### Community 575 - "DisplaySurface"
+Cohesion: 0.07
+Nodes (14): DisplaySurface, Add a child widget to this window., Remove a child widget., Abstract base class for display surfaces. The 1993 actor language was Windows-…, Clear the surface to a background color., Set a pixel color at coordinates (x, y)., Get pixel color at coordinates (x, y)., Register an actor object on this surface. (+6 more)
 
 ### Community 580 - "test_benchmark_scoreboard.py"
 Cohesion: 0.29
 Nodes (6): MonkeyPatch, Path, Tests for the Bilby (ActorII) Benchmark Scoreboard CLI, auto-ingestor, and…, test_scoreboard_add_record_promote_and_render(), test_scoreboard_multitrial_formatting_and_rendering(), test_studio_serves_benchmarks_page_and_json_api()
 
+### Community 581 - "verify_r1_benchmarks.py"
+Cohesion: 0.40
+Nodes (4): Independent Forensic Verification Script for R1 (Authentic 1993 Benchmarks)., test_fractal(), test_sieve(), test_sieve1()
+
 ### Community 583 - "_eval_block"
-Cohesion: 0.13
-Nodes (8): _eval_block(), Evaluate aBlock with each 0-based index from 0 to size - 1. Source:…, Evaluate either an Actor BlockClosure or a Python callable with item., Evaluate aBlock with each element of the Set., Evaluate aBlock with each element of the collection. Authentic Whitewater Actor…, Evaluate aBlock over the VALUES of the dictionary. Authentic 1993 Whitewater…, Evaluate aBlock over the KEYS of the dictionary. Source: DICTIONA.CLS:145 Def…, Evaluate aBlock over each key-value pair [key, value]. Source: DICTIONA.CLS:177…
+Cohesion: 0.08
+Nodes (12): _eval_block(), Evaluate aBlock with each 0-based index from 0 to size - 1. Source:…, Evaluate either an Actor BlockClosure or a Python callable with item., Evaluate aBlock with each element of the Set., Evaluate aBlock with each element of the collection. Authentic Whitewater Actor…, Evaluate aBlock over the KEYS of the dictionary. Source: DICTIONA.CLS:145 Def…, Evaluate aBlock over each key-value pair [key, value]. Source: DICTIONA.CLS:177…, Any (+4 more)
+
+### Community 588 - "test_ask_actorii_peer_cli_bridge"
+Cohesion: 0.67
+Nodes (3): skipif, Verify `~/bin/ask-actorii` executes 1993 Actor bytecode and dumps harness…, test_ask_actorii_peer_cli_bridge()
 
 ### Community 598 - "is_authentic_1993_actor_robust"
 Cohesion: 0.39
@@ -2031,16 +2047,16 @@ Nodes (5): is_authentic_1993_actor_robust(), Strip nested block comments, line c
 ## Knowledge Gaps
 - **2064 isolated node(s):** `entrypoint.sh script`, `actorii`, `start_server.sh script`, `1.1 Why Conventional LLM Agent Harnesses Hit a Wall`, `1.2 The Core Insight of `ActorII`` (+2059 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **213 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **254 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ActorVM` connect `ActorVM` to `TestTier1FeatureCoverage`, `TestMilestoneM2Remediations`, `verify_bytecode_vm_compat.py`, `TestTier3CrossFeatureInteractions`, `compile_to_bytecode`, `TestTier2BoundaryCases`, `Point`, `Opcode`, `BlockClosure`, `TestCollectionsAndSetHardening`, `Button`, `ActorInheritanceHierarchy`, `ActorWorkspace`, `TestActorTUIWorkflow`, `WebSocketSurface`, `bootstrap_agent_harness`, `ActorWorkspace`, `TestEmpiricalNestedClosures`, `thermopro.py`, `vm.py`, `TestWaylandSurfaceResizeAdversarial`, `WaylandDisplay`, `TestUIActionEventDispatchAdversarial`, `ActorGrammarGraph`, `TestCompileBytecode`, `TestActorDigitalTwinAndCollaborators`, `Interval`, `actor_query`, `run_standard_benchmarks.py`, `TestSelfCorrectingJitAndFileOut`, `Cell`, `run_longmem_locomo_suite.py`, `ActorTUISession`, `TestRenderWidgetDOMAndBindingAdversarial`, `TestVMHardening`, `ActorCollection`, `Dictionary`, `TestEmpiricalDeepRecursion`, `OpcodeValue`, `TestDictionary`, `Agent`, `ActorIndexedCollection`, `TestCollectionPackagingAndImports`, `TestDictionaryAdversarialStress`, `TestWorkspaceServerHardening`, `TestLivePhysicalTP358WHardware`, `TestBlockClosuresAndLexicalScoping`, `test_ai_oop_bridge.py`, `ActorBridgeObject`, `TestVMClassLibraryIntegration`, `run_actor_vs_hermes_bench.py`, `.save_image`, `ThermoProTwin`, `TestParseActor`, `run_engram_ab_bench.py`, `test_bilby_security_hardening.py`, `ActorMethodSynthesizer`, `TestVMClassLibraryAdversarialIntegration`, `TestTracker`, `.__init__`?**
-  _High betweenness centrality (0.113) - this node is a cross-community bridge._
-- **Why does `Opcode` connect `Opcode` to `TestTier1FeatureCoverage`, `TestMilestoneM2Remediations`, `verify_bytecode_vm_compat.py`, `ClassDefNode`, `compile_to_bytecode`, `TestTier3CrossFeatureInteractions`, `TestTier2BoundaryCases`, `BlockClosure`, `ActorInheritanceHierarchy`, `ActorWorkspace`, `Actor1993Parser`, `WebSocketSurface`, `ActorWorkspace`, `vm.py`, `BytecodeCompiler`, `Expr`, `TestCompileBytecode`, `TestMilestone1Remediation`, `Cell`, `Dictionary`, `OpcodeValue`, `AttributeAccess`, `parser/__init__.py`, `MethodRef`, `TestBlockClosuresAndLexicalScoping`, `CallNode`, `TestParseActor`, `ASTNode`, `ActorMethodSynthesizer`, `SymbolLiteralNode`, `TestTracker`, `_ImageSerializer`, `Identifier`?**
-  _High betweenness centrality (0.041) - this node is a cross-community bridge._
-- **Why does `parse_actor()` connect `parse_actor` to `TestMilestoneM2Remediations`, `verify_bytecode_vm_compat.py`, `ClassDefNode`, `compile_to_bytecode`, `supports_authentic_grammar`, `Opcode`, `BlockClosure`, `ParserChallenger`, `ActorInheritanceHierarchy`, `actor_command`, `xfail`, `TestActorTUIWorkflow`, `WebSocketSurface`, `ActorWorkspace`, `vm.py`, `TestCompileBytecode`, `TestMilestone1Remediation`, `VerificationReport`, `OpcodeValue`, `AttributeAccess`, `parser/__init__.py`, `TestParseActor`, `ASTNode`, `ActorMethodSynthesizer`, `SymbolLiteralNode`, `TestTracker`?**
+- **Why does `ActorVM` connect `ActorVM` to `TestTier1FeatureCoverage`, `TestTier2BoundaryCases`, `TestTier3CrossFeatureInteractions`, `compile_to_bytecode`, `Point`, `Opcode`, `._handle_call_method`, `ActorWorkspace`, `ActorInheritanceHierarchy`, `TestParserVMIntegration`, `TestActorTUIWorkflow`, `WebSocketSurface`, `bootstrap_agent_harness`, `WebSocketSurface`, `TestEmpiricalNestedClosures`, `ActorObject`, `vm.py`, `Interval`, `actor_query`, `run_standard_benchmarks.py`, `TestSelfCorrectingJitAndFileOut`, `run_longmem_locomo_suite.py`, `ActorTUISession`, `TestIntervalAdversarialStress`, `ActorWorkspace`, `TestEmpiricalNonLocalReturns`, `ActorOrderedCollection`, `TestOpcodeSetExtensions`, `Any`, `Agent`, `ActorIndexedCollection`, `Dictionary`, `TestCollectionPackagingAndImports`, `TestGeometry`, `TestLivePhysicalTP358WHardware`, `.test_shared_mutable_cell_in_loop`, `TestActorObjectProtocol`, `.test_synthesized_methods_and_agents_persist_across_image_save_and_load`, `ActorBridgeObject`, `TestVMClassLibraryIntegration`, `verify_r1_benchmarks.py`, `run_actor_vs_hermes_bench.py`, `._handle_return_value`, `test_vm_recursion_limit`, `test_vm_non_local_return_unwinding`, `test_field_access_and_python_class_receiver`, `ThermoProTwin`, `.set_ai_provider`, `.test_agent_memory_tools_inspection_and_delegation_in_actor_syntax`, `.test_actor_level_does_not_understand_and_1993_fail_hooks`, `.test_jit_method_synthesis_on_invoice_and_geometry`, `.test_shared_reference_identity_and_cyclic_graph`, `.test_sieve1_early_bound_and_fractal_survive_snapshot`, `run_engram_ab_bench.py`, `.test_closures_lexical_cells_and_nonlocal_return_survive_snapshot`, `MonkeyPatch`, `.test_actor_set_execution_in_vm`, `.test_call_stack_cleanup_on_unhandled_exception`, `.test_field_access_dot_syntax_and_stack_neutrality`, `TestVMClassLibraryAdversarialIntegration`, `.test_receiver_guard_on_python_class`, `.test_recursion_guard_raises_stack_overflow`, `.test_array_fill_primitive`, `.test_interval_over_and_overby`, `.test_nested_blocks_shared_cell`, `.test_sieve1_act_early_bound_execution`, `.test_fractal_act_projection_execution`, `.test_multi_frame_stack_push_pop`, `.test_recursive_method_execution`, `.test_sieve_act_authentic_execution`, `.test_non_local_return_aborts_loop`, `challenge_core_vm.py`, `.save_image`, `TestParseActor`, `.__init__`, `verify_bytecode_vm_compat.py`, `.test_actor_set_registered_in_actor_dictionary`, `TestActorDigitalTwinAndCollaborators`, `.test_subclass_method_override`, `.test_non_local_return_caller_resumption`, `TestEmpiricalDeepRecursion`, `TestGUIHierarchy`, `.test_message_not_understood_fallback`?**
+  _High betweenness centrality (0.111) - this node is a cross-community bridge._
+- **Why does `Opcode` connect `Opcode` to `TestTier1FeatureCoverage`, `TestTier2BoundaryCases`, `TestTier3CrossFeatureInteractions`, `compile_to_bytecode`, `._handle_call_method`, `TestParserVMIntegration`, `ActorWorkspace`, `Actor1993Parser`, `WebSocketSurface`, `WebSocketSurface`, `BytecodeCompiler`, `vm.py`, `TestMilestone1Remediation`, `ActorWorkspace`, `ActorOrderedCollection`, `._led`, `TestOpcodeSetExtensions`, `Assignment`, `Dictionary`, `MethodRef`, `UnaryOp`, `TestParseActor`, `ASTNode`, `Identifier`, `BlockNode`?**
+  _High betweenness centrality (0.039) - this node is a cross-community bridge._
+- **Why does `TestTier2BoundaryCases` connect `TestTier2BoundaryCases` to `ActorVM`, `WaylandDisplay`, `TestTier3CrossFeatureInteractions`, `compile_to_bytecode`, `WebSocketSurface`, `Opcode`, `ActorInheritanceHierarchy`, `parse_actor`, `WaylandSurface`, `reference_sieve`, `.middlePoint`, `.get_method`, `DisplaySurface`?**
   _High betweenness centrality (0.037) - this node is a cross-community bridge._
 - **Are the 117 inferred relationships involving `ActorVM` (e.g. with `CompilerStressHarness` and `TestResult`) actually correct?**
   _`ActorVM` has 117 INFERRED edges - model-reasoned connections that need verification._

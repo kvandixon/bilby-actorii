@@ -1348,12 +1348,799 @@ class ActorMemoryGraph:
         except Exception:
             return ""
 
+    # =========================================================================
+    # Dual-Mode Product Technical Knowledge Graph + `:8084` Vector Manual Chunks
+    # (`Actor[#ProductLearner]` backing store on `Actor[#Memory]`)
+    # =========================================================================
+
+    @staticmethod
+    def _slugify_product_id(name: str) -> str:
+        raw = str(name or "").strip().lower()
+        # Strip parenthetical version tags when generating canonical ID so follow-up ingests merge cleanly
+        base = re.sub(r"\([^)]*\)", " ", raw)
+        slug = re.sub(r"[^a-z0-9]+", "-", base).strip("-")
+        if not slug:
+            slug = re.sub(r"[^a-z0-9]+", "-", raw).strip("-") or "unknown-product"
+        return slug[:80]
+
+    @staticmethod
+    def _extract_json_dict(raw_text: str) -> Optional[Dict[str, Any]]:
+        txt = str(raw_text or "").strip()
+        if not txt:
+            return None
+        txt = re.sub(r"<think>.*?</think>", "", txt, flags=re.DOTALL | re.IGNORECASE).strip()
+        fence_m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", txt, flags=re.DOTALL | re.IGNORECASE)
+        if fence_m:
+            try:
+                parsed = json.loads(fence_m.group(1))
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+        start = txt.find("{")
+        end = txt.rfind("}")
+        if start != -1 and end > start:
+            cand = txt[start : end + 1]
+            try:
+                parsed = json.loads(cand)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+        return None
+
+    @classmethod
+    def _heuristic_distill_corpus(
+        cls,
+        product_name: str,
+        focus_topics: str,
+        raw_corpus: str,
+    ) -> Dict[str, Any]:
+        """Deterministic manual parser & chunker (guarantees zero-loss extraction even if LLM is offline)."""
+        p_name = str(product_name or "Unknown Product").strip()
+        focus = str(focus_topics or "").strip()
+        corpus = str(raw_corpus or "").strip()
+        # Strip optional YAML frontmatter (`--- ... ---`) at top of markdown files/skills
+        corpus = re.sub(r"^(?:\[LocalManual:[^\]]*\]\s*)?---\s*\n.*?\n---\s*\n", "", corpus, flags=re.DOTALL)
+
+        # Extract URLs
+        urls = []
+        seen_urls = set()
+        for u in re.findall(r"https?://[^\s\)\]>\"']+", corpus):
+            cu = u.rstrip(".,;:!?)")
+            if cu and cu not in seen_urls:
+                seen_urls.add(cu)
+                urls.append({"url": cu, "title": f"{p_name} Documentation"})
+
+        # Split into topical sections / manual chunks
+        sections: List[Tuple[str, str]] = []
+        current_title = f"{p_name} Overview"
+        current_lines: List[str] = []
+        for ln in corpus.splitlines():
+            hdr_m = re.match(r"^\s*#{1,4}\s+(.+?)\s*$", ln)
+            scrape_m = re.match(r"^\[(WebScrape|LocalManual|PDF)[^\]]*\]\s*(.*)$", ln)
+            if hdr_m:
+                if current_lines:
+                    body_txt = "\n".join(current_lines).strip()
+                    if len(body_txt) >= 30:
+                        sections.append((current_title, body_txt))
+                    current_lines = []
+                current_title = hdr_m.group(1).strip()[:120]
+            elif scrape_m and current_lines:
+                body_txt = "\n".join(current_lines).strip()
+                if len(body_txt) >= 30:
+                    sections.append((current_title, body_txt))
+                current_lines = []
+                current_title = (scrape_m.group(2).strip() or f"{p_name} Manual Section")[:120]
+            else:
+                current_lines.append(ln)
+        if current_lines:
+            body_txt = "\n".join(current_lines).strip()
+            if body_txt:
+                sections.append((current_title, body_txt))
+
+        chunks: List[Dict[str, str]] = []
+        for sec_title, sec_body in sections:
+            if len(sec_body) <= 1000:
+                chunks.append({"title": sec_title, "content": sec_body})
+            else:
+                # Split long sections on blank lines into <= 1000-char chunks
+                paras = [p.strip() for p in re.split(r"\n\s*\n", sec_body) if p.strip()]
+                buf = ""
+                part_idx = 1
+                for p in paras:
+                    if len(buf) + len(p) + 2 <= 1000:
+                        buf = f"{buf}\n\n{p}".strip() if buf else p
+                    else:
+                        if buf:
+                            chunks.append({"title": f"{sec_title} (Part {part_idx})", "content": buf[:1000]})
+                            part_idx += 1
+                        buf = p[:1000]
+                if buf:
+                    chunks.append({"title": f"{sec_title}" if part_idx == 1 else f"{sec_title} (Part {part_idx})", "content": buf[:1000]})
+            if len(chunks) >= 12:
+                break
+
+        if not chunks and corpus:
+            chunks.append({"title": f"{p_name} Technical Notes", "content": corpus[:1000]})
+
+        # Extract CLI procedures (backticked commands or shell lines)
+        procedures: List[Dict[str, str]] = []
+        seen_cmds = set()
+        cmd_prefixes = (
+            "sudo ", "systemctl ", "modprobe ", "nvstart-", "gst-launch", "v4l2-ctl",
+            "weston", "xrandr", "export ", "docker ", "cargo ", "cmake ", "ssh ", "nvpmodel", "jetson_clocks",
+        )
+        for ln in corpus.splitlines():
+            s = ln.strip().lstrip("•-*$# ").strip()
+            bt_matches = re.findall(r"`([^`]{6,160})`", ln)
+            candidates = list(bt_matches)
+            if any(s.startswith(pref) for pref in cmd_prefixes):
+                candidates.append(s[:180])
+            for c in candidates:
+                c_clean = c.strip()
+                if any(c_clean.startswith(pref) or ".sh" in c_clean or "systemctl" in c_clean or "modprobe" in c_clean for pref in cmd_prefixes):
+                    if c_clean not in seen_cmds:
+                        seen_cmds.add(c_clean)
+                        procedures.append(
+                            {
+                                "name": f"Command: {c_clean[:52]}",
+                                "command": c_clean,
+                                "notes": s[:200] if s != c_clean else "",
+                            }
+                        )
+                        if len(procedures) >= 10:
+                            break
+            if len(procedures) >= 10:
+                break
+
+        # Extract critical gotchas / guardrails
+        gotchas: List[Dict[str, str]] = []
+        seen_rules = set()
+        for ln in corpus.splitlines():
+            s = ln.strip().lstrip("•-*> ").strip()
+            low = s.lower()
+            if len(s) >= 20 and any(k in low for k in ("never ", "do not ", "don't ", "warning", "critical", "caution", "important", "avoid ", "breaks ", "brick")):
+                rule_txt = s[:260]
+                if rule_txt not in seen_rules:
+                    seen_rules.add(rule_txt)
+                    sev = "CRITICAL" if any(k in low for k in ("never", "critical", "brick", "boot", "initrd")) else "WARNING"
+                    gotchas.append({"rule": rule_txt, "severity": sev})
+                    if len(gotchas) >= 8:
+                        break
+
+        # Extract subsystems from section titles
+        subsystems: List[Dict[str, Any]] = []
+        for sec_title, sec_body in sections[:6]:
+            if sec_title.lower().endswith("overview") and len(sections) > 1:
+                continue
+            sub_cmds = [b.strip() for b in re.findall(r"`([^`]{4,120})`", sec_body)][:4]
+            subsystems.append(
+                {
+                    "name": sec_title[:80],
+                    "driver": "",
+                    "description": " ".join(sec_body.split())[:260],
+                    "commands": sub_cmds,
+                }
+            )
+
+        kw_tokens = set()
+        for tok in re.findall(r"[A-Za-z0-9_-]{3,}", f"{p_name} {focus} " + " ".join(t for t, _ in sections[:8])):
+            tl = tok.lower()
+            if tl not in {"the", "and", "for", "with", "from", "manual", "overview", "section", "part", "guide", "documentation"}:
+                kw_tokens.add(tl)
+
+        first_summary = " ".join((chunks[0]["content"] if chunks else corpus).split())[:360]
+        return {
+            "name": p_name,
+            "category": "Hardware / Software Product",
+            "version": "",
+            "keywords": sorted(kw_tokens)[:25],
+            "summary": first_summary or f"Technical reference for {p_name}.",
+            "subsystems": subsystems[:8],
+            "procedures": procedures[:10],
+            "gotchas": gotchas[:8],
+            "chunks": chunks[:10],
+            "sources": urls[:6],
+        }
+
+    @actor_query
+    def distillProductCorpus(
+        self,
+        product_name: str,
+        focus_topics: str = "",
+        raw_corpus: str = "",
+    ) -> str:
+        """Distill raw web/PDF manual text into structured Product Knowledge JSON via `ValkyrieLLMClient` + heuristic enrichment."""
+        p_name = str(product_name or "").strip() or "Unknown Product"
+        focus = str(focus_topics or "").strip()
+        corpus = str(raw_corpus or "").strip()
+
+        heuristic = self._heuristic_distill_corpus(p_name, focus, corpus)
+        if not corpus:
+            return json.dumps(heuristic, ensure_ascii=False)
+
+        # Skip live LLM call during shadow dry-runs
+        if getattr(self.vm, "_in_shadow_run", False):
+            return json.dumps(heuristic, ensure_ascii=False)
+
+        llm_parsed: Optional[Dict[str, Any]] = None
+        try:
+            from actorii.ai import ValkyrieLLMClient
+
+            actor_pool = getattr(self.vm, "global_vars", {}).get("Actor", {})
+            harness_obj = actor_pool.get("Harness") if isinstance(actor_pool, dict) else None
+            model = getattr(harness_obj, "model", getattr(self.vm, "ai_model", "qwen3.8:latest"))
+            endpoint = getattr(harness_obj, "endpoint", getattr(self.vm, "ai_endpoint", None))
+            custom_prov = getattr(harness_obj, "custom_provider", None) or getattr(self.vm, "ai_provider", None)
+
+            client = ValkyrieLLMClient(
+                endpoint=endpoint,
+                model=model,
+                timeout=180.0,
+                custom_provider=custom_prov,
+            )
+            sys_prompt = (
+                "You are a Senior Systems & Hardware Technical Documentation Distiller. "
+                "Given raw documentation/manual excerpts for a product, extract an accurate, high-density JSON technical sheet. "
+                "Output ONLY a valid JSON object (no markdown commentary, no Actor `!!` code) matching this exact schema:\n"
+                "{\n"
+                '  "name": "Canonical Product Name",\n'
+                '  "category": "Category (e.g. Embedded GPU SoM, Sensor, Library)",\n'
+                '  "version": "OS / Firmware / SDK Version if mentioned",\n'
+                '  "keywords": ["lowercase", "technical", "search", "terms", "drivers", "binaries"],\n'
+                '  "summary": "Concise 2-3 sentence technical architecture summary",\n'
+                '  "subsystems": [{"name": "Subsystem", "driver": "Driver/Daemon/Stack", "description": "How it works", "commands": ["exact command 1"]}],\n'
+                '  "procedures": [{"name": "Task Name", "command": "exact CLI or API command", "notes": "Prerequisites or flags"}],\n'
+                '  "gotchas": [{"rule": "Critical pitfall, conflict, or safety guardrail", "severity": "CRITICAL or WARNING"}],\n'
+                '  "chunks": [{"title": "Section Title", "content": "Self-contained 3-6 sentence technical reference paragraph preserving exact paths, flags, ports, and driver names"}],\n'
+                '  "sources": [{"url": "https://...", "title": "Source Title"}]\n'
+                "}"
+            )
+            user_prompt = (
+                f"PRODUCT: {p_name}\n"
+                f"FOCUS TOPICS: {focus or 'Architecture, subsystems, drivers, CLI procedures, and critical gotchas'}\n\n"
+                f"RAW DOCUMENTATION CORPUS:\n{corpus[:9500]}\n\n"
+                "Return ONLY the valid JSON object:"
+            )
+            raw_llm = client.complete(
+                user_prompt,
+                system_prompt=sys_prompt,
+                max_tokens=1800,
+                temperature=0.1,
+            )
+            llm_parsed = self._extract_json_dict(raw_llm)
+        except Exception:
+            llm_parsed = None
+
+        if not isinstance(llm_parsed, dict):
+            return json.dumps(heuristic, ensure_ascii=False)
+
+        # Merge LLM structured distillation with heuristic manual chunks & URLs so nothing in the raw manual is lost
+        merged_kw = sorted(
+            {
+                str(k).strip().lower()
+                for k in (list(llm_parsed.get("keywords") or []) + list(heuristic.get("keywords") or []))
+                if str(k).strip()
+            }
+        )[:30]
+
+        llm_chunks = [
+            {"title": str(c.get("title") or "Manual Section"), "content": str(c.get("content") or "").strip()}
+            for c in (llm_parsed.get("chunks") or [])
+            if isinstance(c, dict) and str(c.get("content") or "").strip()
+        ]
+        # Append heuristic chunks whose content isn't already covered so `:8084` vector recall has full manual coverage
+        existing_titles = {c["title"].lower() for c in llm_chunks}
+        for hc in heuristic.get("chunks") or []:
+            if len(llm_chunks) >= 12:
+                break
+            if hc["title"].lower() not in existing_titles:
+                llm_chunks.append(hc)
+
+        llm_sources = [
+            {"url": str(s.get("url") or "").strip(), "title": str(s.get("title") or p_name)}
+            for s in (llm_parsed.get("sources") or [])
+            if isinstance(s, dict) and str(s.get("url") or "").strip()
+        ]
+        seen_s_urls = {s["url"] for s in llm_sources}
+        for hs in heuristic.get("sources") or []:
+            if hs["url"] not in seen_s_urls and len(llm_sources) < 8:
+                llm_sources.append(hs)
+                seen_s_urls.add(hs["url"])
+
+        merged = {
+            "name": str(llm_parsed.get("name") or p_name).strip(),
+            "category": str(llm_parsed.get("category") or heuristic["category"]).strip(),
+            "version": str(llm_parsed.get("version") or heuristic["version"]).strip(),
+            "keywords": merged_kw,
+            "summary": str(llm_parsed.get("summary") or heuristic["summary"]).strip(),
+            "subsystems": list(llm_parsed.get("subsystems") or heuristic["subsystems"])[:10],
+            "procedures": list(llm_parsed.get("procedures") or heuristic["procedures"])[:12],
+            "gotchas": list(llm_parsed.get("gotchas") or heuristic["gotchas"])[:10],
+            "chunks": llm_chunks[:12],
+            "sources": llm_sources[:8],
+        }
+        return json.dumps(merged, ensure_ascii=False)
+
+    @actor_command
+    def storeProductKnowledge(self, product_name: str, spec_json_or_dict: Any) -> str:
+        """Persist dual-mode `:Product` structured graph + `:8084` vector-embedded `:ProductManualChunk` nodes in Neo4j."""
+        import hashlib
+
+        if isinstance(spec_json_or_dict, Dictionary):
+            spec: Dict[str, Any] = {}
+            for k, v in spec_json_or_dict._entries.items():
+                nk = k.name if isinstance(k, Symbol) else str(k).lstrip("#")
+                spec[nk] = _actor_to_py_value(v)
+        elif isinstance(spec_json_or_dict, dict):
+            spec = dict(spec_json_or_dict)
+        else:
+            raw_s = str(spec_json_or_dict or "").strip()
+            spec = self._extract_json_dict(raw_s) or self._heuristic_distill_corpus(product_name, "", raw_s)
+
+        canon_name = str(spec.get("name") or product_name or "Unknown Product").strip()
+        pid = self._slugify_product_id(product_name or canon_name)
+        category = str(spec.get("category") or "Technical Product").strip()
+        version = str(spec.get("version") or "").strip()
+        summary = str(spec.get("summary") or "").strip()
+
+        raw_kws = list(spec.get("keywords") or [])
+        for tok in re.findall(r"[A-Za-z0-9_-]{3,}", f"{product_name} {canon_name} {version}"):
+            raw_kws.append(tok.lower())
+        keywords = sorted({str(k).strip().lower() for k in raw_kws if str(k).strip()})[:35]
+
+        prod_emb_text = f"{canon_name} ({version}) [{category}]: {summary} Keywords: {' '.join(keywords)}"
+        prod_emb = _compute_embedding(prod_emb_text)
+
+        self._run_cypher(
+            """
+            MERGE (p:Product {id: $pid, namespace: $ns})
+            SET p.name = $name,
+                p.category = $category,
+                p.version = CASE WHEN $version <> '' THEN $version ELSE coalesce(p.version, '') END,
+                p.summary = CASE WHEN $summary <> '' THEN $summary ELSE coalesce(p.summary, '') END,
+                p.keywords = reduce(acc = coalesce(p.keywords, []), k IN $keywords | CASE WHEN k IN acc THEN acc ELSE acc + k END),
+                p.embedding = CASE WHEN size($emb) > 0 THEN $emb ELSE coalesce(p.embedding, []) END,
+                p.updated_at = timestamp()
+            """,
+            {
+                "pid": pid,
+                "ns": self.namespace,
+                "name": canon_name,
+                "category": category,
+                "version": version,
+                "summary": summary,
+                "keywords": keywords,
+                "emb": prod_emb or [],
+            },
+        )
+
+        sub_cnt = 0
+        for sub in spec.get("subsystems") or []:
+            if not isinstance(sub, dict):
+                continue
+            sname = str(sub.get("name") or "").strip()
+            if not sname:
+                continue
+            sdriver = str(sub.get("driver") or "").strip()
+            sdesc = str(sub.get("description") or "").strip()
+            scmds_raw = sub.get("commands") or []
+            scmds = [str(x).strip() for x in (scmds_raw if isinstance(scmds_raw, list) else [scmds_raw]) if str(x).strip()]
+            self._run_cypher(
+                """
+                MATCH (p:Product {id: $pid, namespace: $ns})
+                MERGE (s:Subsystem {product_id: $pid, name: $sname, namespace: $ns})
+                SET s.driver = $sdriver,
+                    s.description = $sdesc,
+                    s.commands = $scmds,
+                    s.updated_at = timestamp()
+                MERGE (p)-[:HAS_SUBSYSTEM]->(s)
+                """,
+                {
+                    "pid": pid,
+                    "ns": self.namespace,
+                    "sname": sname[:120],
+                    "sdriver": sdriver[:160],
+                    "sdesc": sdesc[:600],
+                    "scmds": scmds[:10],
+                },
+            )
+            sub_cnt += 1
+
+        proc_cnt = 0
+        for pr in spec.get("procedures") or []:
+            if not isinstance(pr, dict):
+                continue
+            prname = str(pr.get("name") or "").strip()
+            prcmd = str(pr.get("command") or "").strip()
+            if not prname and not prcmd:
+                continue
+            prname = prname or f"Command: {prcmd[:50]}"
+            prnotes = str(pr.get("notes") or "").strip()
+            self._run_cypher(
+                """
+                MATCH (p:Product {id: $pid, namespace: $ns})
+                MERGE (proc:Procedure {product_id: $pid, name: $prname, namespace: $ns})
+                SET proc.command = $prcmd,
+                    proc.notes = $prnotes,
+                    proc.updated_at = timestamp()
+                MERGE (p)-[:HAS_PROCEDURE]->(proc)
+                """,
+                {
+                    "pid": pid,
+                    "ns": self.namespace,
+                    "prname": prname[:140],
+                    "prcmd": prcmd[:500],
+                    "prnotes": prnotes[:500],
+                },
+            )
+            proc_cnt += 1
+
+        gotcha_cnt = 0
+        for g in spec.get("gotchas") or []:
+            rule_txt = str(g.get("rule") if isinstance(g, dict) else g or "").strip()
+            if not rule_txt:
+                continue
+            sev = str(g.get("severity", "WARNING") if isinstance(g, dict) else "WARNING").strip().upper()
+            self._run_cypher(
+                """
+                MATCH (p:Product {id: $pid, namespace: $ns})
+                MERGE (gt:Gotcha {product_id: $pid, rule: $rule, namespace: $ns})
+                SET gt.severity = $sev,
+                    gt.updated_at = timestamp()
+                MERGE (p)-[:HAS_GOTCHA]->(gt)
+                """,
+                {
+                    "pid": pid,
+                    "ns": self.namespace,
+                    "rule": rule_txt[:400],
+                    "sev": sev[:32],
+                },
+            )
+            gotcha_cnt += 1
+
+        src_cnt = 0
+        for src in spec.get("sources") or []:
+            u = str(src.get("url") if isinstance(src, dict) else src or "").strip()
+            if not u:
+                continue
+            t = str(src.get("title", canon_name) if isinstance(src, dict) else canon_name).strip()
+            self._run_cypher(
+                """
+                MATCH (p:Product {id: $pid, namespace: $ns})
+                MERGE (ds:DocSource {product_id: $pid, url: $url, namespace: $ns})
+                SET ds.title = $title,
+                    ds.updated_at = timestamp()
+                MERGE (p)-[:CITES_SOURCE]->(ds)
+                """,
+                {
+                    "pid": pid,
+                    "ns": self.namespace,
+                    "url": u[:500],
+                    "title": t[:200],
+                },
+            )
+            src_cnt += 1
+
+        chunk_cnt = 0
+        for ch in spec.get("chunks") or []:
+            if not isinstance(ch, dict):
+                continue
+            ctitle = str(ch.get("title") or f"{canon_name} Section").strip()
+            ccontent = str(ch.get("content") or "").strip()
+            if not ccontent:
+                continue
+            cid = hashlib.sha1(f"{pid}::{ctitle}::{ccontent[:160]}".encode("utf-8")).hexdigest()[:16]
+            c_emb = _compute_embedding(f"{canon_name} — {ctitle}: {ccontent}")
+            self._run_cypher(
+                """
+                MATCH (p:Product {id: $pid, namespace: $ns})
+                MERGE (mc:ProductManualChunk {chunk_id: $cid, namespace: $ns})
+                SET mc.product_id = $pid,
+                    mc.product_name = $pname,
+                    mc.title = $title,
+                    mc.content = $content,
+                    mc.embedding = $emb,
+                    mc.updated_at = timestamp()
+                MERGE (p)-[:HAS_MANUAL_CHUNK]->(mc)
+                """,
+                {
+                    "pid": pid,
+                    "ns": self.namespace,
+                    "cid": cid,
+                    "pname": canon_name,
+                    "title": ctitle[:160],
+                    "content": ccontent[:1800],
+                    "emb": c_emb or [],
+                },
+            )
+            chunk_cnt += 1
+
+        return (
+            f"✔ Learned Product '{canon_name}' [id={pid}]: "
+            f"{sub_cnt} subsystems, {proc_cnt} procedures, {gotcha_cnt} gotchas, "
+            f"{chunk_cnt} `:8084` vector-embedded manual chunks, {src_cnt} sources persisted in Neo4j."
+        )
+
+    def _query_matching_products(
+        self,
+        query_str: str,
+        topic_str: str = "",
+        top_k_chunks: int = 5,
+        strict_auto_hydrate: bool = False,
+    ) -> str:
+        """Shared hybrid Cypher + `:8084` vector retrieval engine for `recallProductKnowledge` and `hydrateContext`."""
+        combined_q = f"{query_str} {topic_str}".strip()
+        if not combined_q:
+            return ""
+        _, prod_rows = self._run_cypher(
+            """
+            MATCH (p:Product {namespace: $ns})
+            OPTIONAL MATCH (p)-[:HAS_SUBSYSTEM]->(s:Subsystem {namespace: $ns})
+            OPTIONAL MATCH (p)-[:HAS_PROCEDURE]->(pr:Procedure {namespace: $ns})
+            OPTIONAL MATCH (p)-[:HAS_GOTCHA]->(g:Gotcha {namespace: $ns})
+            OPTIONAL MATCH (p)-[:CITES_SOURCE]->(ds:DocSource {namespace: $ns})
+            OPTIONAL MATCH (p)-[:HAS_MANUAL_CHUNK]->(mc:ProductManualChunk {namespace: $ns})
+            RETURN p.id AS id,
+                   p.name AS name,
+                   coalesce(p.category, '') AS category,
+                   coalesce(p.version, '') AS version,
+                   coalesce(p.summary, '') AS summary,
+                   coalesce(p.keywords, []) AS keywords,
+                   p.embedding AS embedding,
+                   collect(DISTINCT {name: s.name, driver: s.driver, description: s.description, commands: s.commands}) AS subsystems,
+                   collect(DISTINCT {name: pr.name, command: pr.command, notes: pr.notes}) AS procedures,
+                   collect(DISTINCT {rule: g.rule, severity: g.severity}) AS gotchas,
+                   collect(DISTINCT {url: ds.url, title: ds.title}) AS sources,
+                   collect(DISTINCT {chunk_id: mc.chunk_id, title: mc.title, content: mc.content, embedding: mc.embedding}) AS chunks
+            """,
+            {"ns": self.namespace},
+        )
+        if not prod_rows:
+            return ""
+
+        stop_w = {
+            "the", "and", "for", "with", "from", "into", "that", "this", "are", "was", "how",
+            "what", "where", "when", "why", "can", "you", "your", "please", "check", "start",
+            "run", "use", "using", "get", "make", "show", "tell", "about", "product", "manual",
+        }
+        q_words = {
+            w.lower()
+            for w in re.findall(r"[A-Za-z0-9_-]+", combined_q)
+            if len(w) >= 3 and w.lower() not in stop_w
+        }
+        q_slug = self._slugify_product_id(query_str) if query_str else ""
+        q_emb = _compute_embedding(combined_q)
+
+        scored_products: List[Tuple[float, Dict[str, Any], List[Tuple[float, Dict[str, Any]]]]] = []
+        for prow in prod_rows:
+            pid = str(prow.get("id") or "")
+            pname = str(prow.get("name") or "")
+            p_tokens = {
+                w.lower()
+                for w in re.findall(r"[A-Za-z0-9_-]+", f"{pid} {pname}")
+                if len(w) >= 3 and w.lower() not in {"nvidia", "the", "pro", "plus"}
+            }
+            kws = {str(k).lower() for k in (prow.get("keywords") or []) if k}
+            subs = [s for s in (prow.get("subsystems") or []) if isinstance(s, dict) and s.get("name")]
+            procs = [p for p in (prow.get("procedures") or []) if isinstance(p, dict) and (p.get("name") or p.get("command"))]
+            gotchas = [g for g in (prow.get("gotchas") or []) if isinstance(g, dict) and g.get("rule")]
+            chunks = [c for c in (prow.get("chunks") or []) if isinstance(c, dict) and c.get("content")]
+
+            haystack = (
+                f"{pid} {pname} {prow.get('version', '')} {prow.get('summary', '')} "
+                f"{' '.join(kws)} "
+                + " ".join(f"{s.get('name', '')} {s.get('driver', '')} {s.get('description', '')}" for s in subs)
+                + " "
+                + " ".join(f"{p.get('name', '')} {p.get('command', '')}" for p in procs)
+            ).lower()
+
+            exact_id_match = bool(q_slug and (q_slug == pid or q_slug in pid or pid in q_slug))
+            name_token_hits = sum(1 for w in q_words if w in p_tokens)
+            lex_hits = sum(1 for w in q_words if w in haystack)
+            lex_sim = (lex_hits / max(1, len(q_words))) if q_words else 0.0
+            prod_emb_sim = _cosine_similarity(q_emb, prow.get("embedding"))
+
+            scored_chunks: List[Tuple[float, Dict[str, Any]]] = []
+            best_chunk_emb = 0.0
+            for ch in chunks:
+                ch_hay = f"{ch.get('title', '')} {ch.get('content', '')}".lower()
+                ch_lex = (sum(1 for w in q_words if w in ch_hay) / max(1, len(q_words))) if q_words else 0.0
+                ch_emb = _cosine_similarity(q_emb, ch.get("embedding"))
+                if ch_emb > best_chunk_emb:
+                    best_chunk_emb = ch_emb
+                ch_score = 0.58 * ch_emb + 0.42 * ch_lex
+                scored_chunks.append((ch_score, ch))
+            scored_chunks.sort(key=lambda item: item[0], reverse=True)
+
+            best_emb = max(prod_emb_sim, best_chunk_emb)
+            prod_score = (
+                (0.50 if exact_id_match else 0.0)
+                + (0.30 if name_token_hits >= 1 else 0.0)
+                + 0.45 * best_emb
+                + 0.35 * lex_sim
+            )
+
+            if strict_auto_hydrate:
+                # Only auto-inject into `hydrateContext` when the user's goal genuinely mentions the product or strongly matches its manual!
+                is_relevant = (
+                    name_token_hits >= 1
+                    or exact_id_match
+                    or lex_hits >= 2
+                    or best_emb >= 0.64
+                )
+                if not is_relevant:
+                    continue
+            else:
+                if prod_score < 0.12 and not exact_id_match and name_token_hits == 0 and lex_hits == 0:
+                    continue
+
+            scored_products.append((prod_score, prow, scored_chunks))
+
+        if not scored_products:
+            return ""
+
+        scored_products.sort(key=lambda item: item[0], reverse=True)
+        max_prods = 2 if strict_auto_hydrate else 3
+        header_tag = (
+            "[AUTO-RECALLED PRODUCT TECHNICAL MANUAL (NEO4J `:Product` GRAPH + `:8084` VECTOR HYBRID — USE THESE VERIFIED COMMANDS & GUARDRAILS INSTEAD OF GUESSING!)]:"
+            if strict_auto_hydrate
+            else "[PRODUCT TECHNICAL MANUAL RECALL (`Actor[#ProductLearner]` — NEO4J GRAPH + `:8084` VECTOR HYBRID)]:"
+        )
+        out_lines = [header_tag]
+
+        for p_score, prow, s_chunks in scored_products[:max_prods]:
+            pname = prow.get("name") or prow.get("id")
+            ver = f" ({prow['version']})" if prow.get("version") else ""
+            cat = f" [{prow['category']}]" if prow.get("category") else ""
+            out_lines.append(f"• Product: {pname}{ver}{cat} (id=`{prow.get('id')}`, relevance={p_score:.2f})")
+            if prow.get("summary"):
+                out_lines.append(f"  Summary: {prow['summary']}")
+
+            gotchas = [g for g in (prow.get("gotchas") or []) if isinstance(g, dict) and g.get("rule")]
+            if gotchas:
+                out_lines.append("  Critical Gotchas & Safety Rules:")
+                for g in gotchas[:6]:
+                    out_lines.append(f"    - [{g.get('severity', 'WARNING')}] {g['rule']}")
+
+            subs = [s for s in (prow.get("subsystems") or []) if isinstance(s, dict) and s.get("name")]
+            if subs:
+                # Filter/rank subsystems toward `topic_str` / `q_words` if provided
+                def _sub_rank(s_obj: Dict[str, Any]) -> int:
+                    sh = f"{s_obj.get('name', '')} {s_obj.get('driver', '')} {s_obj.get('description', '')}".lower()
+                    return sum(1 for w in q_words if w in sh)
+
+                subs_sorted = sorted(subs, key=_sub_rank, reverse=True)
+                out_lines.append("  Subsystems & Drivers:")
+                for s in subs_sorted[:6]:
+                    drv = f" (driver/stack: `{s['driver']}`)" if s.get("driver") else ""
+                    cmds = s.get("commands") or []
+                    cmd_str = f" | cmds: {', '.join('`' + str(c) + '`' for c in cmds[:3])}" if cmds else ""
+                    out_lines.append(f"    - {s['name']}{drv}: {s.get('description', '')}{cmd_str}")
+
+            procs = [p for p in (prow.get("procedures") or []) if isinstance(p, dict) and (p.get("name") or p.get("command"))]
+            if procs:
+                def _proc_rank(pr_obj: Dict[str, Any]) -> int:
+                    ph = f"{pr_obj.get('name', '')} {pr_obj.get('command', '')} {pr_obj.get('notes', '')}".lower()
+                    return sum(1 for w in q_words if w in ph)
+
+                procs_sorted = sorted(procs, key=_proc_rank, reverse=True)
+                out_lines.append("  Verified Procedures & Exact Commands:")
+                for pr in procs_sorted[:6]:
+                    note_part = f" — {pr['notes']}" if pr.get("notes") else ""
+                    out_lines.append(f"    - {pr.get('name', 'Procedure')}: `{pr.get('command', '')}`{note_part}")
+
+            if s_chunks:
+                k_ch = max(1, min(8, int(top_k_chunks or 4)))
+                out_lines.append("  Relevant Manual Excerpts (`:ProductManualChunk` vector recall):")
+                for ch_sc, ch in s_chunks[:k_ch]:
+                    out_lines.append(f"    - [{ch.get('title', 'Section')} | sim={ch_sc:.2f}]: {ch.get('content', '')}")
+
+            sources = [s for s in (prow.get("sources") or []) if isinstance(s, dict) and s.get("url")]
+            if sources and not strict_auto_hydrate:
+                out_lines.append(
+                    "  Sources: " + ", ".join(f"{s.get('title', 'Doc')} ({s['url']})" for s in sources[:5])
+                )
+
+        return "\n".join(out_lines)
+
+    @actor_query
+    def recallProductKnowledge(self, product_or_query: str, topic: str = "", top_k: int = 5) -> str:
+        """Explicitly query learned `:Product` knowledge graph + `:8084` embedded manual chunks in Neo4j."""
+        p_q = str(product_or_query or "").strip()
+        t_q = str(topic or "").strip()
+        if not p_q and not t_q:
+            return self.listLearnedProducts()
+        res = self._query_matching_products(p_q, t_q, top_k_chunks=int(top_k or 5), strict_auto_hydrate=False)
+        if res:
+            return res
+        return (
+            f"No learned `:Product` entry matched {p_q!r} (topic={t_q!r}) in namespace '{self.namespace}'. "
+            f"Call `learnProduct(Actor[#ProductLearner], {p_q!r}, {t_q!r})!!` or "
+            f"`ingestManual(Actor[#ProductLearner], {p_q!r}, \"https://...\", {t_q!r})!!` to research and store its manual first!"
+        )
+
+    @actor_query
+    def listLearnedProducts(self) -> str:
+        """List all `:Product` entries learned in the current Neo4j namespace."""
+        _, rows = self._run_cypher(
+            """
+            MATCH (p:Product {namespace: $ns})
+            OPTIONAL MATCH (p)-[:HAS_SUBSYSTEM]->(s:Subsystem {namespace: $ns})
+            OPTIONAL MATCH (p)-[:HAS_PROCEDURE]->(pr:Procedure {namespace: $ns})
+            OPTIONAL MATCH (p)-[:HAS_GOTCHA]->(g:Gotcha {namespace: $ns})
+            OPTIONAL MATCH (p)-[:HAS_MANUAL_CHUNK]->(mc:ProductManualChunk {namespace: $ns})
+            RETURN p.id AS id,
+                   p.name AS name,
+                   coalesce(p.version, '') AS version,
+                   coalesce(p.category, '') AS category,
+                   coalesce(p.summary, '') AS summary,
+                   count(DISTINCT s) AS subsystems,
+                   count(DISTINCT pr) AS procedures,
+                   count(DISTINCT g) AS gotchas,
+                   count(DISTINCT mc) AS chunks,
+                   coalesce(p.updated_at, 0) AS updated_at
+            ORDER BY updated_at DESC
+            """,
+            {"ns": self.namespace},
+        )
+        if not rows:
+            return f"No learned `:Product` manuals in namespace '{self.namespace}' yet. Use `learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")!!`."
+        lines = [f"Learned Products in Neo4j (`namespace={self.namespace}`, {len(rows)} total):"]
+        for r in rows:
+            ver = f" ({r['version']})" if r.get("version") else ""
+            cat = f" [{r['category']}]" if r.get("category") else ""
+            lines.append(
+                f"• `{r['id']}` — {r['name']}{ver}{cat}: "
+                f"{r['subsystems']} subsystems, {r['procedures']} procedures, "
+                f"{r['gotchas']} gotchas, {r['chunks']} vector manual chunks"
+            )
+        return "\n".join(lines)
+
+    @actor_command
+    def clearProducts(self) -> int:
+        """Delete all `:Product` knowledge nodes and attached manual chunks in `self.namespace`."""
+        _, rows = self._run_cypher(
+            """
+            MATCH (p:Product {namespace: $ns})
+            OPTIONAL MATCH (p)-[r]->(child {namespace: $ns})
+            WITH collect(DISTINCT p) AS prods, collect(DISTINCT child) AS children
+            FOREACH (c IN children | DETACH DELETE c)
+            FOREACH (pr IN prods | DETACH DELETE pr)
+            RETURN size(prods) AS deleted_count
+            """,
+            {"ns": self.namespace},
+        )
+        return int(rows[0]["deleted_count"]) if rows and "deleted_count" in rows[0] else 0
+
+    def _hydrate_relevant_product_manuals(self, goal_text: str) -> str:
+        """Automatically inject learned `:Product` technical manuals when `goal_text` references a learned product or subsystem."""
+        import os as _os
+
+        if not self.enable_engrams:
+            return ""
+        if _os.environ.get("ACTORII_BENCH_STRICT") == "1" and self.namespace == "default":
+            return ""
+        q_str = str(goal_text or "").strip()
+        if not q_str:
+            return ""
+        try:
+            return self._query_matching_products(
+                q_str,
+                "",
+                top_k_chunks=4,
+                strict_auto_hydrate=True,
+            )
+        except Exception:
+            return ""
+
     @actor_query
     def hydrateContext(self, goal_text: str = "") -> str:
         """1993 Actor-callable entry point for `AgentHarness>>selectEngramContext`."""
         q_txt = str(goal_text or "")
         engram_txt = self.hydrateRelevantEngrams(q_txt)
+        prod_txt = self._hydrate_relevant_product_manuals(q_txt)
         ep_txt = self.recallEpisodes(q_txt, top_k=12) if self.enable_engrams else ""
-        if engram_txt and ep_txt:
-            return f"{engram_txt}\n\n{ep_txt}"
-        return engram_txt or ep_txt
+        parts = [blk for blk in (engram_txt, prod_txt, ep_txt) if blk]
+        return "\n\n".join(parts)

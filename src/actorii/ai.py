@@ -229,7 +229,7 @@ class ValkyrieLLMClient:
         else:
             last_user_msg = (messages[-1].get("content", "") if messages else "")
             last_user_lower = last_user_msg.lower()
-            step_m = re.search(r"^step:\s*(\d+)\s+of\s+\d+", last_user_lower, flags=re.MULTILINE)
+            step_m = re.search(r"^step:\s*(\d+)(?:\s+of\s+\d+|\s+\(unlimited\))?", last_user_lower, flags=re.MULTILINE)
             step_num = int(step_m.group(1)) if step_m else (2 if len(messages) >= 4 else 1)
             last_res_tail = last_user_lower.split("last result:")[-1] if "last result:" in last_user_lower else last_user_lower[-1200:]
             already_verified_pass = (
@@ -302,19 +302,28 @@ class ValkyrieLLMClient:
             finish_reason = choice0.get("finish_reason")
             content = (msg.get("content") or "").strip()
             reasoning = (msg.get("reasoning_content") or "").strip()
-            needs_continuation = (not content) or (
-                finish_reason == "length" and not content.endswith("!!") and not content.upper().startswith("COMPLETE:")
-            )
+            sys_txt = (messages[0].get("content", "") if messages and messages[0].get("role") == "system" else "").lower()
+            wants_json = "valid json" in sys_txt or "json object" in sys_txt
+            if wants_json:
+                needs_continuation = (not content) or (finish_reason == "length" and not content.rstrip().endswith("}"))
+                cont_instruction = "Now emit ONLY the valid JSON object (no markdown fences, no prose):"
+            else:
+                needs_continuation = (not content) or (
+                    finish_reason == "length" and not content.endswith("!!") and not content.upper().startswith("COMPLETE:")
+                )
+                cont_instruction = (
+                    "Now emit ONLY the single raw 1993 Actor 4.1 expression ending in `!!` "
+                    "to execute this step (no markdown fences, no prose):"
+                )
             if needs_continuation and reasoning and "/api/chat" not in url:
                 # Harmony / gpt-oss:20b or bounded Qwen3.8 thinking pass stopped after `reasoning_content`
-                # before finishing `content`. Perform one non-thinking continuation pass to emit the code.
+                # before finishing `content`. Perform one non-thinking continuation pass to emit the output.
                 followup_msgs = [dict(m) for m in messages]
                 if followup_msgs and followup_msgs[-1].get("role") == "user":
                     followup_msgs[-1]["content"] = (
                         f"{followup_msgs[-1].get('content', '')}\n\n"
                         f"[Draft Analysis from Thinking Phase]:\n{reasoning}\n\n"
-                        "Now emit ONLY the single raw 1993 Actor 4.1 expression ending in `!!` "
-                        "to execute this step (no markdown fences, no prose):"
+                        f"{cont_instruction}"
                     )
                 else:
                     followup_msgs.append(
@@ -322,8 +331,7 @@ class ValkyrieLLMClient:
                             "role": "user",
                             "content": (
                                 f"[Draft Analysis from Thinking Phase]:\n{reasoning}\n\n"
-                                "Now emit ONLY the single raw 1993 Actor 4.1 expression ending in `!!` "
-                                "to execute this step (no markdown fences, no prose):"
+                                f"{cont_instruction}"
                             ),
                         }
                     )

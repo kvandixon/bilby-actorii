@@ -1,0 +1,168 @@
+/* =========================================================================
+ * ActorII Native OOP Reusable Product-Learning Skill (`Actor[#ProductLearner]`)
+ * Written in authentic 1993 Whitewater Actor 4.1 syntax (`!!` chunks)
+ *
+ * Subclasses `GraphService` so Bilby can autonomously research, read, distill,
+ * and persist technical manuals for ANY hardware/software product into
+ * Dual-Mode Neo4j Memory:
+ *   1. Structured Knowledge Graph (`:Product` -> `:Subsystem`, `:Procedure`,
+ *      `:Gotcha`, `:DocSource`)
+ *   2. `:8084` (`bge-small-en-v1.5`) Vector-Embedded `:ProductManualChunk`
+ *      nodes that `ActorMemoryGraph>>hydrateContext` auto-recalls on future turns!
+ * ========================================================================= */
+
+inherit(GraphService, #ProductLearner, #(
+    #web
+    #pdf
+    #net
+    #memory
+    #learnCount
+    #lastProduct
+    #lastStatus
+), 7, nil)!!
+
+now(ProductLearner)!!
+
+Def initLearner(self, webTwin, pdfTwin, netBridge, memGraph) {
+    initService(self, "Product");
+    self.web := webTwin;
+    self.pdf := pdfTwin;
+    self.net := netBridge;
+    self.memory := memGraph;
+    self.learnCount := 0;
+    self.lastProduct := "";
+    self.lastStatus := #idle;
+    ^self;
+}!!
+
+Def summary(self) {
+    if self.memory == nil then
+        ^"ProductLearner(memory=#disabled | learnedCount=" + asString(self.learnCount) + ")";
+    endif;
+    ^"ProductLearner(learnedCount=" + asString(self.learnCount) + " | lastProduct=" + asString(self.lastProduct) + " | status=#" + asString(self.lastStatus) + ")";
+}!!
+
+/* -------------------------------------------------------------------------
+ * Autonomous Web + PDF Product Research & Dual-Mode Neo4j Crystallization:
+ *   `learnProduct(Actor[#ProductLearner], "NVIDIA Jetson TX1", "Wayland HDMI, CSI camera")`
+ * ------------------------------------------------------------------------- */
+Def learnProduct(self, productName, focusTopics | topicStr queryStr hitsTxt urls n i u pageTxt corpus specJson saved recallTxt) {
+    if self.memory == nil then
+        self.lastStatus := #error;
+        ^"ERROR: ProductLearner requires Actor[#Memory] (enable_memory_graph=True).";
+    endif;
+
+    if focusTopics == nil then
+        topicStr := "";
+    else
+        topicStr := asString(focusTopics);
+    endif;
+
+    if size(topicStr) > 0 then
+        queryStr := asString(productName) + " official technical documentation manual " + topicStr;
+    else
+        queryStr := asString(productName) + " official technical documentation manual architecture commands";
+    endif;
+
+    hitsTxt := search(self.web, queryStr, 5);
+    urls := extractUrls(self.net, hitsTxt, 3);
+    corpus := asString(hitsTxt);
+
+    n := size(urls);
+    i := 0;
+    loop while (i < n) begin
+        u := urls[i];
+        if isPdfSource(self.net, u) == true then
+            pageTxt := readPages(self.pdf, u, 1, 8, 6000);
+        else
+            pageTxt := scrape(self.web, u);
+        endif;
+        corpus := corpus + "\n\n" + asString(pageTxt);
+        i := i + 1;
+    endLoop;
+
+    specJson := distillProductCorpus(self.memory, asString(productName), topicStr, corpus);
+    saved := storeProductKnowledge(self.memory, asString(productName), specJson);
+
+    self.learnCount := self.learnCount + 1;
+    self.lastProduct := asString(productName);
+    self.lastStatus := #ok;
+
+    recallTxt := recallProductKnowledge(self.memory, asString(productName), topicStr, 4);
+    ^saved + "\n\n" + recallTxt;
+}!!
+
+/* -------------------------------------------------------------------------
+ * Direct Manual / Datasheet / Runbook Ingestion (PDF URL/path, Web URL, or local doc):
+ *   `ingestManual(Actor[#ProductLearner], "NVIDIA Jetson TX1", urlOrPath, "Wayland HDMI")`
+ * ------------------------------------------------------------------------- */
+Def ingestManual(self, productName, urlOrPdfPath, focusTopics | topicStr src docTxt focusHits specJson saved recallTxt) {
+    if self.memory == nil then
+        self.lastStatus := #error;
+        ^"ERROR: ProductLearner requires Actor[#Memory] (enable_memory_graph=True).";
+    endif;
+
+    if focusTopics == nil then
+        topicStr := "";
+    else
+        topicStr := asString(focusTopics);
+    endif;
+
+    src := asString(urlOrPdfPath);
+    if isPdfSource(self.net, src) == true then
+        docTxt := readPages(self.pdf, src, 1, 10, 9000);
+        if size(topicStr) > 0 then
+            focusHits := searchText(self.pdf, src, topicStr, 6, 5000);
+            docTxt := docTxt + "\n\n" + asString(focusHits);
+        endif;
+    else
+        if isHttpUrl(self.net, src) == true then
+            docTxt := scrape(self.web, src);
+        else
+            docTxt := readLocalManual(self.net, src, 14000);
+        endif;
+    endif;
+
+    specJson := distillProductCorpus(self.memory, asString(productName), topicStr, docTxt);
+    saved := storeProductKnowledge(self.memory, asString(productName), specJson);
+
+    self.learnCount := self.learnCount + 1;
+    self.lastProduct := asString(productName);
+    self.lastStatus := #ok;
+
+    recallTxt := recallProductKnowledge(self.memory, asString(productName), topicStr, 4);
+    ^saved + "\n\n" + recallTxt;
+}!!
+
+/* -------------------------------------------------------------------------
+ * Explicit Hybrid Recall & Product Directory Inspection
+ * ------------------------------------------------------------------------- */
+Def recallProduct(self, productName, queryTopic | topicStr) {
+    if self.memory == nil then
+        ^"ERROR: ProductLearner requires Actor[#Memory] (enable_memory_graph=True).";
+    endif;
+    if queryTopic == nil then
+        topicStr := "";
+    else
+        topicStr := asString(queryTopic);
+    endif;
+    ^recallProductKnowledge(self.memory, asString(productName), topicStr, 5);
+}!!
+
+Def listProducts(self) {
+    if self.memory == nil then
+        ^"ERROR: ProductLearner requires Actor[#Memory] (enable_memory_graph=True).";
+    endif;
+    ^listLearnedProducts(self.memory);
+}!!
+
+Def clearProducts(self) {
+    if self.memory == nil then
+        ^0;
+    endif;
+    ^clearProducts(self.memory);
+}!!
+
+Def learnCount(self) { ^self.learnCount; }!!
+Def lastProduct(self) { ^self.lastProduct; }!!
+Def lastStatus(self) { ^self.lastStatus; }!!
