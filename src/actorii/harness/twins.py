@@ -1702,12 +1702,16 @@ class JetsonEdgeTwin:
         port = int(cfg.get("port", 22) or 22)
         argv = [
             ssh_bin,
+            "-F",
+            "/dev/null",
             "-p",
             str(port),
             "-o",
             "BatchMode=yes",
             "-o",
             "ConnectTimeout=5",
+            "-o",
+            "LogLevel=ERROR",
             "-o",
             "StrictHostKeyChecking=accept-new",
             "-o",
