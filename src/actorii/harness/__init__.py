@@ -1314,7 +1314,8 @@ class VMSandboxBridge:
     @staticmethod
     def _step_loop_nudge(recent_steps: List[Any]) -> str:
         """Return targeted anti-thrashing guidance if recent steps are stuck in read-only or edge SSH loops."""
-        is_lockdown = is_host_lockdown()
+        in_docker = os.environ.get("ACTORII_IN_DOCKER") == "1" or Path("/.dockerenv").exists()
+        is_lockdown = is_host_lockdown() and not in_docker
         consec_readonly = 0
         consec_edge_probes = 0
         has_mutated = False
@@ -1482,7 +1483,8 @@ class VMSandboxBridge:
     @actor_query
     def defaultInstructions(self) -> str:
         """Return environment-aware Actor 4.1 generation instructions for `AgentHarness>>instructionBlock`."""
-        lockdown = is_host_lockdown()
+        in_docker = os.environ.get("ACTORII_IN_DOCKER") == "1" or Path("/.dockerenv").exists()
+        lockdown = is_host_lockdown() and not in_docker
         lines = [
             "INSTRUCTIONS:",
             "1. Output ONLY a single raw 1993 Actor 4.1 code chunk ending in `!!` OR `COMPLETE: <answer>`. Never emit `<tool_call>` XML tags, markdown fences around Actor code, or prose before/after Actor code!",

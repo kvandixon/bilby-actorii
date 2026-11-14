@@ -18,14 +18,10 @@
     "canaries": [
       "sensor_window_median",
       "harness_step_budget_advisor",
-      "circuit_breaker_policy"
+      "circuit_breaker_policy",
+      "ring_buffer_telemetry"
     ],
     "frontier": {
-      "ring_buffer_telemetry": {
-        "best_holdout_pass_rate": 0.9333,
-        "best_visible_pass_rate": 1.0,
-        "last_status": "failed"
-      },
       "dag_task_scheduler": {
         "best_holdout_pass_rate": 0.154,
         "best_visible_pass_rate": 0.0,
@@ -33,7 +29,7 @@
       }
     },
     "default_live_frontier_sample": [
-      "ring_buffer_telemetry"
+      "dag_task_scheduler"
     ]
   },
   "containment": {

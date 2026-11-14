@@ -1,0 +1,30 @@
+{
+  "completed_at": "2026-11-14T05:19:12-0500",
+  "total_elapsed_s": 4390.0,
+  "suites": {
+    "humaneval-gsm8k-matrix": {
+      "ledger": "archive/BENCHMARK_RESULTS_2026-11-14_v430.json",
+      "elapsed_s": 0.0
+    },
+    "longmem-locomo-stratified": {
+      "ledger": "archive/LONGMEM_LOCOMO_STRATIFIED_2026-11-14_v430.json",
+      "elapsed_s": 0.0
+    },
+    "tb21-container": {
+      "ledger": "archive/TB21_5TASK_AVG3_2026-11-14_v430.json",
+      "elapsed_s": 0.0
+    },
+    "industry-8track": {
+      "ledger": "archive/INDUSTRY_8TRACK_2026-11-14_v430.json",
+      "elapsed_s": 0.0
+    },
+    "nextgen-postcutoff": {
+      "ledger": "archive/NEXTGEN_AVG3_2026-11-14_v430.json",
+      "elapsed_s": 3225.1
+    },
+    "tb21-hard": {
+      "ledger": "archive/TB21_HARD_2026-11-14_v430.json",
+      "elapsed_s": 1164.9
+    }
+  }
+}

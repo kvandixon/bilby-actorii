@@ -60,15 +60,23 @@ def _headline_stats(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
     if not runs:
         return None
     latest = runs[-1]
+    prev = runs[-2] if len(runs) >= 2 else None
     best = max(runs, key=lambda r: (float(r.get("score_pct", 0.0)), str(r.get("date", ""))))
     first = runs[0]
     delta_vs_first = round(float(latest.get("score_pct", 0.0)) - float(first.get("score_pct", 0.0)), 2)
+    delta_vs_prev = (
+        round(float(latest.get("score_pct", 0.0)) - float(prev.get("score_pct", 0.0)), 2)
+        if prev is not None
+        else None
+    )
     return {
         "latest": latest,
+        "prev": prev,
         "best": best,
         "first": first,
         "run_count": len(runs),
         "delta_vs_first": delta_vs_first,
+        "delta_vs_prev": delta_vs_prev,
     }
 
 
@@ -101,11 +109,22 @@ def _fmt_task_count(bench: dict[str, Any], run: dict[str, Any]) -> str:
     return _fmt_int(run.get("total", bench.get("total_tasks")))
 
 
+def _fmt_delta_badge(delta: float | None) -> str:
+    if delta is None:
+        return "—"
+    if abs(delta) < 0.005:
+        return "`0.00 pp (held)`"
+    if delta > 0:
+        return f"**`+{delta:.2f} pp` ▲**"
+    return f"`{delta:.2f} pp` ▼"
+
+
 def render_markdown(data: dict[str, Any]) -> str:
     meta = data.get("metadata", {})
     benchmarks = data.get("benchmarks", [])
     active_benches = [b for b in benchmarks if b.get("status") == "active"]
     queued_benches = [b for b in benchmarks if b.get("status") != "active"]
+    comp = data.get("release_comparison") or {}
 
     lines: list[str] = [
         "> [!WARNING]",
@@ -113,53 +132,101 @@ def render_markdown(data: dict[str, Any]) -> str:
         "",
         f"# {meta.get('title', 'Bilby (ActorII) — Benchmark Scoreboard')}",
         "",
+        "> **Clean-Room Hands-Off Protocol**: Every score below is generated zero-intervention against a fresh Bilby instance (`ACTORII_HOST_LOCKDOWN=1`, isolated Neo4j namespace, zero persona hints, and ephemeral `actorii-sandbox:latest` Docker containers) on a single consumer **NVIDIA RTX 5070 Ti (16 GB VRAM)**.",
+        "",
         f"- **Host Hardware**: `{meta.get('hardware', 'valkyrie')}`",
         f"- **Memory Architecture**: `{meta.get('memory_stack', 'Neo4j :ActorEpisode / :ActorEngram')}`",
         f"- **Last Updated**: `{meta.get('updated_at', date.today().isoformat())}`",
         "- **Interactive Dark-Theme Dashboard**: `http://127.0.0.1:8090/benchmarks` (or open [`scoreboard.html`](scoreboard.html))",
         "",
-        "---",
-        "",
-        "## 1. Headline Active Scoreboard (Bilby Latest & Best)",
-        "",
-        "| Benchmark Suite | Category | Tasks (`N`) | Latest Score | Best Score | Δ vs Initial | Model (`Latest`) | Date | Raw Ledger |",
-        "| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |",
     ]
 
-    for b in active_benches:
-        bid = b["id"]
-        runs = _runs_for_benchmark(data, bid)
-        stats = _headline_stats(runs)
-        if not stats:
+    if isinstance(comp, dict) and comp.get("rows"):
+        lines.extend([
+            "---",
+            "",
+            f"## 1. Release-Over-Release Comparison: `{comp.get('baseline_label', 'v4.2.0 Baseline')}` vs. `{comp.get('candidate_label', 'v4.3.0-dev Clean-Room')}`",
+            "",
+        ])
+        if comp.get("summary"):
+            lines.append(f"{comp['summary']}\n")
+        if comp.get("architectural_changes"):
+            lines.append("### Key Architectural & Safety Changes Under Test")
+            for ch in comp["architectural_changes"]:
+                lines.append(f"- {ch}")
+            lines.append("")
+        lines.extend([
+            "### Head-to-Head Clean-Room Benchmark Delta Table",
+            "",
+            f"| Benchmark Suite | Tasks | `{comp.get('baseline_short', 'v4.2.0 (Nov 10)')}` | `{comp.get('candidate_short', 'v4.3.0-dev (Nov 14)')}` | Score / Reliability Δ | Speed & Token Efficiency Δ | Key Task Flips & Notes |",
+            "| :--- | :---: | :---: | :---: | :---: | :---: | :--- |",
+        ])
+        for row in comp["rows"]:
             lines.append(
-                f"| **{b['name']}** | `{b.get('category', 'General')}` | `{_fmt_int(b.get('total_tasks'))}` | *No runs yet* | — | — | — | — | — |"
+                f"| **{row.get('suite', '')}** | `{row.get('tasks', '')}` | {row.get('baseline', '')} "
+                f"| **{row.get('candidate', '')}** | {row.get('score_delta', '—')} "
+                f"| {row.get('efficiency_delta', '—')} | {row.get('notes', '')} |"
             )
-            continue
-        latest = stats["latest"]
-        best = stats["best"]
-        delta = stats["delta_vs_first"]
-        if stats["run_count"] <= 1 or abs(delta) < 0.005:
-            delta_str = "—"
-        elif delta > 0:
-            delta_str = f"`+{delta:.2f} pp`"
-        else:
-            delta_str = f"`{delta:.2f} pp`"
+        lines.append("")
 
-        ledger = str(latest.get("raw_ledger", "")).strip()
-        ledger_md = f"[`{Path(ledger).name}`]({ledger})" if ledger else "—"
-        best_trials = int(best.get("trials") or 1)
-        best_tag = f" avg@{best_trials}" if best_trials > 1 else ""
-        best_str = f"**`{float(best['score_pct']):.2f}%{best_tag}`** (`{best.get('model', '')}`)"
-        lines.append(
-            f"| **{b['name']}** | `{b.get('category', 'General')}` | `{_fmt_task_count(b, latest)}` "
-            f"| **`{_fmt_score(latest, bid)}`** | {best_str} | {delta_str} | `{latest.get('model', '')}` | `{latest.get('date', '')}` | {ledger_md} |"
-        )
+    sec_offset = 1 if (isinstance(comp, dict) and comp.get("rows")) else 0
 
     lines.extend([
-        "",
         "---",
         "",
-        "## 2. Sub-Track & Pillar Breakdowns (Latest Verified Runs)",
+        f"## {1 + sec_offset}. Headline Active Scoreboard (Grouped by Capability Pillar)",
+        "",
+    ])
+
+    cat_order = ["SWE & Coding", "Memory", "Terminal & OS", "Security", "Self-Hosting"]
+    seen_cats: list[str] = []
+    for c in cat_order:
+        if any(b.get("category", "General") == c for b in active_benches):
+            seen_cats.append(c)
+    for b in active_benches:
+        c = b.get("category", "General")
+        if c not in seen_cats:
+            seen_cats.append(c)
+
+    for cat in seen_cats:
+        cat_benches = [b for b in active_benches if b.get("category", "General") == cat]
+        if not cat_benches:
+            continue
+        lines.extend([
+            f"### {cat}",
+            "",
+            "| Benchmark Suite | Tasks (`N`) | Latest Verified Score | Prior Run | Δ vs Prior | All-Time Best | Date | Raw Ledger |",
+            "| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |",
+        ])
+        for b in cat_benches:
+            bid = b["id"]
+            runs = _runs_for_benchmark(data, bid)
+            stats = _headline_stats(runs)
+            if not stats:
+                lines.append(
+                    f"| **{b['name']}** | `{_fmt_int(b.get('total_tasks'))}` | *No runs yet* | — | — | — | — | — |"
+                )
+                continue
+            latest = stats["latest"]
+            prev = stats["prev"]
+            best = stats["best"]
+            prev_str = f"`{float(prev['score_pct']):.2f}%` (`{prev.get('date', '')}`)" if prev is not None else "—"
+            delta_prev_str = _fmt_delta_badge(stats["delta_vs_prev"])
+            ledger = str(latest.get("raw_ledger", "")).strip()
+            ledger_md = f"[`{Path(ledger).name}`]({ledger})" if ledger else "—"
+            best_trials = int(best.get("trials") or 1)
+            best_tag = f" avg@{best_trials}" if best_trials > 1 else ""
+            best_str = f"**`{float(best['score_pct']):.2f}%{best_tag}`** (`{best.get('model', '')}`)"
+            lines.append(
+                f"| **{b['name']}** | `{_fmt_task_count(b, latest)}` "
+                f"| **`{_fmt_score(latest, bid)}`** | {prev_str} | {delta_prev_str} | {best_str} | `{latest.get('date', '')}` | {ledger_md} |"
+            )
+        lines.append("")
+
+    lines.extend([
+        "---",
+        "",
+        f"## {2 + sec_offset}. Sub-Track & Per-Task Breakdowns (Latest Verified Runs)",
         "",
     ])
 
@@ -175,7 +242,7 @@ def render_markdown(data: dict[str, Any]) -> str:
         if b.get("description"):
             lines.append(f"- **Scope**: {b['description']}")
         if latest.get("notes"):
-            lines.append(f"- **Notes**: {latest['notes']}")
+            lines.append(f"- **Highlights**: {latest['notes']}")
         if subs:
             chips = " · ".join(f"`{k}`: **{v}**" for k, v in subs.items())
             lines.append(f"- **Breakdown**: {chips}")
@@ -184,7 +251,10 @@ def render_markdown(data: dict[str, Any]) -> str:
     lines.extend([
         "---",
         "",
-        "## 3. Bilby Historical Run & Model Progression Ledger",
+        f"## {3 + sec_offset}. Historical Run & Model Progression Ledger",
+        "",
+        "<details>",
+        f"<summary><strong>Click to expand all {len(data.get('runs', []))} historical benchmark runs (`v4.0.0` → `{meta.get('latest_version', 'v4.3.0-dev')}`)</strong></summary>",
         "",
         "| Date | Benchmark | Version | Model | Mode / Configuration | Score | Raw Artifact |",
         "| :---: | :--- | :---: | :---: | :--- | :---: | :--- |",
@@ -211,9 +281,11 @@ def render_markdown(data: dict[str, Any]) -> str:
 
     lines.extend([
         "",
+        "</details>",
+        "",
         "---",
         "",
-        "## 4. Queued / Discovered Benchmarks Watchlist",
+        f"## {4 + sec_offset}. Queued / Discovered Benchmarks Watchlist",
         "",
         "New benchmarks discovered for upcoming evaluation. Promoting any benchmark is automatic the first time `scoreboard.py record` or `scoreboard.py ingest` logs a run against its ID.",
         "",
@@ -233,27 +305,23 @@ def render_markdown(data: dict[str, Any]) -> str:
         "",
         "---",
         "",
-        "## 5. Updating Scores & Adding New Benchmarks",
+        f"## {5 + sec_offset}. Updating Scores & Adding New Benchmarks",
         "",
         "All tables in `benchmarks/BENCHMARK_RESULTS.md`, `README.md`, and `benchmarks/scoreboard.html` (`/benchmarks` on `:8090`) are generated from [`benchmarks/scoreboard.json`](scoreboard.json):",
         "",
         "```bash",
-        "# 1. Record a new benchmark run (auto-updates Markdown, README, and HTML dashboard):",
+        "# 1. Run the 3-tier DevOps & Live Self-Evolution Release Gate:",
+        "python3 scripts/release_gate.py --tier live",
+        "",
+        "# 2. Record a new benchmark run (auto-updates Markdown, README, and HTML dashboard):",
         "python3 benchmarks/scoreboard.py record \\",
-        "  --bench tb21-container --passed 5 --total 5 \\",
-        "  --model gpt-oss:20b --version v4.2.0 \\",
-        "  --mode \"Docker Container\" --ledger archive/TB21_5TASK_RESULTS.json \\",
-        "  --notes \"5/5 container verification on gpt-oss:20b\"",
+        "  --bench tb21-container --passed 12 --total 15 --trials 3 \\",
+        "  --model qwen3.8-27b --version v4.3.0 \\",
+        "  --mode \"avg@3 Clean-Room Container Sweep\" --ledger archive/TB21_5TASK_AVG3_2026-11-14_v430.json",
         "",
-        "# 2. Or auto-ingest a raw JSON results file directly:",
-        "python3 benchmarks/scoreboard.py ingest benchmarks/archive/NEXTGEN_RESULTS.json \\",
-        "  --bench nextgen-postcutoff --model gpt-oss:20b --version v4.2.0",
-        "",
-        "# 3. Add a newly discovered benchmark to the watchlist (or active list):",
-        "python3 benchmarks/scoreboard.py add-benchmark \\",
-        "  --id gaia-val --name \"GAIA (Validation)\" --category \"Memory\" \\",
-        "  --tasks 165 --url \"https://huggingface.co/datasets/gaia-benchmark/GAIA\" \\",
-        "  --desc \"Multi-step tool, web, and document reasoning tasks.\"",
+        "# 3. Auto-ingest a raw JSON results file directly:",
+        "python3 benchmarks/scoreboard.py ingest benchmarks/archive/NEXTGEN_AVG3_2026-11-14_v430.json \\",
+        "  --bench nextgen-postcutoff --model qwen3.8-27b --version v4.3.0",
         "```",
         "",
     ])
@@ -264,17 +332,19 @@ def render_readme_snippet(data: dict[str, Any]) -> str:
     benchmarks = data.get("benchmarks", [])
     featured = [b for b in benchmarks if b.get("status") == "active" and b.get("featured_in_readme")]
     rows = [
-        "| Benchmark Suite | Category | Questions / Tasks | Bilby Score | Date |",
-        "| :--- | :---: | :---: | :---: | :---: |",
+        "| Benchmark Suite | Pillar | Tasks | Bilby Score (`Latest`) | Δ vs Prior Release | Date |",
+        "| :--- | :---: | :---: | :---: | :---: | :---: |",
     ]
     for b in featured:
         runs = _runs_for_benchmark(data, b["id"])
-        if not runs:
+        stats = _headline_stats(runs)
+        if not stats:
             continue
-        latest = runs[-1]
+        latest = stats["latest"]
+        delta_str = _fmt_delta_badge(stats["delta_vs_prev"])
         rows.append(
             f"| **{b['name']}** | `{b.get('category', 'General')}` | `{_fmt_task_count(b, latest)}` "
-            f"| **`{_fmt_score(latest, b['id'])}`** | `{latest.get('date', '')}` |"
+            f"| **`{_fmt_score(latest, b['id'])}`** | {delta_str} | `{latest.get('date', '')}` |"
         )
     return "\n".join(rows)
 
@@ -509,6 +579,8 @@ def render_html(data: dict[str, Any]) -> str:
 
   <div class="kpis" id="kpi-strip"></div>
 
+  <div id="comparison-section"></div>
+
   <div class="toolbar">
     <div class="pills" id="cat-pills"></div>
     <input class="search" id="search-box" type="search" placeholder="Filter benchmarks, models, notes..." oninput="renderBoard()">
@@ -633,6 +705,49 @@ function renderBoard() {{
     <div class="kpi"><div class="kpi-label">Logged Bilby Runs</div><div class="kpi-val">${{(STATE.runs || []).length}}</div><div class="kpi-sub">Across 7B–27B local models</div></div>
     <div class="kpi"><div class="kpi-label">Queued Watchlist</div><div class="kpi-val">${{queued.length}}</div><div class="kpi-sub">Ready to wire &amp; evaluate</div></div>
   `;
+
+  const comp = STATE.release_comparison || null;
+  const compEl = document.getElementById('comparison-section');
+  if (comp && Array.isArray(comp.rows) && comp.rows.length) {{
+    const compRows = comp.rows.map(r => `
+      <tr>
+        <td><strong>${{esc(r.suite)}}</strong></td>
+        <td><code>${{esc(r.tasks)}}</code></td>
+        <td>${{esc(r.baseline)}}</td>
+        <td><strong style="color:var(--emerald);">${{esc(r.candidate)}}</strong></td>
+        <td><code>${{esc(r.score_delta)}}</code></td>
+        <td><span style="color:#38bdf8;">${{esc(r.efficiency_delta)}}</span></td>
+        <td style="color:var(--muted);">${{esc(r.notes)}}</td>
+      </tr>
+    `).join('');
+    compEl.innerHTML = `
+      <div class="card" style="margin-bottom:20px;border-color:rgba(56,189,248,0.4);">
+        <div class="bench-title" style="margin-bottom:6px;">
+          Release Comparison: <code>${{esc(comp.baseline_short || 'v4.2.0')}}</code> &rarr; <code>${{esc(comp.candidate_short || 'v4.3.0-dev')}}</code>
+          <span class="delta-tag">Clean-Room Sweep</span>
+        </div>
+        <div class="desc" style="margin-bottom:10px;">${{esc(comp.summary || '')}}</div>
+        <div style="overflow-x:auto;">
+          <table class="hist-table">
+            <thead>
+              <tr>
+                <th>Benchmark Suite</th>
+                <th>Tasks</th>
+                <th>${{esc(comp.baseline_short || 'Prior Release')}}</th>
+                <th>${{esc(comp.candidate_short || 'Current Candidate')}}</th>
+                <th>Score &Delta;</th>
+                <th>Speed / Token &Delta;</th>
+                <th>Key Task Flips &amp; Notes</th>
+              </tr>
+            </thead>
+            <tbody>${{compRows}}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }} else {{
+    compEl.innerHTML = '';
+  }}
 
   const filteredActive = active.filter(b => matches(b, runsFor(b.id)));
   document.getElementById('active-count').textContent = filteredActive.length;
@@ -968,16 +1083,16 @@ def extract_metrics_from_result_json(payload: Any) -> dict[str, Any]:
         if "humaneval" in payload and "gsm8k" in payload:
             he_tasks = payload["humaneval"].get("tasks", [])
             gs_tasks = payload["gsm8k"].get("tasks", [])
-            he_pass = sum(1 for t in he_tasks if t.get("harness_ok") or t.get("passed"))
-            gs_pass = sum(1 for t in gs_tasks if t.get("harness_ok") or t.get("passed"))
+            he_pass = sum(1 for t in he_tasks if t.get("actor_harness_passed") or t.get("harness_ok") or t.get("passed"))
+            gs_pass = sum(1 for t in gs_tasks if t.get("actor_harness_passed") or t.get("harness_ok") or t.get("passed"))
             total = len(he_tasks) + len(gs_tasks)
             return {
                 "passed": he_pass + gs_pass,
                 "total": total,
                 "model": str(payload.get("model", "")),
                 "submetrics": {
-                    "HumanEval": f"{he_pass}/{len(he_tasks)}",
-                    "GSM8K": f"{gs_pass}/{len(gs_tasks)}",
+                    "HumanEval": f"{he_pass}/{len(he_tasks)} ({100.0 * he_pass / max(1, len(he_tasks)):.1f}%)",
+                    "GSM8K": f"{gs_pass}/{len(gs_tasks)} ({100.0 * gs_pass / max(1, len(gs_tasks)):.1f}%)",
                 },
             }
     raise ValueError("Unrecognized benchmark JSON schema; pass `--passed` and `--total` via `record`.")

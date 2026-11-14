@@ -105,8 +105,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794641637.119447,
-    "ast_hash": "a577d8fc97d387eb4579738d9947e50b",
+    "mtime": 1794653566.5568216,
+    "ast_hash": "12a2533dde31c01080cff9b33de07747",
     "semantic_hash": ""
   },
   "browser_client.html": {
@@ -325,8 +325,8 @@
     "semantic_hash": "0e9c86c32fcc21efeb8d34aef3550f01"
   },
   "src/actorii/harness/__init__.py": {
-    "mtime": 1794634506.050911,
-    "ast_hash": "48c6719a9a91e00291e5b89f2e16bb30",
+    "mtime": 1794642943.9495428,
+    "ast_hash": "a89e6d713dae2c683081c0f7c6f7a579",
     "semantic_hash": ""
   },
   "src/actorii/harness/benchmark.py": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "benchmarks/BENCHMARK_RESULTS.md": {
-    "mtime": 1794641637.1187334,
-    "ast_hash": "6f5b44568c0726b3645ce5e25caf88b1",
+    "mtime": 1794653566.5558784,
+    "ast_hash": "f533e1b3968a13d78d33538174692b3a",
     "semantic_hash": ""
   },
   "benchmarks/archive/ACTOR_VS_HERMES_REPORT.md": {
@@ -715,13 +715,13 @@
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.json": {
-    "mtime": 1794641637.1181226,
-    "ast_hash": "55d63836b6aa0bcb6747c99e4e575785",
+    "mtime": 1794653566.5551362,
+    "ast_hash": "4c84e7baba2ef304bbccdeb7cc2b6ee5",
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.py": {
-    "mtime": 1794341158.3759642,
-    "ast_hash": "d1ed6cae6ab81987331d6734418c970e",
+    "mtime": 1794651851.084424,
+    "ast_hash": "a56e3a85c3b99cf317f6be918d21bdd6",
     "semantic_hash": ""
   },
   "tests/test_benchmark_scoreboard.py": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.html": {
-    "mtime": 1794641637.1190543,
-    "ast_hash": "fb48214b697f28d664aa36efd5c2bc18",
+    "mtime": 1794653566.5563557,
+    "ast_hash": "c22a9a0d5558146caf16977185fbad8d",
     "semantic_hash": ""
   },
   "src/actorii/reverse_proxy.py": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "benchmarks/gate_baseline.json": {
-    "mtime": 1794641437.9551888,
-    "ast_hash": "f42d840706c9cc55f9807fbc7eea0d32",
+    "mtime": 1794653498.7104502,
+    "ast_hash": "d06c4699c3475b92ae25be990a82a624",
     "semantic_hash": ""
   },
   "scripts/hooks/pre-push": {
@@ -877,6 +877,46 @@
   "AGENTS.md": {
     "mtime": 1794627112.6730514,
     "ast_hash": "616f05bed14df8068a21cb73fb0abbaa",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/BENCHMARK_RESULTS_2026-11-14_v430.json": {
+    "mtime": 1794643548.869247,
+    "ast_hash": "ccefefda7472f2d4ad3fbd5aaa5d5053",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/INDUSTRY_8TRACK_2026-11-14_v430.json": {
+    "mtime": 1794647050.6326997,
+    "ast_hash": "ecc05a298842e4d765f2091dd63b14e5",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/LONGMEM_LOCOMO_STRATIFIED_2026-11-14_v430.json": {
+    "mtime": 1794643901.5915935,
+    "ast_hash": "b0e13a6eb06cda88bf97c156973c2f33",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/NEXTGEN_AVG3_2026-11-14_v430.json": {
+    "mtime": 1794650387.2660604,
+    "ast_hash": "9da298a8af5815f2f5d54fc558e67127",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/REDTEAM_CONTAINMENT_2026-11-14_v430.json": {
+    "mtime": 1794651576.3368497,
+    "ast_hash": "8ac8bbbed1321a0da73dd82463829bba",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/SWEEP_MANIFEST_2026-11-14_v430.json": {
+    "mtime": 1794651552.1676903,
+    "ast_hash": "821a63747111962f512b4d4d32ea5297",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/TB21_5TASK_AVG3_2026-11-14_v430.json": {
+    "mtime": 1794645375.5338352,
+    "ast_hash": "22429b29f0bda50f30a35d17d469eabf",
+    "semantic_hash": ""
+  },
+  "benchmarks/archive/TB21_HARD_2026-11-14_v430.json": {
+    "mtime": 1794651552.1594458,
+    "ast_hash": "135e8c236fb3008761544b40fc101d88",
     "semantic_hash": ""
   }
 }
