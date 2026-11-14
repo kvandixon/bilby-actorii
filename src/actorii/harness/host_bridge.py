@@ -61,10 +61,13 @@ RING_1_CLASSES: Set[str] = {
     "ThermoProTwin",
     "ThermometerUI",
     "ReverseEngineeringTwin",
+    "ReverseProxyTwin",
+    "JetsonEdgeTwin",
     "TelegramBotTwin",
     "NetTransportBridge",
     "PDFDocumentTwin",
     "WebScraper",
+    "ProductLearner",
 }
 
 

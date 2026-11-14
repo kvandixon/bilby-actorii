@@ -25,7 +25,8 @@ class WebSocketSurface(Surface):
         self._canvas_id = f"actor_canvas_{id(self)}"
         self._commands = []  # Accumulated render commands
         self._dirty = True  # Whether the frame needs presenting
-        self._pixel_data = [["#FFFFFF"] * width for _ in range(height)]
+        self._bg_color = "#FFFFFF"
+        self._sparse_pixels = {}
 
     @property
     def width(self):
@@ -43,14 +44,47 @@ class WebSocketSurface(Surface):
     def format(self):
         return "argb32"
 
+    def clear_pixels(self, color="#FFFFFF"):
+        self._bg_color = color
+        self._sparse_pixels.clear()
+        self._dirty = True
+
+    def fill_rect(self, x, y, w, h, color):
+        x0 = max(0, int(x))
+        y0 = max(0, int(y))
+        x1 = min(self._width, int(x + w))
+        y1 = min(self._height, int(y + h))
+        if x1 <= x0 or y1 <= y0:
+            return 0
+        count = (x1 - x0) * (y1 - y0)
+        if x0 == 0 and y0 == 0 and x1 == self._width and y1 == self._height:
+            self._bg_color = color
+            self._sparse_pixels.clear()
+            self._dirty = True
+            return count
+        if color == self._bg_color:
+            if self._sparse_pixels:
+                for py in range(y0, y1):
+                    for px in range(x0, x1):
+                        self._sparse_pixels.pop((px, py), None)
+        else:
+            for py in range(y0, y1):
+                for px in range(x0, x1):
+                    self._sparse_pixels[(px, py)] = color
+        self._dirty = True
+        return count
+
     def get_pixel(self, x, y):
         if 0 <= x < self._width and 0 <= y < self._height:
-            return self._pixel_data[y][x]
+            return self._sparse_pixels.get((x, y), self._bg_color)
         return "#000000"
 
     def set_pixel(self, x, y, color):
         if 0 <= x < self._width and 0 <= y < self._height:
-            self._pixel_data[y][x] = color
+            if color == self._bg_color:
+                self._sparse_pixels.pop((x, y), None)
+            else:
+                self._sparse_pixels[(x, y)] = color
             self._commands.append({"type": "pixel", "x": x, "y": y, "color": color})
             self._dirty = True
 
@@ -142,9 +176,7 @@ class WebSocketDriver(DisplayDriver):
         """Handle surface resize via WebSocket."""
         self._surface._width = width
         self._surface._height = height
-        self._surface._pixel_data = [
-            ["#FFFFFF"] * width for _ in range(height)
-        ]
+        self._surface.clear_pixels("#FFFFFF")
         self._surface._commands.append({
             "type": "resize",
             "width": width,
@@ -210,14 +242,11 @@ class WebSocketDriver(DisplayDriver):
 
     def clear(self, color="#FFFFFF"):
         """Clear the WebSocket surface to the given color."""
-        self._surface.set_pixel(0, 0, color)  # Will clear all pixels via accumulated commands
-        # Actually, send a clear command
+        self._surface.clear_pixels(color)
+        self._surface._commands.append({"type": "clear", "color": color})
         if self._ws and self._ws.open:
             msg = json.dumps({"type": "clear", "color": color})
             self._ws.send(msg)
-        self._surface._pixel_data = [
-            ["#FFFFFF"] * self._surface.width for _ in range(self._surface.height)
-        ]
 
     def send_commands(self, commands):
         """Batch send multiple render commands via WebSocket.

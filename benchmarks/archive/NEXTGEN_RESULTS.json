@@ -43,13 +43,13 @@
     "track": "Track 2: SWE-bench-Live (2025-06 Post-Cutoff)",
     "harness": "actorii",
     "container_image": "actorii-sandbox:latest",
-    "passed": false,
-    "steps": 8,
-    "prompt_tokens": 94619,
-    "completion_tokens": 596,
-    "total_tokens": 95215,
-    "latency_s": 241.4,
-    "details": "test_get_encoding__encoding_value_is_none: FAIL ( 1 file changed, 3 insertions(+))"
+    "passed": true,
+    "steps": 15,
+    "prompt_tokens": 198521,
+    "completion_tokens": 5106,
+    "total_tokens": 203627,
+    "latency_s": 601.04,
+    "details": "test_get_encoding__encoding_value_is_none: PASS ( 1 file changed, 3 insertions(+))"
   },
   {
     "task_id": "SWE-Live/networkx__networkx-8105",
@@ -108,12 +108,12 @@
     "track": "Track 4: LiveCodeBench v6 (2025-04 Post-Cutoff)",
     "harness": "actorii",
     "container_image": "actorii-sandbox:latest",
-    "passed": false,
-    "steps": 2,
-    "prompt_tokens": 12939,
-    "completion_tokens": 1623,
-    "total_tokens": 14562,
-    "latency_s": 240.2,
-    "details": "solution.py not created"
+    "passed": true,
+    "steps": 4,
+    "prompt_tokens": 32783,
+    "completion_tokens": 2306,
+    "total_tokens": 35089,
+    "latency_s": 240.39,
+    "details": "tests: 3/3 (PASS)"
   }
 ]

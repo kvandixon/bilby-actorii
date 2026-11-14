@@ -10,8 +10,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install git/file utilities + Tier-1 read-only research dependencies (PDF & Web)
-RUN apt-get update && apt-get install -y --no-install-recommends git file ca-certificates && rm -rf /var/lib/apt/lists/* && \
+# Install git/file/ssh utilities + Tier-1 read-only research dependencies (PDF & Web)
+RUN apt-get update && apt-get install -y --no-install-recommends git file ca-certificates openssh-client && rm -rf /var/lib/apt/lists/* && \
     pip install --no-cache-dir \
         websockets \
         pytest \
@@ -19,11 +19,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends git file ca-cer
         pandas \
         pyarrow \
         pypdf \
+        pyyaml \
+        scipy \
         cryptography \
         trafilatura \
         duckduckgo-search
 
 COPY pyproject.toml README.md websocket_server.py browser_client.html index.html thermometer_surface.html actor_tui.py actor_telegram.py /app/
+COPY benchmarks/scoreboard.json benchmarks/scoreboard.html benchmarks/scoreboard.py /app/benchmarks/
 COPY src /app/src
 COPY examples /app/examples
 COPY docker /app/docker
@@ -35,8 +38,8 @@ RUN groupadd -g 10001 bilby && \
     cp /app/docker/valkyrie-rgb-ctl /usr/local/bin/valkyrie-rgb-ctl && \
     ln -sf /app/actor_tui.py /usr/local/bin/actor-tui && \
     ln -sf /app/actor_tui.py /usr/local/bin/bilby && \
-    mkdir -p /etc/valkyrie-rgb /data /workspace /home/bilby/.actorii && \
-    chown -R bilby:bilby /etc/valkyrie-rgb /data /workspace /home/bilby && \
+    mkdir -p /etc/valkyrie-rgb /data /workspace /home/bilby/.actorii /app/examples/fileout && \
+    chown -R bilby:bilby /etc/valkyrie-rgb /data /workspace /home/bilby /app/examples/fileout && \
     chmod -R a-w /app/src /app/docker && \
     /usr/local/bin/valkyrie-rgb-ctl status
 

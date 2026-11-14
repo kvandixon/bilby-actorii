@@ -272,7 +272,7 @@ class Agent(ActorObject):
         lines = [self.system_prompt]
         lines.append(f"\n[Agent Identity]: name={self.name!r}, class={self.class_name!r}, model={self.model!r}")
 
-        # Include custom subclass fields
+        # Include custom subclass fields (excluding volatile per-step AgentHarness fields so system prompt stays KV-cache invariant)
         standard_keys = {
             "name",
             "model",
@@ -283,6 +283,24 @@ class Agent(ActorObject):
             "tools",
             "lastResponse",
             "autoSynthesize",
+            "sandbox",
+            "goal",
+            "status",
+            "stepCount",
+            "maxSteps",
+            "failures",
+            "maxFailures",
+            "scratchpad",
+            "stepLog",
+            "lastAction",
+            "lastResult",
+            "lastError",
+            "gasLimit",
+            "totalGasUsed",
+            "chatLog",
+            "taskContract",
+            "lastErrorContext",
+            "tokenBudget",
         }
         custom_fields = {
             k: v for k, v in self._fields.items() if k not in standard_keys
@@ -290,12 +308,13 @@ class Agent(ActorObject):
         if custom_fields:
             lines.append(f"[Agent Instance Fields]: {custom_fields}")
 
-        # Include semantic memory entries (deduplicating Symbol/str mirrors)
-        mem_dict: Dict[str, Any] = {}
-        for k, v in self.memory()._entries.items():
-            mem_dict[_norm_key(k)] = v
-        if mem_dict:
-            lines.append(f"[Agent Semantic Memory]: {mem_dict}")
+        # Include semantic memory entries only for non-AgentHarness objects (AgentHarness formats scratchpad at the end of user prompt)
+        if self.class_name != "AgentHarness":
+            mem_dict: Dict[str, Any] = {}
+            for k, v in self.memory()._entries.items():
+                mem_dict[_norm_key(k)] = v
+            if mem_dict:
+                lines.append(f"[Agent Semantic Memory]: {mem_dict}")
 
         # Include registered tool names
         tool_names = sorted({_norm_key(k) for k in self.tools()._entries.keys()})

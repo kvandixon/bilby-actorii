@@ -106,8 +106,8 @@ class TestActorNativeAgentHarness:
 
         vm.eval_chunk('runGoal(Actor[#Harness], "Run broken infinite loop", 6)!!')
         assert vm.eval_chunk("status(Actor[#Harness])!!") == Symbol("blocked")
-        assert vm.eval_chunk("failures(Actor[#Harness])!!") == 3
-        assert vm.eval_chunk("stepCount(Actor[#Harness])!!") == 3
+        assert vm.eval_chunk("failures(Actor[#Harness])!!") == 5
+        assert vm.eval_chunk("stepCount(Actor[#Harness])!!") == 5
         assert "OpcodeBudgetExceededError" in vm.eval_chunk("lastError(Actor[#Harness])!!")
 
         # Resetting circuit breaker restores `#ready` and clears failures
@@ -401,12 +401,24 @@ class TestActorTUIWorkflow:
         )
         assert reply is not None
         assert "Stored 42 in #ans." in reply
-        assert "storeScratch(Actor[#Bilby], #ans, 6 * 7)!!" in reply
+        # Default Option A mode: clean human reply + subtle step badge, NO raw Actor code dump!
+        assert "storeScratch(Actor[#Bilby], #ans, 6 * 7)!!" not in reply
+        assert "⚡ 1 step" in reply
         assert session.get_scratchpad_dict().get("ans") == 42
         assert len(sent_payloads) == 1
         assert sent_payloads[0]["chat_id"] == 100000001
         assert sent_payloads[0]["message_thread_id"] == 42
+        assert sent_payloads[0].get("parse_mode") == "HTML"
         assert gw.offset == 12
+
+        # `/last` surfaces the full Actor 4.1 execution trace on demand
+        trace_reply = gw.handle_text_command_or_goal("/last")
+        assert "storeScratch(Actor[#Bilby], #ans, 6 * 7)!!" in trace_reply
+
+        # `/verbose on` opts in to inline Actor 4.1 code blocks
+        assert "Verbose mode ON" in gw.handle_text_command_or_goal("/verbose on")
+        verbose_reply = gw.handle_text_command_or_goal("Compute 6 * 7 in #ans")
+        assert "storeScratch(Actor[#Bilby], #ans, 6 * 7)!!" in verbose_reply
 
     def test_actor_native_web_scraper_failover_and_caching(self, monkeypatch):
         from actorii.harness.twins import _to_actor_dict
@@ -574,6 +586,55 @@ class TestActorTUIWorkflow:
                 vm.eval_chunk("clearEngrams(Actor[#Memory])!!")
             except Exception:
                 pass
+
+    def test_unlimited_retries_and_mid_loop_stop_breakout(self):
+        session = ActorTUISession(use_color=False)
+        assert session.harness._fields.get("maxSteps") == 0
+        assert session.harness._fields.get("maxFailures") == 0
+        assert "steps=0/∞" in session.status_ribbon_text()
+        assert "strikes=0/∞" in session.status_ribbon_text()
+
+        calls = {"n": 0}
+
+        def resilient_brain(prompt: str, system_prompt: str = "", metadata: dict = None) -> str:
+            calls["n"] += 1
+            assert "(unlimited)" in prompt
+            # Fail 8 consecutive times (> old 3 and 5 strike limits) with real runtime errors, then succeed on attempt 9!
+            if calls["n"] <= 8:
+                return f"({calls['n']} / 0)!!"
+            return "COMPLETE: Recovered after 8 consecutive rollbacks."
+
+        session.harness.custom_provider = resilient_brain
+        session.handle_input("Recover from 8 errors")
+        assert session.harness._fields.get("status") == Symbol("complete")
+        assert session.harness._fields.get("stepCount") == 9
+        assert "Recovered after 8 consecutive rollbacks" in str(session.harness._fields.get("lastResult"))
+
+        # Verify mid-loop breakout (`/stop` setting status := #halted during invokeModel)
+        loop_calls = {"n": 0}
+
+        def infinite_brain(prompt: str, system_prompt: str = "", metadata: dict = None) -> str:
+            loop_calls["n"] += 1
+            if loop_calls["n"] >= 3:
+                session.harness._fields["status"] = Symbol("halted")
+            return "storeScratch(Actor[#Harness], #tick, 1)!!"
+
+        session.harness.custom_provider = infinite_brain
+        session.handle_input("Loop forever until halted")
+        assert session.harness._fields.get("status") == Symbol("halted")
+        assert loop_calls["n"] == 3
+
+    def test_jetson_edge_twin_guardrails_and_pool_exposure(self):
+        session = ActorTUISession(use_color=False)
+        assert "Jetson" in session.get_pool_objects()
+        blocked1 = session.vm.eval_chunk('exec(Actor[#Jetson], "sudo do-release-upgrade")!!')
+        assert blocked1.at("ok") is False
+        assert "JETSON_GUARDRAIL_BLOCKED" in str(blocked1.at("stderr"))
+        blocked2 = session.vm.eval_chunk('exec(Actor[#Jetson], "cp foo /boot/initrd")!!')
+        assert blocked2.at("ok") is False
+        assert "JETSON_GUARDRAIL_BLOCKED" in str(blocked2.at("stderr"))
+
+
 
 
 

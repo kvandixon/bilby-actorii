@@ -1,0 +1,71 @@
+{
+  "model": "qwen3.8:latest",
+  "suite": "Terminal-Bench 2.1 (5-Task Expansion)",
+  "results": [
+    {
+      "task_id": "TB2.1/git-leak-recovery",
+      "track": "Track 1: Terminal-Bench 2.1 (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": true,
+      "steps": 16,
+      "prompt_tokens": 106522,
+      "completion_tokens": 1912,
+      "total_tokens": 108434,
+      "latency_s": 209.41,
+      "details": "pytest test_outputs.py: PASS (5 passed, 1 warning in 0.02s)"
+    },
+    {
+      "task_id": "TB2.1/log-summary-date-ranges",
+      "track": "Track 1: Terminal-Bench 2.1 (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": true,
+      "steps": 4,
+      "prompt_tokens": 30452,
+      "completion_tokens": 930,
+      "total_tokens": 31382,
+      "latency_s": 86.17,
+      "details": "pytest test_outputs.py: PASS (2 passed in 0.00s)"
+    },
+    {
+      "task_id": "TB2.1/cancel-async-tasks",
+      "track": "Track 1: Terminal-Bench 2.1 (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": false,
+      "steps": 5,
+      "prompt_tokens": 25543,
+      "completion_tokens": 503,
+      "total_tokens": 26046,
+      "latency_s": 62.52,
+      "details": "pytest test_outputs.py: FAIL (1 failed, 5 passed in 12.64s)"
+    },
+    {
+      "task_id": "TB2.1/fix-git",
+      "track": "Track 1: Terminal-Bench 2.1 (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": true,
+      "steps": 4,
+      "prompt_tokens": 20102,
+      "completion_tokens": 284,
+      "total_tokens": 20386,
+      "latency_s": 30.59,
+      "details": "pytest test_outputs.py: PASS (2 passed in 0.00s)"
+    },
+    {
+      "task_id": "TB2.1/multi-source-data-merger",
+      "track": "Track 1: Terminal-Bench 2.1 (Stanford/Laude)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": true,
+      "steps": 8,
+      "prompt_tokens": 68893,
+      "completion_tokens": 1487,
+      "total_tokens": 70380,
+      "latency_s": 166.34,
+      "details": "pytest test_outputs.py: PASS (3 passed in 0.37s)"
+    }
+  ]
+}

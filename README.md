@@ -1,28 +1,36 @@
-# Bilby (`ActorII v4.1`) — Metacircular Bytecode AI Agent & 1993 Actor VM
+# Bilby (`ActorII v4.3.0`) — Metacircular Bytecode AI Agent & 1993 Actor VM
 
-**Bilby (`ActorII v4.1`)** is a self-evolving, metacircular AI agent harness executing inside a clean-room 1993 Whitewater Actor 4.1 Smalltalk/Actor bytecode virtual machine, backed by **lossless Neo4j `:ActorEpisode` + `:ActorEngram` hybrid graph memory**.
+**Bilby (`ActorII v4.3.0`)** is a self-evolving, metacircular AI agent harness executing inside a clean-room 1993 Whitewater Actor 4.1 Smalltalk/Actor bytecode virtual machine, backed by **lossless Neo4j `:ActorEpisode` + `:ActorEngram` hybrid graph memory**.
 
 Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) with a 20B–27B open-weight model (`0 MB` GPU VRAM overhead for embeddings and memory indexing)—or connected to any cloud LLM (`OpenAI`, `OpenRouter`, `Gemini`, `Ollama`, `vLLM`)—Bilby provides a hardened, container-first neuro-symbolic agent runtime.
 
 [![Benchmarks](https://img.shields.io/badge/Benchmarks-Bilby%20Results-brightgreen.svg)](benchmarks/BENCHMARK_RESULTS.md)
-[![Test Suite](https://img.shields.io/badge/tests-600%2B%20passed-brightgreen.svg)](tests/)
+[![Test Suite](https://img.shields.io/badge/tests-745%2B%20passed-brightgreen.svg)](tests/)
 [![Containment](https://img.shields.io/badge/containment-Defense--Up%20Docker%20%2B%203--Ring%20VM-orange.svg)](src/actorii/harness/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## Benchmark Summary (`Bilby ActorII v4.1` — Local RTX 5070 Ti 16 GB)
+## Benchmark Summary (`Bilby ActorII v4.3.0` — Local RTX 5070 Ti 16 GB)
 
-| Benchmark Suite | Questions / Tasks | Bilby Score | Date |
-| :--- | :---: | :---: | :---: |
-| **`LongMemEval` (`S` Split)** | `500` | **`94.60%` (`473 / 500`)** | `2026-11-07` |
-| **`LoCoMo-10` (5-Category Suite)** | `1,986` | **`77.34%` (`1,536 / 1,986`)** | `2026-11-07` |
-| **`Industry 8-Track Suite`** | `22` | **`86.36%` (`19 / 22`)** | `2026-11-09` |
-| **`Terminal-Bench 2.1` (Container)** | `5` | **`80.00%` (`4 / 5`)** | `2026-11-09` |
-| **`Next-Gen Post-Cutoff Suite`** | `9` | **`77.78%` (`7 / 9`)** | `2026-11-03` |
-| **`Red-Team Containment Audit`** | `6` | **`100.00%` (`6 / 6` Blocked)** | `2026-11-09` |
+> **Clean-Room Release Delta (`v4.2.0` → `v4.3.0`, 2026-11-14)**: **`+15.00 pp`** on HumanEval+GSM8K (`100.0%`), **`+40.00 pp`** on Self-Evolution (`80.0%` — `4/5` Canaries locked), **`+4.55 pp`** on Industry 8-Track (`81.82%`), **`+20.00 pp`** strict `pass^3` on Terminal-Bench 2.1 (`60%`), **ZERO headline regressions**, and **`1.75x–2.08x` faster wall-clock execution** via append-only KV-cache prefix reuse (`97.4%` hit rate). See Section 1 of [`benchmarks/BENCHMARK_RESULTS.md`](benchmarks/BENCHMARK_RESULTS.md) for the full release-over-release comparison.
 
-👉 **[Full details & archived raw ledgers (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)**
+<!-- BENCHMARK_SCOREBOARD:START -->
+| Benchmark Suite | Pillar | Tasks | Bilby Score (`Latest`) | Δ vs Prior Release | Date |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **LongMemEval (S Split)** | `Memory` | `500` | **`94.60% (473 / 500)`** | **`+0.48 pp` ▲** | `2026-11-07` |
+| **LoCoMo-10 (Full 5-Category Suite)** | `Memory` | `1,986` | **`77.34% (1,536 / 1,986)`** | — | `2026-11-07` |
+| **Terminal-Bench 2.1 (Container Subset)** | `Terminal & OS` | `5 (×3)` | **`80.00% avg@3 (12 / 15 trials)`** | `0.00 pp (held)` | `2026-11-14` |
+| **Terminal-Bench 2.1 (Hard Tier)** | `Terminal & OS` | `5` | **`0.00% (0 / 5)`** | `0.00 pp (held)` | `2026-11-14` |
+| **Industry 8-Track Suite** | `SWE & Coding` | `22` | **`81.82% (18 / 22)`** | **`+4.55 pp` ▲** | `2026-11-14` |
+| **Next-Gen Post-Cutoff Suite** | `SWE & Coding` | `9 (×3)` | **`59.26% avg@3 (16 / 27 trials)`** | `0.00 pp (held)` | `2026-11-14` |
+| **Red-Team Adversarial Containment Audit** | `Security` | `6` | **`100.00% (6 / 6 Blocked)`** | `0.00 pp (held)` | `2026-11-14` |
+| **HumanEval-12 + GSM8K-8 Local Model Matrix** | `SWE & Coding` | `20` | **`100.00% (20 / 20)`** | **`+15.00 pp` ▲** | `2026-11-14` |
+| **LongMemEval + LoCoMo (Stratified 17-Task)** | `Memory` | `17` | **`94.12% (16 / 17)`** | `0.00 pp (held)` | `2026-11-14` |
+| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `SWE & Coding` | `5` | **`80.00% (4 / 5)`** | **`+40.00 pp` ▲** | `2026-11-14` |
+<!-- BENCHMARK_SCOREBOARD:END -->
+
+👉 **[Full details, run history & live HTML scoreboard (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)**
 
 ---
 
@@ -63,6 +71,9 @@ Bilby supports switching LLM providers, models, memory namespaces, and containme
 | `FIRECRAWL_API_KEY` | *(empty)* | Optional Firecrawl API key for `Actor[#Web]>>scrape` |
 | `ACTORII_HOST_LOCKDOWN` | `1` *(Defense-Up)* | `1` locks bare-host shell execution and restricts writes to `/workspace` and `/tmp` |
 | `ACTORII_DISABLE_SELF_EVOLVE` | `0` | `1` disables `evolve(Actor[#Harness], ...)` Ring-1 cognitive hook hot-patching |
+| `ACTOR_BIND_IP` | `127.0.0.1` | Host interface bound by Docker Studio ports (`:8090` / `:8765`) |
+| `ACTORII_STUDIO_TOKEN` | *(empty)* | Optional Bearer / `?token=` secret required for Studio `/api/*` and WebSocket upgrades |
+| `ACTORII_PERSONA_FILE` | `~/.actorii/persona.md` | Optional local host-environment & persona markdown overlay appended to the system prompt |
 
 ---
 

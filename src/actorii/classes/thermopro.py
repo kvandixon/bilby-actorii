@@ -823,27 +823,39 @@ class ThermoProTwin(ActorObject):
     def model(self) -> str:
         return str(self._fields.get("model", "TP358W"))
 
-    def _ensure_initial_sync(self, timeout_sec: float = 5.0, max_age_sec: float = 300.0) -> None:
-        """Auto-sync via BlueZ BLE if no live reading/history has been ingested yet or if the reading is stale (>5 min)."""
+    def _ensure_initial_sync(self, timeout_sec: float = 4.5, max_age_sec: float = 180.0) -> None:
+        """Auto-sync via BlueZ BLE if no live reading has been synced yet or if `lastSyncTime` is stale (>3 min)."""
+        force_sync = os.environ.get("ACTORII_FORCE_AUTO_SYNC") == "1"
+        if not force_sync:
+            if "PYTEST_CURRENT_TEST" in os.environ:
+                return
+            if self.macAddress() == "00:11:22:33:44:55":
+                return
+
         last_sync = self._fields.get("lastSyncTime")
-        is_stale = False
-        if last_sync and len(self.history()) == 0:
+        needs_sync = False
+        if last_sync is None:
+            needs_sync = True
+        else:
             try:
                 dt = datetime.datetime.fromisoformat(str(last_sync))
                 if (datetime.datetime.now() - dt).total_seconds() > max_age_sec:
-                    is_stale = True
+                    needs_sync = True
             except Exception:
-                pass
-        if (
-            last_sync is None
-            and len(self.history()) == 0
-            and float(self._fields.get("temperatureC", 0.0)) == 0.0
-            and int(self._fields.get("humidity", 0)) == 0
-        ) or is_stale:
-            try:
-                self.syncLive(timeout_sec=timeout_sec)
-            except Exception:
-                pass
+                needs_sync = True
+
+        if not needs_sync:
+            return
+
+        now_mono = time.monotonic()
+        last_attempt = float(getattr(self, "_last_sync_attempt_mono", 0.0) or 0.0)
+        if last_attempt > 0.0 and (now_mono - last_attempt) < 30.0:
+            return
+        self._last_sync_attempt_mono = now_mono
+        try:
+            self.syncLive(timeout_sec=timeout_sec)
+        except Exception:
+            pass
 
     def temperatureC(self) -> float:
         self._ensure_initial_sync()
@@ -980,15 +992,24 @@ class ThermoProTwin(ActorObject):
                 notified += 1
         return notified
 
-    def summary(self) -> str:
-        self._ensure_initial_sync()
+    def _passive_summary(self) -> str:
+        """Format current cached fields without triggering a blocking BlueZ hardware scan."""
+        tc = float(self._fields.get("temperatureC", 0.0))
+        tf = float(self._fields.get("temperatureF", 32.0))
+        hum = int(self._fields.get("humidity", 0))
+        sync_ts = self.lastSyncTime()
+        sync_tag = f" Synced={sync_ts}" if sync_ts else ""
         return (
             f"<{self.class_name} {self.deviceName()} [{self.macAddress()}] "
-            f"Temp={self.temperatureC():.1f}C/{self.temperatureF():.1f}F "
-            f"Hum={self.humidity()}% ({self.comfortLevel()}) "
+            f"Temp={tc:.1f}C/{tf:.1f}F "
+            f"Hum={hum}% ({self.comfortLevel()}) "
             f"DewPoint={self.dewPointC():.1f}C Batt={self.battery()}% "
-            f"History={self.historyCount()}pts>"
+            f"History={self.historyCount()}pts{sync_tag}>"
         )
+
+    def summary(self) -> str:
+        self._ensure_initial_sync()
+        return self._passive_summary()
 
     def renderOnSurface(
         self,
@@ -1007,7 +1028,7 @@ class ThermoProTwin(ActorObject):
         return self.summary()
 
     def __repr__(self) -> str:
-        return self.summary()
+        return self._passive_summary()
 
 
 # =============================================================================
@@ -1030,7 +1051,11 @@ def _fill_rect(
     if x1 <= x0 or y1 <= y0:
         return 0
 
-    # Fast path if surface has _pixel_data (WebSocketSurface) or _pixels (HTML5Surface)
+    # Fast path if surface exposes native sparse/buffer fill_rect
+    if hasattr(surface, "fill_rect") and callable(getattr(surface, "fill_rect")):
+        return int(surface.fill_rect(x0, y0, x1 - x0, y1 - y0, color))
+
+    # Fast path if surface has _pixel_data or _pixels 2D grid (HTML5Surface)
     pdata = getattr(surface, "_pixel_data", None) or getattr(surface, "_pixels", None)
     count = (x1 - x0) * (y1 - y0)
     if isinstance(pdata, list) and len(pdata) >= y1:

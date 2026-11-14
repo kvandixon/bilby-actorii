@@ -31,7 +31,7 @@ In `ActorII`:
 - **Tools are not JSON schemas** — they are live objects in a shared global dictionary (`Actor[#Memory]`, `Actor[#Sandbox]`, `Actor[#Valkyrie]`, `Actor[#Hue]`, `Actor[#Pantry]`, plus any new classes the agent compiles).
 - **Actions are not JSON blobs** — every agent turn emits concise **Actor code** (`!!`-terminated chunks) that compiles directly into VM bytecode, mutates or queries live objects in RAM, and returns real typed values.
 - **Memories are not passive text chunks** — when the agent writes a class to solve a domain or graph problem, `Actor[#Memory]` automatically crystallizes the compiled class into Neo4j as a versioned **`:ActorEngram`** node linked to the graph schema (`[:OPERATES_ON]`, `[:DEPENDS_ON]`). On future sessions—even after a cold VM reboot—relevant Engrams hydrate directly into `Actor[...]` in **0 LLM tokens**.
-- **The Harness is Metacircular and Self-Mutable** — `Actor[#Harness]` is an instance of the `AgentHarness` class compiled from [`agent_harness.act`](file:///workspace/ActorII/src/actorii/harness/agent_harness.act) into Actor bytecode. Its cognitive hooks (`policyNote`, `selectEngramContext`, `selectGrammarContext`, `transformAction`, `verifyOutcome`, `step`, `runGoal`) are first-class Actor methods that the agent can inspect and hot-patch in live RAM inside a guarded copy-on-write shadow transaction (`evolve(Actor[#Harness], patchCode, validationCode)!!`).
+- **The Harness is Metacircular and Self-Mutable** — `Actor[#Harness]` is an instance of the `AgentHarness` class compiled from [`agent_harness.act`](src/actorii/harness/agent_harness.act) into Actor bytecode. Its cognitive hooks (`policyNote`, `selectEngramContext`, `selectGrammarContext`, `transformAction`, `verifyOutcome`, `step`, `runGoal`) are first-class Actor methods that the agent can inspect and hot-patch in live RAM inside a guarded copy-on-write shadow transaction (`evolve(Actor[#Harness], patchCode, validationCode)!!`).
 
 ---
 
@@ -98,7 +98,7 @@ To resolve the tension between **open-ended self-modification** and **host/runti
 
 1. **Ring 0 — Protected System Kernel (`PROTECTED_SYSTEM_CLASSES`)**:
    - Includes `Object`, `Collection`, `IndexedCollection`, `Array`, `OrderedCollection`, `List`, `Set`, `Dictionary`, `Interval`, `Point`, `Point3D`, `Rect`, `String`, `Number`, `Int`, `Float`, `Symbol`, `Agent`, `VMSandbox`, `ActorGrammarGraph`, and `ActorMemoryGraph`.
-   - Enforced statically by [`ActorLinter`](file:///workspace/ActorII/src/actorii/guardrails/linter.py) (`[SYS_PROTECTED_CLASS]`): any attempt by LLM-generated Actor code to overwrite a method on a Ring 0 class is rejected before bytecode execution begins.
+   - Enforced statically by [`ActorLinter`](src/actorii/guardrails/linter.py) (`[SYS_PROTECTED_CLASS]`): any attempt by LLM-generated Actor code to overwrite a method on a Ring 0 class is rejected before bytecode execution begins.
 2. **Ring 1 — Metacircular `AgentHarness` & Capability-Gated Python Bridges**:
    - **Python Bridges (`@actor_bridge`)**: Python services exposed into `Actor[...]` (such as `Actor[#Sandbox]`, `Actor[#Memory]`, `Actor[#Grammar]`, `Actor[#Valkyrie]`, `Actor[#Hue]`) use explicit capability decorators:
      - `@actor_query` (**Tier 0 Read-Only**): Safe to call during speculative shadow dry-runs (`shadow_only=True`).
@@ -115,7 +115,7 @@ To resolve the tension between **open-ended self-modification** and **host/runti
 ### 4.1 Why "Metacircular"?
 In programming language theory (Reynolds, 1972; Abelson & Sussman, *SICP*; Gregor Kiczales, *The Art of the Metaobject Protocol*), an interpreter or runtime is **metacircular** when it is written in the same language it executes, and **reflective** when the running program can inspect and modify the structures that govern its own execution.
 
-In `ActorII`, `AgentHarness` ([`src/actorii/harness/agent_harness.act`](file:///workspace/ActorII/src/actorii/harness/agent_harness.act)) is a compiled subclass of `Agent` written in Actor and loaded directly into the VM's class hierarchy:
+In `ActorII`, `AgentHarness` ([`src/actorii/harness/agent_harness.act`](src/actorii/harness/agent_harness.act)) is a compiled subclass of `Agent` written in Actor and loaded directly into the VM's class hierarchy:
 
 ```actor
 inherit(Agent, #AgentHarness, #(
@@ -276,7 +276,7 @@ Because `step(self)` calls `selectEngramContext`, `selectGrammarContext`, `polic
 ### 4.4 Guarded Self-Modification Lifecycle (`evolve` & `rollbackHarness`)
 Unchecked self-modification in a live image carries an obvious hazard: if an agent compiles a broken method onto `AgentHarness`, it could break its own `step` loop ("bricking the image").
 
-`VMSandboxBridge.evolveHarness` ([`src/actorii/harness/__init__.py`](file:///workspace/ActorII/src/actorii/harness/__init__.py#L794-L868)) prevents this via a 4-stage transactional pipeline:
+`VMSandboxBridge.evolveHarness` ([`src/actorii/harness/__init__.py`](src/actorii/harness/__init__.py#L794-L868)) prevents this via a 4-stage transactional pipeline:
 
 ```mermaid
 sequenceDiagram
@@ -311,7 +311,7 @@ If an evolved behavior later proves undesirable across subsequent tasks, calling
 A persistent weakness of code-generating agents is that they start every session with amnesia—re-making the same syntax mistakes and re-writing the same helper classes from scratch. `ActorII` solves both problems using two specialized Neo4j graph bridges exposed directly into the `Actor[...]` pool.
 
 ### 5.1 `Actor[#Grammar]` (`ActorGrammarGraph`) — Self-Learning Compiler Remediation
-Implemented in [`src/actorii/harness/grammar_graph.py`](file:///workspace/ActorII/src/actorii/harness/grammar_graph.py):
+Implemented in [`src/actorii/harness/grammar_graph.py`](src/actorii/harness/grammar_graph.py):
 - **Seeded Knowledge Graph**: Stores `:ActorSyntaxConstruct` nodes (method definitions with pipe `|` local declarations, `if/then/else/endif;`, `loop/while/begin/endLoop;`, integer vs. float division, prefix dispatch, Cypher quoting), `:ActorBuiltinClass` $\to$ `:ActorPrimitive` signatures, and `:ActorErrorPattern` nodes linked via `[:REMEDIATED_BY]`.
 - **Scoped Pre-Generation Retrieval (`queryConstructsForTask`)**: Injects compact, task-relevant Actor grammar rules and primitive signatures (`~400` tokens instead of `16,000` tokens of JSON tool schemas). Graph/Cypher constructs are dynamically scoped so pure algorithmic tasks only receive core language primitives.
 - **Closed-Loop Error Learning (`diagnoseError` $\to$ `recordLearnedFix`)**:
@@ -319,7 +319,7 @@ Implemented in [`src/actorii/harness/grammar_graph.py`](file:///workspace/ActorI
   2. When Step $k+1$ succeeds after an error on Step $k$, `recordLearnedFix` automatically writes a new `(:ActorErrorPattern)-[:HAS_LEARNED_FIX]->(:ActorLearnedFix)` edge in Neo4j recording the exact failed code and repaired code.
 
 ### 5.2 `Actor[#Memory]` (`ActorMemoryGraph`) — Active `:ActorEngram` Memory-Skills
-Implemented in [`src/actorii/harness/memory_graph.py`](file:///workspace/ActorII/src/actorii/harness/memory_graph.py):
+Implemented in [`src/actorii/harness/memory_graph.py`](src/actorii/harness/memory_graph.py):
 - **The Problem with Passive Memory**: Standard agent memory systems (vector RAG, Markdown notes, or raw Cypher queries) store *facts*, not *verified executable procedures*. Even when a fact is retrieved, the LLM still has to spend thousands of tokens synthesizing code to filter, join, and compute over those facts on every session.
 - **What an `:ActorEngram` Is**: An `:ActorEngram` is a compiled, verified Actor class persisted in Neo4j alongside its `.act` source code, callable method signatures, version history (`:ActorEngramVersion`), and explicit graph topology edges:
   - `(:ActorEngram)-[:OPERATES_ON]->(:ActorGraphDomain {label: ...})`: Automatically extracted from Cypher `MATCH (n:Label)` / `MERGE (n:Label)` patterns inside the class's methods.
@@ -327,7 +327,7 @@ Implemented in [`src/actorii/harness/memory_graph.py`](file:///workspace/ActorII
   - `(:ActorEngram)-[:HAS_PREVIOUS_VERSION]->(:ActorEngramVersion)`: Created automatically whenever an existing Engram is hot-patched with updated bytecode.
 - **Zero-Token Post-Step Auto-Crystallization (`auto_crystallize_from_chunk`)**:
   - The agent does **not** need to remember to call `saveEngram` or `persistEngram` during a task (which would cost an extra ReAct step and extra tokens).
-  - Whenever `executeStepAction` commits a step that defines or updates a user class with compiled methods, `auto_crystallize_from_chunk` automatically files out the class via [`ActorFileOutManager`](file:///workspace/ActorII/src/actorii/guardrails/fileout.py) and persists it as an `:ActorEngram` in Neo4j with **0 LLM token overhead**.
+  - Whenever `executeStepAction` commits a step that defines or updates a user class with compiled methods, `auto_crystallize_from_chunk` automatically files out the class via [`ActorFileOutManager`](src/actorii/guardrails/fileout.py) and persists it as an `:ActorEngram` in Neo4j with **0 LLM token overhead**.
 - **Cold-Boot Hydration (`hydrateRelevantEngrams`)**:
   - When a new VM boots cold (empty RAM) and receives a goal, `selectEngramContext` queries Neo4j for matching `:ActorEngram` nodes, topologically loads any `[:DEPENDS_ON]` prerequisites first, compiles the Engram classes directly into `Actor[#ClassName]`, and surfaces their 1-line call signatures in the prompt.
 
@@ -338,7 +338,7 @@ Implemented in [`src/actorii/harness/memory_graph.py`](file:///workspace/ActorII
 All benchmarks below were executed live on `valkyrie` (Fedora Linux 44, NVIDIA RTX 5070 Ti 16 GB VRAM) with zero mock providers or synthetic scores.
 
 ### 6.1 Suite 1: Official OpenAI HumanEval ($N=12$) & GSM8K ($N=8$) Across Local Models
-Full report: [`benchmarks/BENCHMARK_REPORT.md`](file:///workspace/ActorII/benchmarks/BENCHMARK_REPORT.md).
+Full report: [`benchmarks/BENCHMARK_REPORT.md`](benchmarks/BENCHMARK_REPORT.md).
 
 | Local Model (`valkyrie` `:8080`) | Architecture & Footprint | OpenAI HumanEval ($N=12$) Pass@Harness | HumanEval 1-Shot (Step 1) | HumanEval Cold-Boot Engram Recall | OpenAI GSM8K ($N=8$) Pass@Harness |
 | :--- | :--- | :---: | :---: | :---: | :---: |
@@ -348,7 +348,7 @@ Full report: [`benchmarks/BENCHMARK_REPORT.md`](file:///workspace/ActorII/benchm
 | **`qwen2.5-coder-cpu:7b`** | 7.6B Dense (CPU `:11434`, 0 MB VRAM) | **10/12 (83.3%)** | 6/12 (50.0%) | — | **6/8 (75.0%)** |
 
 ### 6.2 Suite 2: Controlled 3-Mode Active Engram Ablation (`gpt-oss:20b`, 12 Tasks Across Cold VM Reboots)
-Full report: [`benchmarks/ENGRAM_AB_REPORT.md`](file:///workspace/ActorII/benchmarks/ENGRAM_AB_REPORT.md).
+Full report: [`benchmarks/ENGRAM_AB_REPORT.md`](benchmarks/ENGRAM_AB_REPORT.md).
 Tests 4 multi-domain graph + computation scenarios across 3 phases (**Phase 1**: Skill Acquisition; **Phase 2**: Cold VM Reboot Recall after wiping RAM; **Phase 3**: Multi-Hop Composition + Live Hot-Patching):
 
 | Metric | Mode A: RAM-Only (`enable_memory_graph=False`) | Mode B: Passive Neo4j Cypher (`enable_engrams=False`) | Mode C: Active Neo4j Engrams (`enable_engrams=True`) | Mode C Advantage (vs. Passive Cypher) |
@@ -360,7 +360,7 @@ Tests 4 multi-domain graph + computation scenarios across 3 phases (**Phase 1**:
 | **Avg Latency / Task** | 37.90s | 21.12s | **5.35s** | **3.95x faster (-74.7%)** |
 
 ### 6.3 Suite 3: 30-Task Head-to-Head Showdown (`ActorII AgentHarness` vs. `Hermes Agent` on `qwen3.8:latest`)
-Full report: [`benchmarks/ACTOR_VS_HERMES_REPORT.md`](file:///workspace/ActorII/benchmarks/ACTOR_VS_HERMES_REPORT.md).
+Full report: [`benchmarks/ACTOR_VS_HERMES_REPORT.md`](benchmarks/ACTOR_VS_HERMES_REPORT.md).
 Both harnesses ran against the exact same local `qwen3.8:latest` (27.3B Dense) server on `:8080` across 30 tasks (15 unseen OpenAI HumanEval tasks, 10 unseen OpenAI GSM8K word problems, and 5 Cold-Reboot Persistent Graph Memory + Computation tasks):
 
 | Benchmark Track | `ActorII AgentHarness` Accuracy | `Hermes Agent` Accuracy | `ActorII` Total Tokens | `Hermes` Total Tokens | `ActorII` Avg Latency | `Hermes` Avg Latency |
@@ -371,7 +371,7 @@ Both harnesses ran against the exact same local `qwen3.8:latest` (27.3B Dense) s
 | **Overall 30-Task Total** | **28/30 (93.3%)** | **14/30 (46.7%)** | **132,445** | **385,513** | **31.60s** | **79.13s** |
 
 ### 6.4 Suite 4: Containerized Multi-Harness Benchmark (`ActorII` vs. `pi` vs. `Hermes` in Vanilla Docker Containers)
-Full report: [`benchmarks/INDUSTRY_SUITE_REPORT.md`](file:///workspace/ActorII/benchmarks/INDUSTRY_SUITE_REPORT.md) | Runner: [`benchmarks/run_industry_harness_suite.py`](file:///workspace/ActorII/benchmarks/run_industry_harness_suite.py).
+Full report: [`benchmarks/INDUSTRY_SUITE_REPORT.md`](benchmarks/INDUSTRY_SUITE_REPORT.md) | Runner: [`benchmarks/run_industry_harness_suite.py`](benchmarks/run_industry_harness_suite.py).
 Each harness ran in a fresh, isolated Docker container (`docker run --init --rm`) against unmodified third-party benchmark instances (`princeton-nlp/SWE-bench_Lite`, `openai/openai_humaneval`, `google-research-datasets/mbpp` sanitized, and `openai/gsm8k`):
 
 | Containerized Harness | Docker Image | Tasks Passed | Pass Rate (%) | SWE-bench Lite (`N=2`) | HumanEval (`N=2`) | Google MBPP (`N=2`) | OpenAI GSM8K (`N=2`) | Avg Latency / Task |
@@ -391,8 +391,8 @@ A critical architectural decision is how `ActorII` relates to the rest of the ho
 - **Adopted Pattern (Autonomous Peer Runtime with Delegation Bridge)**:
   - `ActorII` runs as a **first-class peer runtime** with its own live object pool, Neo4j Engram memory, TUI (`actor-tui`), and HTTP/WebSocket Studio daemon (`:8090` / `:8765`).
   - General-purpose operational agents (Hermes / Bilby, Cloud Skippy, cron pipelines) delegate algorithmic synthesis, stateful Digital Twin orchestration, and Neo4j graph + computation goals to `ActorII` over a lightweight peer bridge:
-    - **CLI Bridge**: [`/home/user/bin/ask-actorii`](file:///home/user/bin/ask-actorii) (`ask-actorii "<goal>"`, `ask-actorii --eval "<code>!!"`, `ask-actorii --engrams`, `ask-actorii --harness`).
-    - **HTTP Bridge**: `GET/POST /api/goal`, `/api/eval`, `/api/engrams`, `/api/harness/source`, and `/api/harness/evolve` in [`websocket_server.py`](file:///workspace/ActorII/websocket_server.py).
+    - **CLI Bridge**: `ask-actorii` (`ask-actorii "<goal>"`, `ask-actorii --eval "<code>!!"`, `ask-actorii --engrams`, `ask-actorii --harness`).
+    - **Hardened HTTP & WebSocket Bridge**: Loopback-default binding (`127.0.0.1`), `POST` + `X-Actor-Request: 1` anti-CSRF enforcement on mutating endpoints (`/api/goal`, `/api/eval`, `/api/chat/clear`, `/api/harness/evolve`), `Origin`/`Sec-Fetch-Site` validation, optional `ACTORII_STUDIO_TOKEN` Bearer auth, and `asyncio.Lock` VM serialization in [`websocket_server.py`](websocket_server.py).
 
 ---
 
@@ -400,39 +400,37 @@ A critical architectural decision is how `ActorII` relates to the rest of the ho
 
 | Subsystem | Source Path | Description |
 | :--- | :--- | :--- |
-| **Metacircular Harness Bytecode** | [`src/actorii/harness/agent_harness.act`](file:///workspace/ActorII/src/actorii/harness/agent_harness.act) | Actor class `#AgentHarness` (`step`, `runGoal`, `buildStepPrompt`, `invokeModel`, `parseModelReply`, `compactContext`, `setTaskContract`, `spawnSubGoal`, `verifyOutcome`, `evolve`, `rollbackHarness`). |
-| **Sandbox, LLM & Evolution Bridge** | [`src/actorii/harness/__init__.py`](file:///workspace/ActorII/src/actorii/harness/__init__.py) | `LLMBridge` (`Actor[#LLM]`: `complete`, `countTokens`), `VMSandboxBridge` (`Actor[#Sandbox]`: `executeStepAction`, `rejectStepOutcome`, `compactChatHistory`, `forkHarness`, `evolveHarness`). |
-| **Host CoW VFS & VM Reflection** | [`src/actorii/harness/host_bridge.py`](file:///workspace/ActorII/src/actorii/harness/host_bridge.py) | `HostWorkspaceBridge` (`Actor[#Host]`: `readFile`, `writeFile`, `editFile`, `execShell` with CoW Shadow VFS) and `VMReflectionBridge` (`Actor[#VM]`: `classes`, `ringOf`, `methodsOf`, `sourceOf`, `ivarsOf`). |
-| **Neo4j Active Engram Engine** | [`src/actorii/harness/memory_graph.py`](file:///workspace/ActorII/src/actorii/harness/memory_graph.py) | `ActorMemoryGraph` (`Actor[#Memory]`), runtime call-stack `[:OPERATES_ON]` tracking, warm-image reconciliation, `initializeClass` hook, `:8084` vector + graph hybrid scoring, `recordEngramUsage`. |
-| **Neo4j Grammar & Error Graph** | [`src/actorii/harness/grammar_graph.py`](file:///workspace/ActorII/src/actorii/harness/grammar_graph.py) | `ActorGrammarGraph` (`Actor[#Grammar]`), `queryConstructsForTask`, `diagnoseError`, `recordLearnedFix`. |
-| **Bytecode VM & CoW Transactions** | [`src/actorii/vm.py`](file:///workspace/ActorII/src/actorii/vm.py) | 54-opcode stack-frame VM, `eval_chunk`, `eval_transactional` (`shadow_only` copy-on-write rollback + frame local capture), gas metering. |
-| **Guardrails, Linter & File-Out** | [`src/actorii/guardrails/`](file:///workspace/ActorII/src/actorii/guardrails/linter.py) | `ActorLinter` (Risk Tiers 0/1/2, `PROTECTED_SYSTEM_CLASSES`, strict ivar checks), `ActorCodeJudge`, `ActorFileOutManager`. |
-| **Whole-Image Persistence** | [`src/actorii/image.py`](file:///workspace/ActorII/src/actorii/image.py) | Reference-preserving `ACTOR.IMG` serializer/deserializer (`save_image`, `load_image`, `snapshot_to_dict`). |
-| **Terminal UI & Dock** | [`src/actorii/tui.py`](file:///workspace/ActorII/src/actorii/tui.py) | `actor-tui` console & split-pane Curses dock (`/goal`, `/harness`, `/evolve`, `/engrams`, `/shadow`, `/lint`). |
-| **Peer Stack CLI Bridge** | [`/home/user/bin/ask-actorii`](file:///home/user/bin/ask-actorii) | Peer delegation CLI for Hermes (Bilby), Cloud Skippy, and local automation. |
+| **Metacircular Harness Bytecode** | [`src/actorii/harness/agent_harness.act`](src/actorii/harness/agent_harness.act) | Actor class `#AgentHarness` (`step`, `runGoal`, `buildStepPrompt`, `invokeModel`, `parseModelReply`, `compactContext`, `setTaskContract`, `spawnSubGoal`, `verifyOutcome`, `evolve`, `rollbackHarness`). |
+| **Sandbox, LLM & Evolution Bridge** | [`src/actorii/harness/__init__.py`](src/actorii/harness/__init__.py) | `LLMBridge` (`Actor[#LLM]`: `complete`, `countTokens`), `VMSandboxBridge` (`Actor[#Sandbox]`: `executeStepAction`, `rejectStepOutcome`, `compactChatHistory`, `forkHarness`, `evolveHarness`), pluggable `load_harness_system_prompt`. |
+| **Host CoW VFS & VM Reflection** | [`src/actorii/harness/host_bridge.py`](src/actorii/harness/host_bridge.py) | `HostWorkspaceBridge` (`Actor[#Host]`: `readFile`, `writeFile`, `editFile`, `execShell` with CoW Shadow VFS) and `VMReflectionBridge` (`Actor[#VM]`: `classes`, `ringOf`, `methodsOf`, `sourceOf`, `ivarsOf`). |
+| **Neo4j Active Engram Engine** | [`src/actorii/harness/memory_graph.py`](src/actorii/harness/memory_graph.py) | `ActorMemoryGraph` (`Actor[#Memory]`), runtime call-stack `[:OPERATES_ON]` tracking, warm-image reconciliation, `initializeClass` hook, `:8084` vector + graph hybrid scoring, `recordEngramUsage`. |
+| **Neo4j Grammar & Error Graph** | [`src/actorii/harness/grammar_graph.py`](src/actorii/harness/grammar_graph.py) | `ActorGrammarGraph` (`Actor[#Grammar]`), `queryConstructsForTask`, `diagnoseError`, `recordLearnedFix`. |
+| **Bytecode VM & Transactions** | [`src/actorii/vm.py`](src/actorii/vm.py) | 54-opcode stack-frame VM, `eval_chunk`, `eval_transactional` (`shadow_only` snapshot rollback + frame local capture), gas metering. |
+| **Guardrails, Linter & File-Out** | [`src/actorii/guardrails/linter.py`](src/actorii/guardrails/linter.py) | `ActorLinter` (Risk Tiers 0/1/2, `PROTECTED_SYSTEM_CLASSES`, strict ivar checks), `ActorCodeJudge`, `ActorFileOutManager`. |
+| **Whole-Image Persistence** | [`src/actorii/image.py`](src/actorii/image.py) | Reference-preserving `ACTOR.IMG` serializer/deserializer (`save_image`, `load_image`, `snapshot_to_dict`). |
+| **Terminal UI & Dock** | [`src/actorii/tui.py`](src/actorii/tui.py) | `actor-tui` / `bilby` console & split-pane Curses dock (`/goal`, `/harness`, `/evolve`, `/engrams`, `/shadow`, `/lint`). |
+| **Hardened Studio Server** | [`websocket_server.py`](websocket_server.py) | HTML5/WebSocket Visual Studio & HTTP peer API with CSRF/Origin/Bearer hardening and sparse surface storage. |
 
 ### Reproducible Verification Suite
 ```bash
-cd /workspace/ActorII
-
-# 1. Run the full 607-test verification suite (grammar, compiler, VM, guardrails, Engrams, metacircular & Pi-class evolution)
+# 1. Run the full verification suite (grammar, compiler, VM, guardrails, Engrams, metacircular & security hardening)
 PYTHONPATH=src pytest tests/ -q
 
 # 2. Run the M15 metacircular self-modification & live LLM evolution tests
 PYTHONPATH=src pytest tests/test_metacircular_self_mutation.py -v
 
-# 3. Run the M16 Pi-class harness evolution suite (Actor[#Host] CoW VFS, Actor[#VM] reflection, #taskContract, compactContext, spawnSubGoal, runtime Engram telemetry)
+# 3. Run the M16 Pi-class harness evolution suite
 PYTHONPATH=src pytest tests/test_pi_class_harness_evolution.py -v
 
-# 4. Inspect the live compiled AgentHarness bytecode via the peer bridge
-/home/user/bin/ask-actorii --local --harness
+# 4. Run the Bilby containment, WebSocket CSRF/Origin/Auth & persona hardening suite
+PYTHONPATH=src pytest tests/test_bilby_security_hardening.py -v
 ```
 
 ---
 
 ## 9. Milestone M16 Resolutions: Pi-Class Self-Mutable Harness Evolution
 
-Following external architectural review ([`ActorII Architectural Review & Pi-Class Harness Evolution Spec`](file:///home/user/Downloads/ActorII%20Architectural%20Review%20&%20Pi-Class%20Harness%20Evolution%20Spec%20(1).pdf)), the four open design questions were resolved and implemented directly in the runtime:
+Following external architectural review (*ActorII Architectural Review & Pi-Class Harness Evolution Spec*), the four open design questions were resolved and implemented directly in the runtime:
 
 1. **Direct Model Invocation & Bytecode Token-Budget Compaction (`Actor[#LLM]`, `compactContext`)**:
    - `AgentHarness` constructs its full prompt in Actor bytecode (`buildStepPrompt(self, engramCtx, grammarCtx, policyTxt)`), checks `countTokens(Actor[#LLM], promptText) > self.tokenBudget`, and automatically triggers `compactContext(self, 2)` in bytecode before calling `complete(Actor[#LLM], promptText, self)`.

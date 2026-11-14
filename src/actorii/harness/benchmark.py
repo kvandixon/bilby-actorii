@@ -125,6 +125,57 @@ class ActorBenchSuite:
         return "\n".join(lines)
 
     @actor_query
+    def scoreboard(self) -> str:
+        """Return ActorII / Bilby's official verified benchmark results from `benchmarks/BENCHMARK_RESULTS.md` and `scoreboard.json`."""
+        import json
+        from pathlib import Path
+
+        bench_dir = Path(__file__).resolve().parents[3] / "benchmarks"
+        out_lines: List[str] = []
+        md_path = bench_dir / "BENCHMARK_RESULTS.md"
+        sb_path = bench_dir / "scoreboard.json"
+
+        if md_path.is_file():
+            try:
+                md_text = md_path.read_text(encoding="utf-8", errors="replace").strip()
+                out_lines.append(md_text[:3500])
+            except Exception:
+                pass
+
+        if sb_path.is_file():
+            try:
+                sb_data = json.loads(sb_path.read_text(encoding="utf-8", errors="replace"))
+                runs = sb_data.get("runs") if isinstance(sb_data, dict) else sb_data
+                if isinstance(runs, list) and runs:
+                    out_lines.append("\nRecent Recorded Scoreboard Runs (`scoreboard.json`):")
+                    for r in runs[-8:]:
+                        if isinstance(r, dict):
+                            suite = r.get("suite") or r.get("benchmark") or "suite"
+                            model = r.get("model") or ""
+                            score = r.get("score_pct") or r.get("pass_rate") or r.get("accuracy") or r.get("summary") or ""
+                            ts = r.get("timestamp") or r.get("date") or ""
+                            out_lines.append(f"  - {suite} ({model}) [{ts}]: {score}")
+            except Exception:
+                pass
+
+        if self.results:
+            out_lines.append("\n" + self.scoreReport())
+
+        if not out_lines:
+            return self.listTasks()
+        return "\n".join(out_lines)
+
+    @actor_query
+    def officialResults(self) -> str:
+        """Alias for `scoreboard(Actor[#Bench])`."""
+        return self.scoreboard()
+
+    @actor_query
+    def summary(self) -> str:
+        """Return a concise summary of both official ActorII benchmarks and the 5 in-image kata tasks."""
+        return self.scoreboard()
+
+    @actor_query
     def scoreReport(self) -> str:
         """Return a summary table of all benchmark task results recorded so far."""
         if not self.results:
@@ -297,3 +348,28 @@ class ActorBenchSuite:
         harness._fields["status"] = Symbol("complete")
         harness._fields["lastResult"] = report
         return report
+
+    @actor_query
+    def selfEvoSuites(self) -> str:
+        """Return the catalogue of built-in deterministic self-evolution benchmark specs."""
+        from actorii.harness.self_evolution_bench import list_self_evolution_suites
+
+        return list_self_evolution_suites()
+
+    @actor_command
+    def runSelfEvo(self, spec_id: Any, mode: Any = "scripted") -> str:
+        """Run a self-evolution benchmark spec (`specId`) in `scripted` or `live` mode inside an isolated sandbox VM."""
+        from actorii.harness.self_evolution_bench import run_self_evolution_spec, summarize_result
+
+        sid = _norm_id(spec_id)
+        run_mode = _norm_id(mode) or "scripted"
+        result = run_self_evolution_spec(sid, mode=run_mode)
+        return summarize_result(result)
+
+    @actor_query
+    def selfEvoScoreboard(self) -> str:
+        """Run the scripted self-evolution benchmark suite in an isolated sandbox and return a Markdown scoreboard."""
+        from actorii.harness.self_evolution_bench import render_markdown, run_self_evolution_suite
+
+        report = run_self_evolution_suite(specs="all", mode="scripted")
+        return render_markdown(report)

@@ -853,7 +853,9 @@
         function connectWs() {
             const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const host = window.location.hostname || 'localhost';
-            const url = `${proto}//${host}:8765/`;
+            const studioToken = new URLSearchParams(window.location.search).get('token') || '';
+            const tokenSuffix = studioToken ? `?token=${encodeURIComponent(studioToken)}` : '';
+            const url = `${proto}//${host}:8765/${tokenSuffix}`;
             try {
                 ws = new WebSocket(url);
                 ws.onopen = () => {

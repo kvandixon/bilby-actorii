@@ -1,0 +1,19 @@
+[Unit]
+Description=Bilby-Managed WLAN & Tailscale HTTP/WebSocket Reverse Proxy (:8090/:8765 -> 127.0.0.1:18090/:18765)
+After=network-online.target actor-surface.service
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/home/skippy/projects/ActorII
+Environment="PYTHONPATH=/home/skippy/projects/ActorII/src"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/usr/bin/python3 -m actorii.reverse_proxy
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
