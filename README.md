@@ -1,6 +1,6 @@
-# Bilby (`ActorII v4.3.0-dev`) — Metacircular Bytecode AI Agent & 1993 Actor VM
+# Bilby (`ActorII v4.3.0`) — Metacircular Bytecode AI Agent & 1993 Actor VM
 
-**Bilby (`ActorII v4.3.0-dev`)** is a self-evolving, metacircular AI agent harness executing inside a clean-room 1993 Whitewater Actor 4.1 Smalltalk/Actor bytecode virtual machine, backed by **lossless Neo4j `:ActorEpisode` + `:ActorEngram` hybrid graph memory**.
+**Bilby (`ActorII v4.3.0`)** is a self-evolving, metacircular AI agent harness executing inside a clean-room 1993 Whitewater Actor 4.1 Smalltalk/Actor bytecode virtual machine, backed by **lossless Neo4j `:ActorEpisode` + `:ActorEngram` hybrid graph memory**.
 
 Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) with a 20B–27B open-weight model (`0 MB` GPU VRAM overhead for embeddings and memory indexing)—or connected to any cloud LLM (`OpenAI`, `OpenRouter`, `Gemini`, `Ollama`, `vLLM`)—Bilby provides a hardened, container-first neuro-symbolic agent runtime.
 
@@ -11,9 +11,9 @@ Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) wit
 
 ---
 
-## Benchmark Summary (`Bilby ActorII v4.3.0-dev` — Local RTX 5070 Ti 16 GB)
+## Benchmark Summary (`Bilby ActorII v4.3.0` — Local RTX 5070 Ti 16 GB)
 
-> **Clean-Room Release Delta (`v4.2.0` → `v4.3.0-dev`, 2026-11-14)**: **`+15.00 pp`** on HumanEval+GSM8K (`100.0%`), **`+40.00 pp`** on Self-Evolution (`80.0%` — `4/5` Canaries locked), **`+4.55 pp`** on Industry 8-Track (`81.82%`), **`+20.00 pp`** strict `pass^3` on Terminal-Bench 2.1 (`60%`), **ZERO headline regressions**, and **`1.75x–2.08x` faster wall-clock execution** via append-only KV-cache prefix reuse (`97.4%` hit rate). See Section 1 of [`benchmarks/BENCHMARK_RESULTS.md`](benchmarks/BENCHMARK_RESULTS.md) for the full release-over-release comparison.
+> **Clean-Room Release Delta (`v4.2.0` → `v4.3.0`, 2026-11-14)**: **`+15.00 pp`** on HumanEval+GSM8K (`100.0%`), **`+40.00 pp`** on Self-Evolution (`80.0%` — `4/5` Canaries locked), **`+4.55 pp`** on Industry 8-Track (`81.82%`), **`+20.00 pp`** strict `pass^3` on Terminal-Bench 2.1 (`60%`), **ZERO headline regressions**, and **`1.75x–2.08x` faster wall-clock execution** via append-only KV-cache prefix reuse (`97.4%` hit rate). See Section 1 of [`benchmarks/BENCHMARK_RESULTS.md`](benchmarks/BENCHMARK_RESULTS.md) for the full release-over-release comparison.
 
 <!-- BENCHMARK_SCOREBOARD:START -->
 | Benchmark Suite | Pillar | Tasks | Bilby Score (`Latest`) | Δ vs Prior Release | Date |

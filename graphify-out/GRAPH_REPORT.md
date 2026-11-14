@@ -1,16 +1,16 @@
 # Graph Report - ActorII  (2026-11-14)
 
 ## Corpus Check
-- 179 files · ~524,411 words
+- 179 files · ~524,414 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 7918 nodes · 13753 edges · 632 communities (395 shown, 237 thin omitted)
+- 7918 nodes · 13753 edges · 632 communities (394 shown, 238 thin omitted)
 - Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 1445 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b5772f17`
+- Built from commit: `38ae944d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -585,7 +585,7 @@
 - ._eval_source
 - .size
 - MonkeyPatch
-- NowNode
+- .values
 - AtomicCounter
 - ReverseEngineeringTwin
 - .test_math_primitives
@@ -612,7 +612,7 @@
 - .overBy
 - ArrayLiteralNode
 - BooleanLiteral
-- IndexGetNode
+- BlockNode
 - RealLiteral
 - ._exec_state
 - .save_image
@@ -657,19 +657,19 @@
 ## Import Cycles
 - 4-file cycle: `src/actorii/bridge/__init__.py -> src/actorii/vm.py -> src/actorii/classes/__init__.py -> src/actorii/classes/concurrency.py -> src/actorii/bridge/__init__.py`
 
-## Communities (632 total, 237 thin omitted)
+## Communities (632 total, 238 thin omitted)
 
 ### Community 0 - "ActorVM"
 Cohesion: 0.02
 Nodes (39): Verify max_stack_depth triggers StackOverflowError and prevents infinite hang., test_vm_recursion_limit(), test_hierarchy_and_globals(), test_vm_execution_of_classes(), Operand, ActorVM, Return from block closure to immediate caller., Collection indexing read: pop index and collection, push item. (+31 more)
 
 ### Community 1 - "ASTNode"
-Cohesion: 0.06
-Nodes (17): ASTNode, BlockNode, CallNode, ClassDef, IfNode, LoopNode, MethodDef, Any (+9 more)
+Cohesion: 0.05
+Nodes (23): ASTNode, CallNode, ClassDef, EarlyBoundNode, IfNode, IndexGetNode, LoopNode, MethodDef (+15 more)
 
 ### Community 2 - "Dictionary"
 Cohesion: 0.06
-Nodes (19): Stress-test Dictionary symbol normalization, missing keys, and iteration., Dictionary, Number of active associations (tally). Source: KEYEDCOL.CLS:78, True if dictionary has 0 elements., Evaluate aBlock over the VALUES of the dictionary. Authentic 1993 Whitewater…, Evaluate aBlock over the KEYS of the dictionary. Source: DICTIONA.CLS:145 Def…, Evaluate aBlock over each key-value pair [key, value]. Source: DICTIONA.CLS:177…, Authentic 1993 Whitewater Actor Dictionary (KeyedCollection). Associative key-… (+11 more)
+Nodes (17): Stress-test Dictionary symbol normalization, missing keys, and iteration., Dictionary, Number of active associations (tally). Source: KEYEDCOL.CLS:78, True if dictionary has 0 elements., Evaluate aBlock over each key-value pair [key, value]. Source: DICTIONA.CLS:177…, Authentic 1993 Whitewater Actor Dictionary (KeyedCollection). Associative key-…, BenchTaskSpec, Colliding keys like 'key', '#key', Symbol('key'), Symbol('#key') must map to… (+9 more)
 
 ### Community 3 - "TestTier2BoundaryCases"
 Cohesion: 0.01
@@ -892,8 +892,8 @@ Cohesion: 0.04
 Nodes (32): Verify that WaylandDriver.resize cleanly calls surface.resize without crash., Stress tests buffer management and resize operations on WaylandSurface & Driver., Document that WaylandDriver.resize currently raises AttributeError because…, Empirically test the reference implementation of WaylandSurface.resize., TestWaylandSurfaceResizeAdversarial, main(), Render a button widget on the Wayland surface. Draws a blue border with light…, Render a checkbox widget on the Wayland surface. Draws a 30x30 square frame; a… (+24 more)
 
 ### Community 58 - "_ImageSerializer"
-Cohesion: 0.16
-Nodes (11): capacity(ch)!! — max buffered messages (0 = unbounded)., setter, Checkbox state tracking (used by widget rendering)., _ImageSerializer, Serialize a CompiledMethod object to a JSON-compatible dictionary., Serializes live ActorVM classes, globals, and object graph with identity…, Encode any runtime value into a JSON-compatible representation or object ref., Serialize the entire live ActorVM state into a portable snapshot dictionary. (+3 more)
+Cohesion: 0.15
+Nodes (15): capacity(ch)!! — max buffered messages (0 = unbounded)., setter, Checkbox state tracking (used by widget rendering)., _build_opcode_map(), _get_opcode(), _ImageSerializer, Any, Serialize a CompiledMethod object to a JSON-compatible dictionary. (+7 more)
 
 ### Community 59 - "ActorIndexedCollection"
 Cohesion: 0.08
@@ -1089,7 +1089,7 @@ Nodes (14): 1.1 Git Working Tree & Repository Cleanliness, 1.2 Git Commit Histor
 
 ### Community 108 - "3. Sub-Track & Per-Task Breakdowns (Latest Verified Runs)"
 Cohesion: 0.06
-Nodes (34): 1. Release-Over-Release Comparison: `v4.2.0 Tagged Baseline (2026-11-10)` vs. `v4.3.0-dev Clean-Room Sweep (2026-11-14)`, 2. Headline Active Scoreboard (Grouped by Capability Pillar), 3. Sub-Track & Per-Task Breakdowns (Latest Verified Runs), 4. Historical Run & Model Progression Ledger, 5. Queued / Discovered Benchmarks Watchlist, 6. Updating Scores & Adding New Benchmarks, Bilby (ActorII) — Benchmark Scoreboard & Watchlist, Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.3.0-dev` · `qwen3.8-27b` · `2026-11-14`) (+26 more)
+Nodes (34): 1. Release-Over-Release Comparison: `v4.2.0 Tagged Baseline (2026-11-10)` vs. `v4.3.0 Clean-Room Sweep (2026-11-14)`, 2. Headline Active Scoreboard (Grouped by Capability Pillar), 3. Sub-Track & Per-Task Breakdowns (Latest Verified Runs), 4. Historical Run & Model Progression Ledger, 5. Queued / Discovered Benchmarks Watchlist, 6. Updating Scores & Adding New Benchmarks, Bilby (ActorII) — Benchmark Scoreboard & Watchlist, Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.3.0` · `qwen3.8-27b` · `2026-11-14`) (+26 more)
 
 ### Community 109 - "1. Observation"
 Cohesion: 0.14
@@ -1884,8 +1884,8 @@ Cohesion: 0.50
 Nodes (3): Checklist, Current Status, Progress: Worker M4 Remediation
 
 ### Community 311 - "_ImageDeserializer"
-Cohesion: 0.22
-Nodes (13): _build_opcode_map(), deserialize_compiled_method(), _get_opcode(), _ImageDeserializer, load_image(), Any, Path, Restore the state of `vm` from a previously captured snapshot dictionary. (+5 more)
+Cohesion: 0.23
+Nodes (9): deserialize_compiled_method(), _ImageDeserializer, load_image(), Path, Restore the state of `vm` from a previously captured snapshot dictionary., Load an `.img` snapshot file from disk into `vm`. Returns summary statistics…, Reconstruct a CompiledMethod instance from a dictionary., Restores a serialized ActorII image snapshot onto a live ActorVM. (+1 more)
 
 ### Community 312 - "SmartLightTwin"
 Cohesion: 0.21
@@ -2024,8 +2024,8 @@ Cohesion: 0.11
 Nodes (10): Indexing opcodes GET_INDEX and SET_INDEX., Relational comparisons and stack duplication opcodes., Control flow jump additions., Closure, return, early-binding, and primitive opcodes., Opcode values contain their mnemonic in str() for test assertions., Verifies that all M2 opcodes and aliases are defined correctly., All 25 baseline opcodes retain their exact numeric values., Variable store and load opcodes have expected non-colliding values. (+2 more)
 
 ### Community 569 - "ActorDictionary"
-Cohesion: 0.12
-Nodes (6): dict, ActorDictionary, Return list of values., Authentic 1993 Actor global dictionary. Contains all top-level symbols,…, Return deduplicated list of Symbol keys for all globals, storage, and classes., ActorDictionary normalizes symbols with or without #.
+Cohesion: 0.14
+Nodes (6): dict, ActorDictionary, Evaluate aBlock over the KEYS of the dictionary. Source: DICTIONA.CLS:145 Def…, Authentic 1993 Actor global dictionary. Contains all top-level symbols,…, Return deduplicated list of Symbol keys for all globals, storage, and classes., ActorDictionary normalizes symbols with or without #.
 
 ### Community 571 - "TestCollectionPackagingAndImports"
 Cohesion: 0.20
@@ -2078,10 +2078,6 @@ Nodes (5): Reverse interval: start and stop swapped, step negated., Authentic 19
 ### Community 585 - "MonkeyPatch"
 Cohesion: 0.15
 Nodes (16): load_harness_system_prompt(), Build the active harness system prompt, appending an optional local host…, MonkeyPatch, Path, Verify the destructive command patterns (2026-10-18 Bilby remediation…, Verify `evolveHarness` works on Ring 1 cognitive hooks during…, Verify `BilbyTelegramGateway` enforces fail-closed auth, `/controls`, and…, Verify `websocket_server.py` blocks GET eval/CSRF, cross-origin WS/HTTP,… (+8 more)
-
-### Community 586 - "NowNode"
-Cohesion: 0.14
-Nodes (6): EarlyBoundNode, NowNode, Represents active compilation scoping directive: now(ClassName)!!, Represents a unary operation (-x, not x)., Represents compile-time early-bound qualification: target:ClassName., UnaryOp
 
 ### Community 587 - "AtomicCounter"
 Cohesion: 0.13
@@ -2170,14 +2166,14 @@ Nodes (3): skipif, Verify `~/bin/ask-actorii` executes 1993 Actor bytecode and d
 ## Knowledge Gaps
 - **2114 isolated node(s):** `entrypoint.sh script`, `actorii`, `install_hooks.sh script`, `start_server.sh script`, `1. Mandatory Release & Benchmark Gate (`scripts/release_gate.py`)` (+2109 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **237 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **238 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `ActorVM` connect `ActorVM` to `Dictionary`, `TestTier2BoundaryCases`, `TestTier1FeatureCoverage`, `Point`, `Opcode`, `Any`, `WebSocketDriver`, `ActorWorkspace`, `SmartRelayDriver`, `ActorArray`, `WebSocketSurface`, `ActorCollection`, `bootstrap_agent_harness`, `ActorOrderedCollection`, `vm.py`, `ActorInheritanceHierarchy`, `._handle_call_method`, `TestIntervalAdversarialStress`, `actor_command`, `run_standard_benchmarks.py`, `run_longmem_locomo_suite.py`, `ActorTUISession`, `parse_actor`, `ActorChannel`, `VMSandboxBridge`, `TestArrayAndIndexedStress`, `.test_jit_method_synthesis_on_invoice_and_geometry`, `ActorWorkspace`, `TestOpcodeSetExtensions`, `WaylandSurface`, `.test_synthesized_methods_and_agents_persist_across_image_save_and_load`, `ActorIndexedCollection`, `run_engram_ab_bench.py`, `TestSelfCorrectingJitAndFileOut`, `TestCollectionPackagingAndImports`, `TestEmpiricalNestedClosures`, `test_parser_vm.py`, `thermopro.py`, `TestThreadsTwinActorCode`, `ActorBridgeObject`, `self_evolution_bench.py`, `Any`, `Window`, `run_actor_vs_hermes_bench.py`, `MonkeyPatch`, `AtomicCounter`, `.test_math_primitives`, `Agent`, `TestActorDigitalTwinAndCollaborators`, `definitional_chunks`, `TestEmpiricalNonLocalReturns`, `SelfEvolutionRunner`, `BlueZThermoProTransport`, `TestInterval`, `ThermometerUI`, `actor_query`, `EarlyBoundDescriptor`, `TestOrderedCollectionAndListStress`, `verify_r1_benchmarks.py`, `.__init__`, `TestVMClassLibraryAdversarialIntegration`, `compile_to_bytecode`, `._exec_state`, `.save_image`, `test_vm_non_local_return_unwinding`, `test_field_access_and_python_class_receiver`, `.active_fiber_count`, `.test_sieve_act_runs_from_restored_image_without_recompilation`, `.test_actor_set_registered_in_actor_dictionary`, `TestTracker`, `.test_unrecognized_binary_operator_raises_not_implemented`, `.test_supported_binary_operators_still_work`, `.test_receiver_guard_on_python_class`, `.test_nested_blocks_shared_cell`, `.test_interval_over_and_overby`, `.test_sieve_act_authentic_execution`, `.test_inherited_method_fallback`, `_split_code_and_complete`, `TestVMClassLibraryIntegration`, `ActorFuture`, `.test_agent_memory_tools_inspection_and_delegation_in_actor_syntax`, `TaskPool`, `ThermoProTwin`, `ActorSet`, `TestEmpiricalDeepRecursion`, `TestWorkspaceServerAdversarial`, `test_self_evolution_benchmark.py`, `ActorMutex`, `ActorDictionary`, `.test_basic_block_invocation`?**
   _High betweenness centrality (0.127) - this node is a cross-community bridge._
-- **Why does `Opcode` connect `Opcode` to `ASTNode`, `TestTier2BoundaryCases`, `TestTier1FeatureCoverage`, `WebSocketDriver`, `ActorWorkspace`, `Actor1993Parser`, `WebSocketSurface`, `vm.py`, `BytecodeCompiler`, `ActorInheritanceHierarchy`, `._handle_call_method`, `Identifier`, `parse_actor`, `VMSandboxBridge`, `ActorWorkspace`, `_ImageDeserializer`, `TestOpcodeSetExtensions`, `_ImageSerializer`, `test_parser_vm.py`, `MethodRef`, `NowNode`, `EarlyBoundDescriptor`, `parser/__init__.py`, `ArrayLiteralNode`, `BooleanLiteral`, `IndexGetNode`, `compile_to_bytecode`, `RealLiteral`, `TestTracker`?**
+- **Why does `Opcode` connect `Opcode` to `ASTNode`, `TestTier2BoundaryCases`, `TestTier1FeatureCoverage`, `WebSocketDriver`, `ActorWorkspace`, `Actor1993Parser`, `WebSocketSurface`, `vm.py`, `BytecodeCompiler`, `ActorInheritanceHierarchy`, `._handle_call_method`, `Identifier`, `parse_actor`, `VMSandboxBridge`, `ActorWorkspace`, `_ImageDeserializer`, `TestOpcodeSetExtensions`, `_ImageSerializer`, `test_parser_vm.py`, `MethodRef`, `EarlyBoundDescriptor`, `parser/__init__.py`, `ArrayLiteralNode`, `BooleanLiteral`, `BlockNode`, `compile_to_bytecode`, `RealLiteral`, `TestTracker`?**
   _High betweenness centrality (0.039) - this node is a cross-community bridge._
 - **Why does `TestTier2BoundaryCases` connect `TestTier2BoundaryCases` to `ActorVM`, `ActorInheritanceHierarchy`, `TestTier1FeatureCoverage`, `WebSocketSurface`, `Point`, `Opcode`, `compile_to_bytecode`, `ActorWorkspace`, `WaylandSurface`?**
   _High betweenness centrality (0.031) - this node is a cross-community bridge._

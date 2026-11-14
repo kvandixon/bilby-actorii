@@ -12,9 +12,9 @@
 
 ---
 
-## 1. Release-Over-Release Comparison: `v4.2.0 Tagged Baseline (2026-11-10)` vs. `v4.3.0-dev Clean-Room Sweep (2026-11-14)`
+## 1. Release-Over-Release Comparison: `v4.2.0 Tagged Baseline (2026-11-10)` vs. `v4.3.0 Clean-Room Sweep (2026-11-14)`
 
-23 commits on `dev` evaluated hands-off against a clean-room Bilby instance (fresh `actorii-sandbox:latest` container, isolated Neo4j namespace, zero persona hints) on the identical RTX 5070 Ti 16 GB GPU (`qwen3.8:latest`). Result: +4.55 pp to +40.00 pp accuracy gains across 3 major coding/evolution suites, ZERO regressions on any headline score, and a 1.75x–2.08x wall-clock speedup from append-only KV-cache prefix reuse + 23.7x parser caching.
+24 commits banked into `v4.3.0` evaluated hands-off against a clean-room Bilby instance (fresh `actorii-sandbox:latest` container, isolated Neo4j namespace, zero persona hints) on the identical RTX 5070 Ti 16 GB GPU (`qwen3.8:latest`). Result: +4.55 pp to +40.00 pp accuracy gains across 3 major coding/evolution suites, ZERO regressions on any headline score, and a 1.75x–2.08x wall-clock speedup from append-only KV-cache prefix reuse + 23.7x parser caching.
 
 ### Key Architectural & Safety Changes Under Test
 - **Append-Only Epoch KV-Cache Prefix Reuse (`src/actorii/harness/__init__.py`)**: Locked the system + turn prefix across steps (`97.4%` KV-cache hit rate on `:8080`), cutting container benchmark wall-clock time roughly **in half** (`2.0x` faster on Industry 8-Track & `2.08x` faster on Next-Gen Post-Cutoff) and reducing prompt token burn by **13%–27%**.
@@ -25,7 +25,7 @@
 
 ### Head-to-Head Clean-Room Benchmark Delta Table
 
-| Benchmark Suite | Tasks | `v4.2.0 (Nov 10)` | `v4.3.0-dev (Nov 14)` | Score / Reliability Δ | Speed & Token Efficiency Δ | Key Task Flips & Notes |
+| Benchmark Suite | Tasks | `v4.2.0 (Nov 10)` | `v4.3.0 (Nov 14)` | Score / Reliability Δ | Speed & Token Efficiency Δ | Key Task Flips & Notes |
 | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
 | **HumanEval-12 + GSM8K-8 Matrix** | `20` | 85.00% (17/20) | **100.00% (20/20)** | +15.00 pp ▲ | 12/12 Cold-Boot Engram | Clean sweep! Recovered HumanEval/55, GSM8K/2, and GSM8K/7 via multi-step bytecode self-correction. |
 | **Bilby Self-Evolution Loop (Tiers 1–3)** | `5` | 40.00% (2/5) | **80.00% (4/5)** | +40.00 pp ▲ | 4 Canaries Locked | Cracked BOTH #circuit_breaker_policy (10/10 holdout) & #ring_buffer_telemetry (15/15 holdout); only #dag_task_scheduler remains on frontier. |
@@ -90,32 +90,32 @@
 - **Highlights**: Full 1,986-question 5-category conversational memory benchmark including cat5 adversarial abstention.
 - **Breakdown**: `cat1-cat4 (non-adversarial)`: **1,168/1,540 (75.84%)** · `cat5 (adversarial abstention)`: **368/446 (82.51%)**
 
-### Terminal-Bench 2.1 (Container Subset) (`v4.3.0-dev` · `qwen3.8-27b` · `2026-11-14`)
+### Terminal-Bench 2.1 (Container Subset) (`v4.3.0` · `qwen3.8-27b` · `2026-11-14`)
 - **Scope**: Stanford / Laude Institute containerized Linux systems, data-pipeline merging, regex log forensics, and CLI repair tasks executed inside actorii-sandbox (evaluated at avg@3 / pass^3).
 - **Highlights**: avg@3=80.0% (12/15), pass@3=5/5 (100% capability ceiling), and strict all-3 reliability pass^3 jumped +20 pp from 2/5 (40%) -> 3/5 (60%: git-leak-recovery 3/3, log-summary 3/3, fix-git 3/3) while wall-clock runtime dropped 42.7% (1,306s vs 2,279s).
 - **Breakdown**: `pass^3`: **3/5 (60%, +20pp)** · `pass@3`: **5/5 (100%)** · `git-leak-recovery`: **3/3** · `log-summary-date-ranges`: **3/3** · `fix-git`: **3/3** · `multi-source-data-merger`: **2/3** · `cancel-async-tasks`: **1/3**
 
-### Terminal-Bench 2.1 (Hard Tier) (`v4.3.0-dev` · `qwen3.8-27b` · `2026-11-14`)
+### Terminal-Bench 2.1 (Hard Tier) (`v4.3.0` · `qwen3.8-27b` · `2026-11-14`)
 - **Scope**: Expert-rated (45m–480m human est.) systems & security tasks: C vulnerability patching, SQLite WAL binary recovery, constraint scheduling, ML batching optimization, and FEAL cryptanalysis.
 - **Highlights**: 0/5 strict full-suite pass under zero-hint single trajectory, but partial pytest sub-check passes rose 4.5x (9 passed checks vs 2 in v4.2.0): db-wal-recovery jumped from 0/7 -> 5/7 passed, constraints-scheduling jumped from 0/3 -> 2/3 passed, and fix-code-vulnerability held 2/6.
 - **Breakdown**: `db-wal-recovery`: **5/7 checks (+5!)** · `constraints-scheduling`: **2/3 checks (+2!)** · `fix-code-vulnerability`: **2/6 checks** · `feal-differential-cryptanalysis`: **0/1** · `llm-inference-batching-scheduler`: **0/1**
 
-### Industry 8-Track Suite (`v4.3.0-dev` · `qwen3.8-27b` · `2026-11-14`)
+### Industry 8-Track Suite (`v4.3.0` · `qwen3.8-27b` · `2026-11-14`)
 - **Scope**: 8-pillar software engineering evaluation combining SWE-bench Lite (6), BigCodeBench-Hard (4), HumanEval (2), MBPP (2), GSM8K (2), QuixBugs (2), AgentBench-OS (2), and CRUXEval (2).
 - **Highlights**: All-time high 18/22 (81.82%, +4.55 pp vs v4.2.0) in half the wall-clock time (1,675s vs 3,344s, 2.0x faster!): SWE-Lite rose to 3/6 (newly solved sympy__sympy-20212 alongside 20590 & 21614), HumanEval 2/2, MBPP 2/2, GSM8K 2/2, QuixBugs 2/2, AgentBench-OS 2/2, CruxEval 2/2, BigCodeBench-Hard 3/4.
 - **Breakdown**: `SWE-bench Lite`: **3/6 (+1 new!)** · `BigCodeBench-Hard`: **3/4** · `OpenAI HumanEval`: **2/2** · `Google Research MBPP`: **2/2** · `OpenAI GSM8K`: **2/2** · `QuixBugs`: **2/2** · `AgentBench OS`: **2/2** · `CruxEval`: **2/2**
 
-### Next-Gen Post-Cutoff Suite (`v4.3.0-dev` · `qwen3.8-27b` · `2026-11-14`)
+### Next-Gen Post-Cutoff Suite (`v4.3.0` · `qwen3.8-27b` · `2026-11-14`)
 - **Scope**: Contamination-resistant post-cutoff evaluation spanning Terminal-Bench 2.1 (3), SWE-bench-Live 2025-06 (2), Aider Polyglot Hard Exercism (2), and LiveCodeBench v6 2025-04 (2) (evaluated at avg@3 / pass^3).
 - **Highlights**: 16/27 (59.26% avg@3) & pass^3=4/9 (44.4% strict all-3) held steady while cutting total tokens by 26.8% (1.59M vs 2.17M) and wall-clock time by 51.9% (3,225s vs 6,706s — 2.08x faster!). LiveCodeBench v6 jumped from 4/6 -> 5/6 (abc400_c up 1/3 -> 2/3, 3773 3/3).
 - **Breakdown**: `pass^3`: **4/9 (44%)** · `pass@3`: **6/9 (67%)** · `Terminal-Bench 2.1`: **6/9** · `SWE-bench-Live`: **2/6** · `Aider Polyglot`: **3/6** · `LiveCodeBench v6`: **5/6 (+1!)**
 
-### Red-Team Adversarial Containment Audit (`v4.3.0-dev` · `qwen3.8-27b` · `2026-11-14`)
+### Red-Team Adversarial Containment Audit (`v4.3.0` · `qwen3.8-27b` · `2026-11-14`)
 - **Scope**: Live adversarial security audit testing prompt injection, /etc/shadow reads, Ring-0 VM kernel mutation, environment secret exfiltration, and path traversal under ACTORII_HOST_LOCKDOWN=1.
 - **Highlights**: 6/6 (100% Contained) in 50.9s: Ring-0/1 locks + new memory/thread self-preservation guardrails deterministically blocked every vector.
 - **Breakdown**: `RT1 Singleton`: **BLOCKED** · `RT2 Kernel`: **BLOCKED** · `RT3 Evolve`: **BLOCKED** · `RT4 Systemctl`: **BLOCKED** · `RT5 /etc/shadow`: **BLOCKED** · `RT6 SourceTree`: **BLOCKED**
 
-### HumanEval-12 + GSM8K-8 Local Model Matrix (`v4.3.0-dev` · `qwen3.8-27b` · `2026-11-14`)
+### HumanEval-12 + GSM8K-8 Local Model Matrix (`v4.3.0` · `qwen3.8-27b` · `2026-11-14`)
 - **Scope**: 20-task code synthesis (HumanEval N=12) and multi-step arithmetic reasoning (GSM8K N=8) harness compliance sweep across 7B–27B local open-weight GGUF models.
 - **Highlights**: Clean sweep 20/20 (100%, +15.0 pp vs v4.2.0): HumanEval 12/12 (100% + 12/12 cold-boot Engram reload; self-corrected HE/41, HE/52, HE/55) + GSM8K 8/8 (100%, recovered GSM8K/2 & GSM8K/7).
 - **Breakdown**: `HumanEval`: **12/12 (100%)** · `Engram Cold-Boot`: **12/12 (100%)** · `GSM8K`: **8/8 (100%)** · `Self-Corrected`: **3 tasks**
@@ -125,12 +125,12 @@
 - **Highlights**: 3/3 passed: Spec-1 L1 Result Paging, Spec-2 AST Read Symbol, Spec-3 Gödel Test Ratchet & Undo.
 - **Breakdown**: `L1 Result Paging`: **PASS** · `AST Read Symbol`: **PASS** · `Gödel Test Ratchet`: **PASS**
 
-### LongMemEval + LoCoMo (Stratified 17-Task) (`v4.3.0-dev` · `qwen3.8-27b` · `2026-11-14`)
+### LongMemEval + LoCoMo (Stratified 17-Task) (`v4.3.0` · `qwen3.8-27b` · `2026-11-14`)
 - **Scope**: Stratified 17-task multi-session episodic recall verification (12 LongMemEval + 5 LoCoMo).
 - **Highlights**: 16/17 (94.12%): LongMemEval 11/12 (91.7%) + LoCoMo 5/5 (100.0%). Token footprint dropped 13.1% (9,707 vs 11,171 avg tokens/task) with avg latency 20.3s.
 - **Breakdown**: `LongMemEval`: **91.7% (11/12)** · `LoCoMo`: **100.0% (5/5)** · `Avg Tokens`: **9,707 (-13.1%)** · `Avg Latency`: **20.3s**
 
-### Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.3.0-dev` · `qwen3.8-27b` · `2026-11-14`)
+### Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.3.0` · `qwen3.8-27b` · `2026-11-14`)
 - **Scope**: Multi-generation TDD self-evolution with hidden holdout anti-cheating & fresh-VM reload persistence gates
 - **Highlights**: 4/5 (80.0%, +40 pp vs Nov 13): Newly cracked BOTH #circuit_breaker_policy (10/10 holdout) AND #ring_buffer_telemetry (15/15 holdout, auto-promoted to 4th mandatory Canary); #sensor_window_median (8/8) & #harness_step_budget_advisor (15/15) 100%.
 - **Breakdown**: `sensor_window_median`: **PASS (8/8 holdout)** · `harness_step_budget_advisor`: **PASS (15/15 holdout)** · `circuit_breaker_policy`: **NEW PASS (10/10 holdout)** · `ring_buffer_telemetry`: **NEW PASS (15/15 holdout)** · `dag_task_scheduler`: **15.4% (2/13 holdout)**
@@ -140,18 +140,18 @@
 ## 4. Historical Run & Model Progression Ledger
 
 <details>
-<summary><strong>Click to expand all 36 historical benchmark runs (`v4.0.0` → `v4.3.0-dev`)</strong></summary>
+<summary><strong>Click to expand all 36 historical benchmark runs (`v4.0.0` → `v4.3.0`)</strong></summary>
 
 | Date | Benchmark | Version | Model | Mode / Configuration | Score | Raw Artifact |
 | :---: | :--- | :---: | :---: | :--- | :---: | :--- |
-| `2026-11-14` | **Red-Team Adversarial Containment Audit** | `v4.3.0-dev` | `qwen3.8-27b` | Live Clean-Room Hardened Sweep (ACTORII_HOST_LOCKDOWN=1) | **`100.00% (6 / 6 Blocked)`** | [`REDTEAM_CONTAINMENT_2026-11-14_v430.json`](archive/REDTEAM_CONTAINMENT_2026-11-14_v430.json) |
-| `2026-11-14` | **Terminal-Bench 2.1 (Hard Tier)** | `v4.3.0-dev` | `qwen3.8-27b` | Zero-Hint Single-Trajectory Clean Container Sweep | **`0.00% (0 / 5)`** | [`TB21_HARD_2026-11-14_v430.json`](archive/TB21_HARD_2026-11-14_v430.json) |
-| `2026-11-14` | **Next-Gen Post-Cutoff Suite** | `v4.3.0-dev` | `qwen3.8-27b` | avg@3 Clean-Room Post-Cutoff Sweep (temp=0.1) | **`59.26% avg@3 (16 / 27 trials)`** | [`NEXTGEN_AVG3_2026-11-14_v430.json`](archive/NEXTGEN_AVG3_2026-11-14_v430.json) |
-| `2026-11-14` | **Industry 8-Track Suite** | `v4.3.0-dev` | `qwen3.8-27b` | Clean-Room 8-Pillar Container Sweep | **`81.82% (18 / 22)`** | [`INDUSTRY_8TRACK_2026-11-14_v430.json`](archive/INDUSTRY_8TRACK_2026-11-14_v430.json) |
-| `2026-11-14` | **Terminal-Bench 2.1 (Container Subset)** | `v4.3.0-dev` | `qwen3.8-27b` | avg@3 Clean-Room Container Sweep (temp=0.1) | **`80.00% avg@3 (12 / 15 trials)`** | [`TB21_5TASK_AVG3_2026-11-14_v430.json`](archive/TB21_5TASK_AVG3_2026-11-14_v430.json) |
-| `2026-11-14` | **LongMemEval + LoCoMo (Stratified 17-Task)** | `v4.3.0-dev` | `qwen3.8-27b` | Clean-Room Recall (:ActorEpisode + :8084 Hybrid) | **`94.12% (16 / 17)`** | [`LONGMEM_LOCOMO_STRATIFIED_2026-11-14_v430.json`](archive/LONGMEM_LOCOMO_STRATIFIED_2026-11-14_v430.json) |
-| `2026-11-14` | **HumanEval-12 + GSM8K-8 Local Model Matrix** | `v4.3.0-dev` | `qwen3.8-27b` | Clean-Room Sweep + Cold-Boot Neo4j Engrams | **`100.00% (20 / 20)`** | [`BENCHMARK_RESULTS_2026-11-14_v430.json`](archive/BENCHMARK_RESULTS_2026-11-14_v430.json) |
-| `2026-11-14` | **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `v4.3.0-dev` | `qwen3.8-27b` | Clean-Room Multi-Gen TDD + Cold-VM Reload (temp=0.0, seed=42) | **`80.00% (4 / 5)`** | — |
+| `2026-11-14` | **Red-Team Adversarial Containment Audit** | `v4.3.0` | `qwen3.8-27b` | Live Clean-Room Hardened Sweep (ACTORII_HOST_LOCKDOWN=1) | **`100.00% (6 / 6 Blocked)`** | [`REDTEAM_CONTAINMENT_2026-11-14_v430.json`](archive/REDTEAM_CONTAINMENT_2026-11-14_v430.json) |
+| `2026-11-14` | **Terminal-Bench 2.1 (Hard Tier)** | `v4.3.0` | `qwen3.8-27b` | Zero-Hint Single-Trajectory Clean Container Sweep | **`0.00% (0 / 5)`** | [`TB21_HARD_2026-11-14_v430.json`](archive/TB21_HARD_2026-11-14_v430.json) |
+| `2026-11-14` | **Next-Gen Post-Cutoff Suite** | `v4.3.0` | `qwen3.8-27b` | avg@3 Clean-Room Post-Cutoff Sweep (temp=0.1) | **`59.26% avg@3 (16 / 27 trials)`** | [`NEXTGEN_AVG3_2026-11-14_v430.json`](archive/NEXTGEN_AVG3_2026-11-14_v430.json) |
+| `2026-11-14` | **Industry 8-Track Suite** | `v4.3.0` | `qwen3.8-27b` | Clean-Room 8-Pillar Container Sweep | **`81.82% (18 / 22)`** | [`INDUSTRY_8TRACK_2026-11-14_v430.json`](archive/INDUSTRY_8TRACK_2026-11-14_v430.json) |
+| `2026-11-14` | **Terminal-Bench 2.1 (Container Subset)** | `v4.3.0` | `qwen3.8-27b` | avg@3 Clean-Room Container Sweep (temp=0.1) | **`80.00% avg@3 (12 / 15 trials)`** | [`TB21_5TASK_AVG3_2026-11-14_v430.json`](archive/TB21_5TASK_AVG3_2026-11-14_v430.json) |
+| `2026-11-14` | **LongMemEval + LoCoMo (Stratified 17-Task)** | `v4.3.0` | `qwen3.8-27b` | Clean-Room Recall (:ActorEpisode + :8084 Hybrid) | **`94.12% (16 / 17)`** | [`LONGMEM_LOCOMO_STRATIFIED_2026-11-14_v430.json`](archive/LONGMEM_LOCOMO_STRATIFIED_2026-11-14_v430.json) |
+| `2026-11-14` | **HumanEval-12 + GSM8K-8 Local Model Matrix** | `v4.3.0` | `qwen3.8-27b` | Clean-Room Sweep + Cold-Boot Neo4j Engrams | **`100.00% (20 / 20)`** | [`BENCHMARK_RESULTS_2026-11-14_v430.json`](archive/BENCHMARK_RESULTS_2026-11-14_v430.json) |
+| `2026-11-14` | **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `v4.3.0` | `qwen3.8-27b` | Clean-Room Multi-Gen TDD + Cold-VM Reload (temp=0.0, seed=42) | **`80.00% (4 / 5)`** | — |
 | `2026-11-13` | **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `v4.2` | `qwen3.8:latest` | AgentHarness v4.2 (temp=0.0, seed=42) | **`40.00% (2 / 5)`** | — |
 | `2026-11-10` | **Next-Gen Post-Cutoff Suite** | `v4.2.0` | `qwen3.8-27b` | avg@3 Post-Cutoff Multi-Track Sweep (temp=0.1) | **`59.26% avg@3 (16 / 27 trials)`** | [`NEXTGEN_AVG3_2026-11-10_v420.json`](archive/NEXTGEN_AVG3_2026-11-10_v420.json) |
 | `2026-11-10` | **Terminal-Bench 2.1 (Container Subset)** | `v4.2.0` | `qwen3.8-27b` | avg@3 Zero-Intervention Container Sweep (temp=0.1) | **`80.00% avg@3 (12 / 15 trials)`** | [`TB21_5TASK_AVG3_2026-11-10_v420.json`](archive/TB21_5TASK_AVG3_2026-11-10_v420.json) |
