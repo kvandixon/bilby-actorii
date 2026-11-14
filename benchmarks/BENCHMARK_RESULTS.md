@@ -5,7 +5,7 @@
 
 - **Host Hardware**: `valkyrie — NVIDIA RTX 5070 Ti (16 GB VRAM), Fedora Linux 44, DDR5-6000 / 32 GB RAM`
 - **Memory Architecture**: `Neo4j :ActorEpisode / :ActorEngram hybrid graph + bge-small-en-v1.5 (:8084, 0 MB GPU VRAM)`
-- **Last Updated**: `2026-11-10`
+- **Last Updated**: `2026-11-13`
 - **Interactive Dark-Theme Dashboard**: `http://127.0.0.1:8090/benchmarks` (or open [`scoreboard.html`](scoreboard.html))
 
 ---
@@ -24,6 +24,7 @@
 | **HumanEval-12 + GSM8K-8 Local Model Matrix** | `SWE & Coding` | `20` | **`85.00% (17 / 20)`** | **`100.00%`** (`gpt-oss:20b`) | `+35.00 pp` | `qwen3.8-27b` | `2026-11-10` | [`BENCHMARK_RESULTS_2026-11-10_v420.json`](archive/BENCHMARK_RESULTS_2026-11-10_v420.json) |
 | **Self-Hosting Pathway Dogfood** | `Self-Hosting` | `3` | **`100.00% (3 / 3)`** | **`100.00%`** (`qwen3.8-27b`) | — | `qwen3.8-27b` | `2026-11-10` | [`PATHWAY_SELF_HOSTING_RESULTS.json`](archive/PATHWAY_SELF_HOSTING_RESULTS.json) |
 | **LongMemEval + LoCoMo (Stratified 17-Task)** | `Memory` | `17` | **`94.12% (16 / 17)`** | **`94.12%`** (`qwen3.8-27b`) | — | `qwen3.8-27b` | `2026-11-10` | [`LONGMEM_LOCOMO_STRATIFIED_2026-11-10_v420.json`](archive/LONGMEM_LOCOMO_STRATIFIED_2026-11-10_v420.json) |
+| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `SWE & Coding` | `5` | **`40.00% (2 / 5)`** | **`40.00%`** (`qwen3.8:latest`) | — | `qwen3.8:latest` | `2026-11-13` | — |
 
 ---
 
@@ -79,12 +80,17 @@
 - **Notes**: LongMemEval 11/12 (91.7%), LoCoMo 5/5 (100.0%), avg 21.06s/task, avg 11,171 tokens.
 - **Breakdown**: `LongMemEval`: **91.7% (11/12)** · `LoCoMo`: **100.0% (5/5)** · `Avg Latency`: **21.1s**
 
+### Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.2` · `qwen3.8:latest` · `2026-11-13`)
+- **Scope**: Multi-generation TDD self-evolution with hidden holdout anti-cheating & fresh-VM reload persistence gates
+- **Notes**: Canaries PASS@1 (sensor_window_median 8/8 holdout, harness_step_budget_advisor 15/15 holdout, persistence verified); 3 Tier-2 multi-ivar class specs active on frontier
+
 ---
 
 ## 3. Bilby Historical Run & Model Progression Ledger
 
 | Date | Benchmark | Version | Model | Mode / Configuration | Score | Raw Artifact |
 | :---: | :--- | :---: | :---: | :--- | :---: | :--- |
+| `2026-11-13` | **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `v4.2` | `qwen3.8:latest` | AgentHarness v4.2 (temp=0.0, seed=42) | **`40.00% (2 / 5)`** | — |
 | `2026-11-10` | **Next-Gen Post-Cutoff Suite** | `v4.2.0` | `qwen3.8-27b` | avg@3 Post-Cutoff Multi-Track Sweep (temp=0.1) | **`59.26% avg@3 (16 / 27 trials)`** | [`NEXTGEN_AVG3_2026-11-10_v420.json`](archive/NEXTGEN_AVG3_2026-11-10_v420.json) |
 | `2026-11-10` | **Terminal-Bench 2.1 (Container Subset)** | `v4.2.0` | `qwen3.8-27b` | avg@3 Zero-Intervention Container Sweep (temp=0.1) | **`80.00% avg@3 (12 / 15 trials)`** | [`TB21_5TASK_AVG3_2026-11-10_v420.json`](archive/TB21_5TASK_AVG3_2026-11-10_v420.json) |
 | `2026-11-10` | **LongMemEval + LoCoMo (Stratified 17-Task)** | `v4.2.0` | `qwen3.8-27b` | Zero-Intervention v4.2.0 Live Recall (:ActorEpisode + :8084) | **`94.12% (16 / 17)`** | [`LONGMEM_LOCOMO_STRATIFIED_2026-11-10_v420.json`](archive/LONGMEM_LOCOMO_STRATIFIED_2026-11-10_v420.json) |

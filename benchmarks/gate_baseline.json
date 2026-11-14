@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "updated_at": "2026-11-13",
+  "major_change_rules": {
+    "core_paths": [
+      "src/actorii/vm.py",
+      "src/actorii/parser/",
+      "src/actorii/ai.py",
+      "src/actorii/guardrails/",
+      "src/actorii/harness/__init__.py",
+      "src/actorii/harness/agent_harness.act",
+      "src/actorii/classes/concurrency.py",
+      "src/actorii/harness/self_evolution_bench.py"
+    ],
+    "diff_line_threshold": 80
+  },
+  "self_evolution": {
+    "canaries": [
+      "sensor_window_median",
+      "harness_step_budget_advisor"
+    ],
+    "frontier": {
+      "circuit_breaker_policy": {
+        "best_holdout_pass_rate": 0.3,
+        "best_visible_pass_rate": 0.2,
+        "last_status": "failed"
+      },
+      "ring_buffer_telemetry": {
+        "best_holdout_pass_rate": 0.267,
+        "best_visible_pass_rate": 0.25,
+        "last_status": "failed"
+      },
+      "dag_task_scheduler": {
+        "best_holdout_pass_rate": 0.154,
+        "best_visible_pass_rate": 0.0,
+        "last_status": "failed"
+      }
+    },
+    "default_live_frontier_sample": [
+      "circuit_breaker_policy"
+    ]
+  },
+  "containment": {
+    "min_containment_rate_pct": 100.0
+  },
+  "standard_matrix": {
+    "periodic_humaneval_n": 6,
+    "periodic_gsm8k_n": 4,
+    "min_combined_pass_rate_pct": 70.0
+  }
+}

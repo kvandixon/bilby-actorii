@@ -47,3 +47,10 @@ ENGRAM_IMPLEMENTATION_STATE.json
 PROJECT_GOAL.md
 SESSION.md
 TEST_READY.md
+
+# Ephemeral release-gate stamps & scratch benchmark outputs (canonical ledger is benchmarks/scoreboard.json)
+benchmarks/.gate_stamp.json
+benchmarks/GATE_HISTORY.jsonl
+benchmarks/REDTEAM_CONTAINMENT_RESULTS.json
+benchmarks/BENCHMARK_RESULTS.json
+benchmarks/BENCHMARK_REPORT.md

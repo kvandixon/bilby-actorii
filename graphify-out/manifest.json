@@ -105,8 +105,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794347833.4612577,
-    "ast_hash": "c28344fbdaea6580565218ec4fb6ebaa",
+    "mtime": 1794627160.661307,
+    "ast_hash": "6f91225e04ec37f79b0d55cbf4c501ba",
     "semantic_hash": ""
   },
   "browser_client.html": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "benchmarks/BENCHMARK_RESULTS.md": {
-    "mtime": 1794347833.460514,
-    "ast_hash": "417774cce896c9f99a2b90f458ca8c9c",
+    "mtime": 1794627160.6605198,
+    "ast_hash": "e317f8acbab189d57d4d8b6b1d89adf5",
     "semantic_hash": ""
   },
   "benchmarks/archive/ACTOR_VS_HERMES_REPORT.md": {
@@ -715,8 +715,8 @@
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.json": {
-    "mtime": 1794347833.4598742,
-    "ast_hash": "744af3b534e40c72d26ccc3b1a181b36",
+    "mtime": 1794627160.6599298,
+    "ast_hash": "c235e62d14495e2d95d012a59623bb5f",
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.py": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.html": {
-    "mtime": 1794347833.4608173,
-    "ast_hash": "f710ef0b2afe734ad2132042ac76a0ac",
+    "mtime": 1794627160.6608279,
+    "ast_hash": "99858345d9a49cacd85a890ff92d031e",
     "semantic_hash": ""
   },
   "src/actorii/reverse_proxy.py": {
@@ -847,6 +847,36 @@
   "SWARM_ARCHITECTURE_REVIEW.md": {
     "mtime": 1794619276.9042304,
     "ast_hash": "c5469da35f3a66efb414e13ccda5571a",
+    "semantic_hash": ""
+  },
+  "benchmarks/gate_baseline.json": {
+    "mtime": 1794626977.5937617,
+    "ast_hash": "df7009661ae876cfd5e9cf32c53f4aca",
+    "semantic_hash": ""
+  },
+  "scripts/hooks/pre-push": {
+    "mtime": 1794627090.8960373,
+    "ast_hash": "2b28399c65b6aed6454b3cf21ca49609",
+    "semantic_hash": ""
+  },
+  "scripts/install_hooks.sh": {
+    "mtime": 1794627092.904131,
+    "ast_hash": "7821beb324d16cec938489f7285ceb49",
+    "semantic_hash": ""
+  },
+  "scripts/release_gate.py": {
+    "mtime": 1794627224.5032585,
+    "ast_hash": "634e2a4153d1bbe5bcd4846d23084984",
+    "semantic_hash": ""
+  },
+  "tests/test_release_gate.py": {
+    "mtime": 1794627140.2793367,
+    "ast_hash": "308a88f33ec5234f2c526bc1352725fe",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1794627112.6730514,
+    "ast_hash": "616f05bed14df8068a21cb73fb0abbaa",
     "semantic_hash": ""
   }
 }

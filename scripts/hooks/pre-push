@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Mechanical Pre-Push DevOps Gate for ActorII & Bilby
+# Installed into .git/hooks/pre-push via scripts/install_hooks.sh
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Allow explicit emergency bypass ONLY when ACTORII_ALLOW_UNVERIFIED_PUSH=1 is set by a human
+if [[ "${ACTORII_ALLOW_UNVERIFIED_PUSH:-0}" == "1" ]]; then
+    echo "[pre-push] WARNING: Bypassing release_gate.py check (ACTORII_ALLOW_UNVERIFIED_PUSH=1)" >&2
+    exit 0
+fi
+
+# Determine remote ref being updated (stdin lines: <local ref> <local sha> <remote ref> <remote sha>)
+BASE_REF=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+    if [[ "$remote_sha" != "0000000000000000000000000000000000000000" ]] && git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+        BASE_REF="$remote_sha"
+        break
+    fi
+done
+
+if [[ -n "$BASE_REF" ]]; then
+    python3 "$REPO_ROOT/scripts/release_gate.py" --verify-stamp --base-ref "$BASE_REF"
+else
+    python3 "$REPO_ROOT/scripts/release_gate.py" --verify-stamp
+fi
