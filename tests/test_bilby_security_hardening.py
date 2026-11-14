@@ -402,3 +402,88 @@ def test_persona_overlay_decoupling(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert load_harness_system_prompt(persona_path=p_file) == DEFAULT_HARNESS_SYSTEM_PROMPT
 
 
+def test_self_preservation_guards_and_mandatory_skippy_preflight(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify Bilby cannot bypass Skippy pre-flight monitor, delete core memory nodes, overwrite `Actor[#Threads]`, or spawn infinite daemon loops."""
+    from actorii.harness import _split_code_and_complete
+    from actorii.harness.memory_graph import ActorMemoryGraph
+
+    monkeypatch.setenv("ACTORII_HOST_LOCKDOWN", "1")
+    monkeypatch.setenv("ACTORII_ENFORCE_SKIPPY_PREFLIGHT", "1")
+
+    vm, harness, sandbox = bootstrap_agent_harness(
+        ActorVM(),
+        enable_memory_graph=False,
+        enable_engrams=False,
+    )
+
+    # 1. `Actor[#Threads]` singleton and `ThreadPool` bridge methods are strictly locked
+    assert sandbox.lintChunk("Actor[#Threads] := nil!!").startswith("ERROR:")
+    assert sandbox.lintChunk("now(ThreadPool)!!\nDef spawnChunk(self, s, g) { ^1 }!!").startswith("ERROR:")
+
+    # 2. Infinite `loop while (true)` background chunks are hard-blocked on `Actor[#Threads]`
+    threads_twin = vm.global_vars["Actor"]["Threads"]._target
+    with pytest.raises(PermissionError, match="THREAD_SELF_PRESERVATION_GUARD"):
+        threads_twin.spawnChunk("loop while (true) begin 1 + 1; endLoop!!")
+    # Calling `shutdown(Actor[#Threads])` in host lockdown drains tasks without permanently killing the shared pool
+    assert threads_twin.shutdown() is True
+    assert threads_twin.pool.is_shutdown is False
+
+    # 3. Destructive `DELETE` on `:ActorEpisode` / `:ActorEngram` / unscoped `MATCH (n)` is hard-blocked
+    mem = ActorMemoryGraph(vm, enable_engrams=False, namespace="pytest_guard")
+    for bad_cypher in (
+        "MATCH (e:ActorEpisode) DETACH DELETE e",
+        "MATCH (e:ActorEngram {name: 'DreamingCycle'}) DELETE e",
+        "MATCH (n) DETACH DELETE n",
+    ):
+        with pytest.raises(PermissionError, match="MEMORY_SELF_PRESERVATION_GUARD"):
+            mem.cypherWrite(bad_cypher)
+
+    # 4. Self-risking steps (detached thread spawn, `evolve(Actor[#Harness], ...)`, bulk `:ActorEpisode` write)
+    # are mechanically blocked until `askSkippy` has succeeded in the current turn!
+    err_thread = sandbox.executeStepAction(harness, 'spawnChunk(Actor[#Threads], "1 + 1!!", 5000)!!')
+    assert "SKIPPY_PREFLIGHT_REQUIRED" in str(err_thread)
+
+    err_evolve = sandbox.executeStepAction(
+        harness, 'evolve(Actor[#Harness], "Def policyNote(self) { ^\\"x\\"; }!!", "")!!'
+    )
+    assert "SKIPPY_PREFLIGHT_REQUIRED" in str(err_evolve)
+
+    err_mem = sandbox.executeStepAction(
+        harness,
+        'cypherWrite(Actor[#Memory], "MATCH (e:ActorEpisode) SET e.salience = 0.8")!!',
+    )
+    assert "SKIPPY_PREFLIGHT_REQUIRED" in str(err_mem)
+
+    # Bounded awaited fan-out (`spawnChunk` + `await`) is safe and allowed without tripping the detached-daemon gate
+    ok_awaited = sandbox.executeStepAction(
+        harness, 'f := spawnChunk(Actor[#Threads], "20 + 22!!", 5000)!! await(f, 5000)!!'
+    )
+    assert ok_awaited == 42
+
+    # Once `askSkippy` succeeds in the current turn's `stepLog`, the pre-flight gate unlocks cleanly
+    harness._fields["stepLog"].add(
+        {
+            "step": 2,
+            "action": 'askSkippy(Actor[#Valkyrie], "PREFLIGHT MONITOR: safe bounded policyNote")!!',
+            "status": "ok",
+            "result": "Approved: bounded read-only policyNote.",
+            "gas_used": 6,
+        }
+    )
+    ok_evolve = sandbox.executeStepAction(
+        harness,
+        'evolve(Actor[#Harness], "Def policyNote(self) { ^\\"monitored\\"; }!!", "policyNote(Actor[#Harness]) == \\"monitored\\"!!")!!',
+    )
+    assert str(ok_evolve).startswith("EVOLVE_COMMITTED:")
+
+    # 5. Leading `/* Executed 1 step(s): ... */` before `COMPLETE:` never hijacks English prose as Actor code
+    code_p, comp_p = _split_code_and_complete(
+        '/* Executed 1 step(s): methodsOf(Actor[#VM], #Float)!! */\nCOMPLETE: Using power-law decay cleanly.'
+    )
+    assert code_p == ""
+    assert comp_p == "Using power-law decay cleanly."
+
+
+

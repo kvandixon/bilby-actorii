@@ -781,14 +781,43 @@ class ActorMemoryGraph:
     # Tier 2: Graph Mutations, Engram Persistence & Version Rollback (`@actor_command`)
     # =========================================================================
 
+    _CORE_MEMORY_DELETE_RE = re.compile(
+        r"\bDELETE\b",
+        re.IGNORECASE,
+    )
+    _CORE_PROTECTED_LABELS_RE = re.compile(
+        r":\s*(?:ActorEpisode|ActorEngram|ActorEngramVersion|ActorGrammarRule|ActorLearnedFix|ActorPrimitive)\b",
+        re.IGNORECASE,
+    )
+    _UNSCOPED_DELETE_RE = re.compile(
+        r"MATCH\s*\(\s*[A-Za-z_]\w*\s*\)\s*(?:WHERE\b.*?\b)?(?:DETACH\s+)?DELETE\b",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def _guard_cypher_write(self, q_str: str) -> None:
+        """Hard-block destructive `DELETE` queries against core memory/engram/grammar labels (use `SET ep.archived = true` instead)."""
+        if not self._CORE_MEMORY_DELETE_RE.search(q_str):
+            return
+        if self._CORE_PROTECTED_LABELS_RE.search(q_str) or self._UNSCOPED_DELETE_RE.search(q_str):
+            raise PermissionError(
+                "BLOCKED [MEMORY_SELF_PRESERVATION_GUARD]: Destructive `DELETE` / `DETACH DELETE` on core memory nodes "
+                "(`:ActorEpisode`, `:ActorEngram`, `:ActorEngramVersion`, `:ActorGrammarRule`, or unscoped `MATCH (n)`) "
+                "is strictly forbidden to protect Bilby's recall and self-correction! "
+                "Use non-destructive soft archiving (`SET e.archived = true, e.salience = coalesce(e.salience, 0.5)`) instead, "
+                "and consult Skippy via `askSkippy(Actor[#Valkyrie], ...)` first."
+            )
+
     @actor_command
     def cypherWrite(self, query: str) -> int:
         """Execute a mutating Cypher statement (`MERGE`, `CREATE`, `SET`, `DELETE`) in Neo4j."""
         q_str = str(query or "").strip()
         if not q_str:
             return 0
+        self._guard_cypher_write(q_str)
         self._record_runtime_cypher_domains(q_str)
         _, rows = self._run_cypher(q_str)
+        if "ActorEpisode" in q_str:
+            self._episode_rows_cache.pop(self.namespace, None)
         return len(rows) if rows else 1
 
     @actor_command
@@ -797,9 +826,12 @@ class ActorMemoryGraph:
         q_str = str(query or "").strip()
         if not q_str:
             return 0
+        self._guard_cypher_write(q_str)
         self._record_runtime_cypher_domains(q_str)
         param_map = _build_cypher_params(params)
         _, rows = self._run_cypher(q_str, param_map)
+        if "ActorEpisode" in q_str:
+            self._episode_rows_cache.pop(self.namespace, None)
         return len(rows) if rows else 1
 
     @actor_command
@@ -1133,6 +1165,7 @@ class ActorMemoryGraph:
                 _, rows = self._run_cypher(
                     """
                     MATCH (ep:ActorEpisode {namespace: $ns})
+                    WHERE coalesce(ep.archived, false) = false
                     RETURN coalesce(ep.episode_hash, '') AS episode_hash,
                            ep.session_id AS session_id,
                            coalesce(ep.session_date, '') AS session_date,

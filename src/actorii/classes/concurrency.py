@@ -30,6 +30,8 @@ from __future__ import annotations
 
 import collections
 import concurrent.futures
+import os
+import re
 import threading
 import time
 from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Tuple
@@ -722,6 +724,16 @@ class TaskPool:
         if executor is not None:
             executor.shutdown(wait=wait, cancel_futures=cancel_pending)
 
+    def cancel_all(self) -> int:
+        """Cancel all queued or running tasks without permanently shutting down the pool."""
+        with self._lock:
+            live = list(self._live)
+        cancelled = 0
+        for fut in live:
+            if fut.request_cancel():
+                cancelled += 1
+        return cancelled
+
     @property
     def is_shutdown(self) -> bool:
         return self._shutdown
@@ -952,15 +964,35 @@ class ActorThreadPoolTwin:
     def _wrap(self, obj: Any) -> Any:
         return wrap_for_actor(self._vm(), obj)
 
-    @staticmethod
-    def _gas(gasLimit: Any) -> Optional[int]:
+    _INFINITE_LOOP_RE = re.compile(
+        r"\bloop\s+while\s*\(?\s*(?:true|1|1\s*==\s*1)\s*\)?",
+        re.IGNORECASE,
+    )
+    _LOCKDOWN_MAX_TASK_GAS = 500_000
+    _LOCKDOWN_MAX_SLEEP_MS = 15_000
+
+    @classmethod
+    def _gas(cls, gasLimit: Any) -> Optional[int]:
         if gasLimit is None:
-            return None
+            return cls._LOCKDOWN_MAX_TASK_GAS if os.environ.get("ACTORII_HOST_LOCKDOWN") == "1" else None
         try:
             g = int(gasLimit)
         except (TypeError, ValueError):
-            return None
-        return g if g > 0 else None
+            return cls._LOCKDOWN_MAX_TASK_GAS if os.environ.get("ACTORII_HOST_LOCKDOWN") == "1" else None
+        if g <= 0:
+            return cls._LOCKDOWN_MAX_TASK_GAS if os.environ.get("ACTORII_HOST_LOCKDOWN") == "1" else None
+        if os.environ.get("ACTORII_HOST_LOCKDOWN") == "1":
+            return min(g, cls._LOCKDOWN_MAX_TASK_GAS)
+        return g
+
+    @classmethod
+    def _guard_background_chunk(cls, src: str) -> None:
+        if os.environ.get("ACTORII_HOST_LOCKDOWN") == "1" and cls._INFINITE_LOOP_RE.search(src):
+            raise PermissionError(
+                "BLOCKED [THREAD_SELF_PRESERVATION_GUARD]: Unbounded `loop while (true)` daemon loops are forbidden "
+                "on `Actor[#Threads]` so worker threads can never starve Bilby's foreground self-correction turns! "
+                "Use bounded single-pass batches (`parallelMap`, `parallelSettle`, or bounded `spawnChunk`) instead."
+            )
 
     # ------------------------------------------------------------ spawning
     @actor_command(shadow_safe=True)
@@ -971,7 +1003,9 @@ class ActorThreadPoolTwin:
     @actor_command(shadow_safe=True)
     def spawnChunk(self, source: Any, gasLimit: Any = None) -> Any:
         """spawnChunk(Actor[#Threads], "expr!!", gasLimit)!! -> Future (isolated stack + gas)"""
-        return self._wrap(self.pool.spawn_chunk(str(source), self._gas(gasLimit)))
+        src = str(source)
+        self._guard_background_chunk(src)
+        return self._wrap(self.pool.spawn_chunk(src, self._gas(gasLimit)))
 
     @actor_command(shadow_safe=True)
     def spawnBlock(self, block: Any, argsArray: Any = None, gasLimit: Any = None) -> Any:
@@ -1024,6 +1058,8 @@ class ActorThreadPoolTwin:
             val = max(0, int(ms or 0))
         except (TypeError, ValueError):
             val = 0
+        if os.environ.get("ACTORII_HOST_LOCKDOWN") == "1":
+            val = min(val, self._LOCKDOWN_MAX_SLEEP_MS)
         time.sleep(val / 1000.0)
         return val
 
@@ -1062,8 +1098,25 @@ class ActorThreadPoolTwin:
         )
 
     @actor_command
+    def cancelAll(self) -> int:
+        """cancelAll(Actor[#Threads])!! — cancel queued/running tasks without destroying the pool."""
+        return self.pool.cancel_all()
+
+    @actor_command
     def shutdown(self) -> bool:
         """shutdown(Actor[#Threads])!! — cancel pending work and stop the workers."""
+        if os.environ.get("ACTORII_HOST_LOCKDOWN") == "1":
+            # In host lockdown on the shared singleton pool, drain/cancel tasks instead of permanently killing Actor[#Threads]
+            vm = self._vm()
+            shared_threads = None
+            if vm is not None and isinstance(getattr(vm, "global_vars", None), dict):
+                actor_dict = vm.global_vars.get("Actor", {})
+                if isinstance(actor_dict, dict):
+                    shared_obj = actor_dict.get("Threads")
+                    shared_threads = getattr(shared_obj, "_target", shared_obj)
+            if shared_threads is self:
+                self.pool.cancel_all()
+                return True
         self.pool.shutdown(wait=False)
         return True
 

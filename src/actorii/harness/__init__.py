@@ -82,7 +82,8 @@ DEFAULT_HARNESS_SYSTEM_PROMPT = (
     "  * `Actor[#VM]` & `Actor[#Sandbox]`: `classes(Actor[#VM])!!`, `methodsOf(Actor[#VM], #Cls)!!`, `sourceOf(Actor[#VM], #Cls, #sel)!!`, `capabilities(Actor[#Sandbox])!!`\n"
     "  * `Actor[#Host]`: `searchFile`, `readFile`, `writeFile`, `editFile`, `execShell` (locked on host when `ACTORII_HOST_LOCKDOWN=1`; unlocked inside `/workspace` containers).\n"
     "- SECURITY & OUTPUT GUARDRAILS:\n"
-    "  * Ring 0/1 classes, `AgentHarness` kernel methods, and `Actor[...]` singletons are locked. Never stop/disable OS/network/DNS/VPN/desktop services, touch `/etc/resolv.conf` or crontabs, or modify `~/bin/` or `ActorII/src/`.\n"
+    "  * Ring 0/1 classes, `AgentHarness` kernel methods, and `Actor[...]` singletons (`#Threads`, `#Memory`, `#Harness`, `#Sandbox`, `#Host`, etc.) are locked. Never stop/disable OS/network/DNS/VPN/desktop services, touch `/etc/resolv.conf` or crontabs, or modify `~/bin/` or `ActorII/src/`.\n"
+    "  * MANDATORY SKIPPY PRE-FLIGHT MONITOR: Before spawning detached `Actor[#Threads]` tasks, hot-patching `AgentHarness` hooks (`evolve`), or bulk-mutating `:ActorEpisode`/`:ActorEngram` memory (`DELETE` on core memory labels is hard-blocked—use `SET e.archived = true` and `coalesce(e.salience, 0.5)`), you MUST first call `askSkippy(Actor[#Valkyrie], \"PREFLIGHT MONITOR: <exact code & rollback plan>\")!!` in the current turn.\n"
     "  * Casual questions: reply in 1 step (`COMPLETE: <answer>`). Structured domain facts/formulas: persist to Neo4j (`cypherWrite`) + define an Actor class (auto-crystallized as `:ActorEngram`).\n"
     "  * NEVER emit `<tool_call>` XML wrappers or wrap Actor code in markdown fences—output raw 1993 Actor 4.1 ending in `!!` or `COMPLETE: <answer>`."
 )
@@ -329,9 +330,13 @@ def _split_code_and_complete(raw_text: str) -> Tuple[str, Optional[str]]:
         elif text.endswith("`!!") and "`" not in text[1:-3]:
             text = (text[1:-3].strip().rstrip("!") + "!!")
 
-    # 1. Check leading `COMPLETE:` FIRST so conversational Markdown code blocks (` ```bash `, ` ```python `)
-    # inside human-facing answers are NEVER hijacked and executed as Actor 4.1 VM bytecode!
-    lead_comp = re.match(r"^\s*`?\s*COMPLETE\s*:\s*(.+)$", text, flags=re.IGNORECASE | re.DOTALL)
+    # 1. Check leading `COMPLETE:` (optionally preceded by `/* ... */` comments) FIRST so conversational Markdown
+    # code blocks (` ```bash `, ` ```python `) inside human-facing answers are NEVER hijacked and executed as Actor 4.1 VM bytecode!
+    lead_comp = re.match(
+        r"^\s*(?:/\*.*?\*/\s*)*`?\s*COMPLETE\s*:\s*(.+)$",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
     if lead_comp:
         return "", _clean_complete_summary(lead_comp.group(1))
 
@@ -1636,6 +1641,69 @@ class VMSandboxBridge:
 
         return extract_actor_action(raw_reply)
 
+    _DETACHED_THREAD_SPAWN_RE = re.compile(
+        r"\b(?:spawnChunk|spawnBlock|spawn)\s*\(\s*Actor\s*\[\s*#Threads\s*\]",
+        re.IGNORECASE,
+    )
+    _HARNESS_MUTATION_RE = re.compile(
+        r"(?:\b(?:evolve|evolveHarness)\s*\(\s*Actor\s*\[\s*#(?:Harness|Bilby|Sandbox)\s*\]"
+        r"|\bnow\s*\(\s*AgentHarness\s*\)\s*!!)",
+        re.IGNORECASE,
+    )
+    _LIVE_MEMORY_BULK_MUTATION_RE = re.compile(
+        r"\b(?:cypherWrite(?:With)?|writeGraph)\s*\([\s\S]*?:\s*(?:ActorEpisode|ActorEngram)\b[\s\S]*?\b(?:SET|REMOVE|DELETE)\b",
+        re.IGNORECASE,
+    )
+
+    def _has_turn_skippy_preflight(self, harness_obj: Any, chunk_src: str = "") -> bool:
+        """Return True if `askSkippy` already succeeded earlier in THIS turn (or is invoked in `chunk_src` prior to the action)."""
+        if "askSkippy" in (chunk_src or ""):
+            return True
+        step_log = getattr(harness_obj, "_fields", {}).get("stepLog")
+        if isinstance(step_log, (ActorOrderedCollection, list)):
+            for e in list(step_log):
+                if (
+                    isinstance(e, dict)
+                    and e.get("status") == "ok"
+                    and "askSkippy" in str(e.get("action", ""))
+                    and not str(e.get("result", "")).startswith(("ERROR:", "askSkippy error", "askSkippy timed out"))
+                ):
+                    return True
+        return False
+
+    def _check_skippy_preflight_required(self, harness_obj: Any, chunk_src: str) -> Optional[str]:
+        """Require `askSkippy` pre-flight approval in live production before detached threads, `AgentHarness` evolution, or bulk memory rewrites."""
+        import os as _os
+
+        enforced = _os.environ.get("ACTORII_ENFORCE_SKIPPY_PREFLIGHT") == "1" or (
+            _os.environ.get("ACTORII_HOST_LOCKDOWN") == "1"
+            and _os.environ.get("ACTORII_BENCH_STRICT") != "1"
+            and "PYTEST_CURRENT_TEST" not in _os.environ
+            and _os.environ.get("ACTORII_ENFORCE_SKIPPY_PREFLIGHT", "1") != "0"
+        )
+        if not enforced:
+            return None
+
+        risk_kind = ""
+        if self._HARNESS_MUTATION_RE.search(chunk_src):
+            risk_kind = "hot-patching `AgentHarness` cognitive hooks (`evolve` / `now(AgentHarness)`)"
+        elif self._DETACHED_THREAD_SPAWN_RE.search(chunk_src) and "await(" not in chunk_src and "awaitAll(" not in chunk_src:
+            risk_kind = "spawning a detached background task on `Actor[#Threads]` without `await(...)`"
+        elif self._LIVE_MEMORY_BULK_MUTATION_RE.search(chunk_src):
+            risk_kind = "bulk-mutating live `:ActorEpisode` / `:ActorEngram` nodes in `Actor[#Memory]`"
+
+        if not risk_kind:
+            return None
+        if self._has_turn_skippy_preflight(harness_obj, chunk_src):
+            return None
+
+        return (
+            f"[SKIPPY_PREFLIGHT_REQUIRED] You are attempting a self-risking operation ({risk_kind}) that could "
+            "affect your recall, thread pool, or ability to self-correct without first consulting Cloud Skippy in this turn! "
+            "First call `askSkippy(Actor[#Valkyrie], \"PREFLIGHT MONITOR: <describe exact code, blast radius, and rollback plan>\")!!`, "
+            "incorporate Skippy's safety feedback, and only then execute the guarded step."
+        )
+
     # =========================================================================
     # Tier 2: Audited State-Mutating Harness Commands (`@actor_command`)
     # =========================================================================
@@ -1848,6 +1916,13 @@ class VMSandboxBridge:
                 from actorii.guardrails.linter import ActorGuardrailError
 
                 raise ActorGuardrailError(lint_status[6:])
+
+            # Enforce mandatory Cloud Skippy pre-flight monitor (`askSkippy`) before self-risking actions in live production
+            preflight_reason = self._check_skippy_preflight_required(harness_obj, chunk_src)
+            if preflight_reason:
+                from actorii.guardrails.linter import ActorGuardrailError
+
+                raise ActorGuardrailError(preflight_reason)
 
             result = self.vm.eval_transactional(
                 chunk_src,

@@ -99,6 +99,11 @@ PROTECTED_SYSTEM_CLASSES: Set[str] = {
     "PDFDocumentTwin",
     "WebScraper",
     "ProductLearner",
+    "ThreadPool",
+    "Future",
+    "Channel",
+    "Mutex",
+    "AtomicCounter",
 }
 
 SYNTHESIZABLE_TWIN_CLASSES: Set[str] = {
@@ -142,6 +147,7 @@ PROTECTED_POOL_SINGLETONS: Set[str] = {
     "Web",
     "PDF",
     "ProductLearner",
+    "Threads",
 }
 
 

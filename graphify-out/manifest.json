@@ -270,8 +270,8 @@
     "semantic_hash": "569b23ea44feb2a3eae4fae3a5b800e2"
   },
   "src/actorii/guardrails/linter.py": {
-    "mtime": 1794618278.3537762,
-    "ast_hash": "d9fd1cb3ed647f4bd302a1540794ca85",
+    "mtime": 1794634176.1656342,
+    "ast_hash": "34f65af9db70ba1497fd548807957627",
     "semantic_hash": ""
   },
   "tests/test_guardrails_and_bridge.py": {
@@ -325,8 +325,8 @@
     "semantic_hash": "0e9c86c32fcc21efeb8d34aef3550f01"
   },
   "src/actorii/harness/__init__.py": {
-    "mtime": 1794618799.6330266,
-    "ast_hash": "e1afcd9b015417a3aef6459c7a08316f",
+    "mtime": 1794634506.050911,
+    "ast_hash": "48c6719a9a91e00291e5b89f2e16bb30",
     "semantic_hash": ""
   },
   "src/actorii/harness/benchmark.py": {
@@ -345,8 +345,8 @@
     "semantic_hash": ""
   },
   "src/actorii/harness/memory_graph.py": {
-    "mtime": 1794588431.5233843,
-    "ast_hash": "6a13b92addd59d49b7f9a94a31341b72",
+    "mtime": 1794634204.5209472,
+    "ast_hash": "7e51bc2082ac14a7ca75d18c5035ed0b",
     "semantic_hash": ""
   },
   "src/actorii/harness/twins.py": {
@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "src/actorii/telegram_gateway.py": {
-    "mtime": 1794606039.7716413,
-    "ast_hash": "1178993b62f5fa60702a995574d1ff04",
+    "mtime": 1794634441.6009264,
+    "ast_hash": "94d9e944fdc99dd080b6faf73921206e",
     "semantic_hash": ""
   },
   "benchmarks/run_longmem_locomo_suite.py": {
@@ -450,8 +450,8 @@
     "semantic_hash": ""
   },
   "tests/test_bilby_security_hardening.py": {
-    "mtime": 1794327836.0427713,
-    "ast_hash": "4506f523d1aba04eeb85749226fa818f",
+    "mtime": 1794634472.1913428,
+    "ast_hash": "41c1373340a7dcc55ab73104900cf9dd",
     "semantic_hash": ""
   },
   "benchmarks/archive/ACTOR_VS_HERMES_RESULTS.json": {
@@ -810,8 +810,8 @@
     "semantic_hash": ""
   },
   "src/actorii/classes/concurrency.py": {
-    "mtime": 1794618552.0650015,
-    "ast_hash": "a6d680b2bac2f6cdefdbdddb6283103d",
+    "mtime": 1794634288.15282,
+    "ast_hash": "fe3a6dda072dc491303a50e0f464d45b",
     "semantic_hash": ""
   },
   "src/actorii/harness/self_evolution_bench.py": {

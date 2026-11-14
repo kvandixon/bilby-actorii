@@ -339,16 +339,20 @@ class BilbyTelegramGateway:
         raw_mf = self.session.harness._fields.get("maxFailures", 0)
         ms_txt = "∞ (unlimited)" if (raw_ms is not None and int(raw_ms) <= 0) else str(raw_ms)
         mf_txt = "∞ (disabled)" if (raw_mf is not None and int(raw_mf) <= 0) else f"{raw_mf} strikes"
+        preflight_on = os.environ.get("ACTORII_ENFORCE_SKIPPY_PREFLIGHT", "1" if lockdown else "0") == "1"
         return (
             "🛡️ Bilby Containment & Security Controls Report\n"
             f"• Execution State: {'❄️ FROZEN (Kill-Switch Active)' if self._frozen else '🟢 ACTIVE (Guarded)'}\n"
             f"• Host Lockdown (`ACTORII_HOST_LOCKDOWN`): {'🔒 LOCKED (1)' if lockdown else '⚠️ UNLOCKED (0)'}\n"
+            f"• Skippy Pre-Flight Monitor (`askSkippy` before detached threads / `evolve` / bulk memory writes): {'🔒 ENFORCED' if preflight_on else '⚠️ OFF'}\n"
+            "• Core Memory Self-Preservation (`DELETE` on `:ActorEpisode` / `:ActorEngram`): 🔒 HARD-BLOCKED (Soft-Archive Only)\n"
+            "• Thread Pool Starvation Guard (`loop while(true)` & unbounded gas on `Actor[#Threads]`): 🔒 HARD-BLOCKED\n"
             f"• Host Shell (`Actor[#Host]>>execShell` / `Actor[#Valkyrie]>>runShell`): {'🔒 BLOCKED ON HOST' if (lockdown and not in_docker) else '🐳 DOCKER-ONLY'}\n"
             f"• Self-Evolution (`evolveHarness` / Ring 1 Cognitive Hooks): {'🔒 DISABLED' if no_evolve else '🟢 ENABLED (Guarded Ring 1 Hooks Only — Kernel & Tier 2 Calls Locked)'}\n"
-            "• Python Source & Host Config Write Guard (`src/actorii`, `~/bin`, `.config/systemd`, `/etc`): 🔒 HARD-BLOCKED\n"
+            "• Python Source, Persona & Host Config Write Guard (`src/actorii`, `persona.md`, `~/bin`, `.config/systemd`, `/etc`): 🔒 HARD-BLOCKED\n"
             "• Destructive Command Filter (`systemctl`, `sudo`, `nmcli`, `resolv.conf`, `crontab`, `rm -rf`): 🔒 ACTIVE (47 patterns)\n"
-            f"• Ring 0/1 Kernel & Bridge Class Lock: 🔒 ACTIVE (36 classes + `AgentHarness` kernel methods)\n"
-            f"• Pool Singleton Lock (`Actor[#Host]`, `Actor[#Harness]`, `Actor[#Sandbox]`): {'🔒 LOCKED' if singleton_lock else '⚠️ UNLOCKED'}\n"
+            f"• Ring 0/1 Kernel & Bridge Class Lock: 🔒 ACTIVE (41 classes + `AgentHarness` kernel methods)\n"
+            f"• Pool Singleton Lock (`Actor[#Host]`, `Actor[#Harness]`, `Actor[#Sandbox]`, `Actor[#Threads]`): {'🔒 LOCKED' if singleton_lock else '⚠️ UNLOCKED'}\n"
             f"• Per-Step Opcode Gas Limit: {self.session.harness._fields.get('gasLimit', 15000)} ops | Max Steps: {ms_txt} | Strike Breaker: {mf_txt}\n"
             f"• Authorized Telegram IDs: {self.allowed_users}"
         )
