@@ -165,12 +165,20 @@ class ValkyrieSystemTwin:
         ask_bin = shutil.which("ask-skippy") or str(Path.home() / "bin" / "ask-skippy")
         if os.path.isfile(ask_bin):
             wait_s = max(15.0, min(180.0, float(timeout_sec or 110)))
+            sub_env = dict(os.environ)
+            active_cid = _ACTIVE_TELEGRAM_ROUTE.get("chat_id")
+            active_tid = _ACTIVE_TELEGRAM_ROUTE.get("thread_id")
+            if active_cid and not sub_env.get("ASK_SKIPPY_CHAT_ID"):
+                sub_env["ASK_SKIPPY_CHAT_ID"] = str(active_cid)
+            if active_tid and not sub_env.get("ASK_SKIPPY_THREAD_ID"):
+                sub_env["ASK_SKIPPY_THREAD_ID"] = str(active_tid)
             try:
                 proc = subprocess.run(
                     [ask_bin, q],
                     timeout=wait_s,
                     capture_output=True,
                     text=True,
+                    env=sub_env,
                 )
                 out = (proc.stdout or "").strip()
                 err = (proc.stderr or "").strip()
@@ -695,6 +703,8 @@ TELEGRAM_MEDIA_STAGE_DIR = "/tmp/actorii_media"
 TELEGRAM_MAX_PHOTO_BYTES = 10 * 1024 * 1024
 TELEGRAM_MAX_DOCUMENT_BYTES = 50 * 1024 * 1024
 
+_ACTIVE_TELEGRAM_ROUTE: Dict[str, Any] = {"chat_id": None, "thread_id": None}
+
 _SENSITIVE_UPLOAD_BASENAMES = (
     ".env",
     "id_rsa",
@@ -838,6 +848,8 @@ class TelegramBotTwin:
             self._active_thread_id = int(thread_id)
         else:
             self._active_thread_id = None
+        _ACTIVE_TELEGRAM_ROUTE["chat_id"] = self._active_chat_id
+        _ACTIVE_TELEGRAM_ROUTE["thread_id"] = self._active_thread_id
 
     def _resolve_route(self, chat_id: Any = None, thread_id: int = 0) -> Tuple[str, int]:
         """Resolve effective `(chat_id, thread_id)` preferring explicit args, then active turn route, then `.env` defaults."""

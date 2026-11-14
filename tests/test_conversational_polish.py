@@ -672,7 +672,7 @@ def test_valkyrie_ask_skippy_timeout_and_response(tmp_path: Path, monkeypatch: p
 
     recorded: dict = {}
 
-    def fake_run(argv, timeout=None, capture_output=True, text=True):
+    def fake_run(argv, timeout=None, capture_output=True, text=True, **kwargs):
         recorded["argv"] = argv
         recorded["timeout"] = timeout
         return sp.CompletedProcess(argv, 0, stdout="Visual analysis: wooden deck and grill.\n", stderr="")
@@ -747,3 +747,72 @@ def test_jetson_write_file_and_cuda_write_and_run_and_string_hint(
         'writeAndRun(Actor[#Jetson], "/tmp/julia_hd.cu", """#include <cud ... <2302 chars total> ... return 0;""", 60)!!',
     )
     assert "TruncatedPlaceholderError" in str(err_res)
+
+
+def test_ask_skippy_cheapest_model_cascade_and_active_route_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`ask-skippy` routes to cheapest capable Flash tier with cross-pool failover, and `askSkippy` forwards active Telegram route."""
+    import importlib.machinery
+    import importlib.util
+    import subprocess as sp
+
+    from actorii.harness.twins import TelegramBotTwin, ValkyrieSystemTwin
+
+    loader = importlib.machinery.SourceFileLoader("ask_skippy_mod", "/home/skippy/bin/ask-skippy")
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    assert spec is not None
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+
+    # 1. Routine Q&A + multimodal vision -> gemini-3.8-flash-low first, with cross-pool failover
+    t_low, c_low = mod.select_model_cascade(
+        "Inspect /tmp/actorii_media/julia_hd.jpg and describe colors",
+        exec_mode=False,
+        explicit_tier=None,
+        explicit_model=None,
+    )
+    assert t_low == "low"
+    assert c_low[0] == "gemini-3.8-flash-low"
+    assert "claude-sonnet-5-5-low" in c_low
+
+    # 2. Deep root-cause / deadlock query -> gemini-3.8-flash-medium first
+    t_med, c_med = mod.select_model_cascade(
+        "Diagnose deadlock root cause in ExecutionFiber stack",
+        exec_mode=False,
+        explicit_tier=None,
+        explicit_model=None,
+    )
+    assert t_med == "medium"
+    assert c_med[0] == "gemini-3.8-flash-medium"
+
+    # 3. Tool-execution escalation -> gemini-3.8-flash-high first
+    t_high, c_high = mod.select_model_cascade(
+        "Apply hotfix",
+        exec_mode=True,
+        explicit_tier=None,
+        explicit_model=None,
+    )
+    assert t_high == "high"
+    assert c_high[0] == "gemini-3.8-flash-high"
+
+    # 4. Active Telegram `(chat_id, thread_id)` propagates into `ValkyrieSystemTwin.askSkippy` subprocess env
+    monkeypatch.delenv("ASK_SKIPPY_CHAT_ID", raising=False)
+    monkeypatch.delenv("ASK_SKIPPY_THREAD_ID", raising=False)
+    tg = TelegramBotTwin(token="dummy:tok", default_chat_id="111", api_caller=lambda *a, **k: {"ok": True})
+    tg._set_active_route(8492834492, 15996)
+
+    captured_env: dict = {}
+
+    def fake_run(cmd, timeout=None, capture_output=False, text=False, env=None, **kw):
+        if env is not None:
+            captured_env.update(env)
+        return sp.CompletedProcess(cmd, 0, stdout="Skippy reply", stderr="")
+
+    monkeypatch.setattr("actorii.harness.twins.subprocess.run", fake_run)
+    sys_twin = ValkyrieSystemTwin()
+    ans = sys_twin.askSkippy("Quick question")
+    assert ans == "Skippy reply"
+    assert captured_env.get("ASK_SKIPPY_CHAT_ID") == "8492834492"
+    assert captured_env.get("ASK_SKIPPY_THREAD_ID") == "15996"
+    tg._set_active_route(None, None)
