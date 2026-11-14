@@ -105,8 +105,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794627160.661307,
-    "ast_hash": "6f91225e04ec37f79b0d55cbf4c501ba",
+    "mtime": 1794641637.119447,
+    "ast_hash": "a577d8fc97d387eb4579738d9947e50b",
     "semantic_hash": ""
   },
   "browser_client.html": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "benchmarks/BENCHMARK_RESULTS.md": {
-    "mtime": 1794627160.6605198,
-    "ast_hash": "e317f8acbab189d57d4d8b6b1d89adf5",
+    "mtime": 1794641637.1187334,
+    "ast_hash": "6f5b44568c0726b3645ce5e25caf88b1",
     "semantic_hash": ""
   },
   "benchmarks/archive/ACTOR_VS_HERMES_REPORT.md": {
@@ -715,8 +715,8 @@
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.json": {
-    "mtime": 1794627160.6599298,
-    "ast_hash": "c235e62d14495e2d95d012a59623bb5f",
+    "mtime": 1794641637.1181226,
+    "ast_hash": "55d63836b6aa0bcb6747c99e4e575785",
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.py": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.html": {
-    "mtime": 1794627160.6608279,
-    "ast_hash": "99858345d9a49cacd85a890ff92d031e",
+    "mtime": 1794641637.1190543,
+    "ast_hash": "fb48214b697f28d664aa36efd5c2bc18",
     "semantic_hash": ""
   },
   "src/actorii/reverse_proxy.py": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "benchmarks/gate_baseline.json": {
-    "mtime": 1794626977.5937617,
-    "ast_hash": "df7009661ae876cfd5e9cf32c53f4aca",
+    "mtime": 1794641437.9551888,
+    "ast_hash": "f42d840706c9cc55f9807fbc7eea0d32",
     "semantic_hash": ""
   },
   "scripts/hooks/pre-push": {
@@ -865,13 +865,13 @@
     "semantic_hash": ""
   },
   "scripts/release_gate.py": {
-    "mtime": 1794627224.5032585,
-    "ast_hash": "634e2a4153d1bbe5bcd4846d23084984",
+    "mtime": 1794638806.204583,
+    "ast_hash": "0e360a16092562d1f82475e27dd41aa5",
     "semantic_hash": ""
   },
   "tests/test_release_gate.py": {
-    "mtime": 1794627140.2793367,
-    "ast_hash": "308a88f33ec5234f2c526bc1352725fe",
+    "mtime": 1794638751.714103,
+    "ast_hash": "bb241b24525273ce07eef30693bf60fc",
     "semantic_hash": ""
   },
   "AGENTS.md": {

@@ -66,8 +66,9 @@ def test_canary_hard_block_and_frontier_auto_ratchet() -> None:
     assert res_bad["canary_failures"] == ["sensor_window_median"]
 
     # Case 2: Canaries pass AND frontier spec newly passes -> auto-ratcheted into Canaries!
+    # Also verify `"specs"` (SelfEvolutionRunner native output schema) works identically to `"results"`.
     good_report = {
-        "results": [
+        "specs": [
             {"spec_id": "sensor_window_median", "passed": True, "holdout_pass_rate": 1.0},
             {"spec_id": "harness_step_budget_advisor", "passed": True, "holdout_pass_rate": 1.0},
             {
@@ -80,11 +81,18 @@ def test_canary_hard_block_and_frontier_auto_ratchet() -> None:
         ]
     }
     b2 = copy.deepcopy(baseline)
+    b2["self_evolution"]["default_live_frontier_sample"] = ["circuit_breaker_policy"]
+    b2["self_evolution"]["frontier"]["ring_buffer_telemetry"] = {
+        "best_holdout_pass_rate": 0.267,
+        "best_visible_pass_rate": 0.25,
+        "last_status": "failed",
+    }
     res_good = rg.evaluate_self_evo_against_baseline(good_report, b2, ratchet=True)
     assert res_good["passed"] is True
     assert res_good["ratcheted_to_canary"] == ["circuit_breaker_policy"]
     assert "circuit_breaker_policy" in b2["self_evolution"]["canaries"]
     assert "circuit_breaker_policy" not in b2["self_evolution"]["frontier"]
+    assert b2["self_evolution"]["default_live_frontier_sample"] == ["ring_buffer_telemetry"]
 
     # Case 3: Frontier holdout drops > 5% -> warning recorded without blocking unrelated bugfix
     drop_report = {

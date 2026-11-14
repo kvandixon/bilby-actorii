@@ -2751,7 +2751,7 @@
       "label": "_purge_neo4j_namespace()",
       "file_type": "code",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L255",
+      "source_location": "L260",
       "_origin": "ast",
       "id": "scripts_release_gate_purge_neo4j_namespace",
       "community": 33,
@@ -2762,7 +2762,7 @@
       "label": "check_planning_doc_headers()",
       "file_type": "code",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L269",
+      "source_location": "L274",
       "_origin": "ast",
       "id": "scripts_release_gate_check_planning_doc_headers",
       "community": 33,
@@ -2773,7 +2773,7 @@
       "label": "run_fast_tier()",
       "file_type": "code",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L281",
+      "source_location": "L286",
       "_origin": "ast",
       "id": "scripts_release_gate_run_fast_tier",
       "community": 33,
@@ -2784,7 +2784,7 @@
       "label": "_record_scoreboard_entry()",
       "file_type": "code",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L371",
+      "source_location": "L376",
       "_origin": "ast",
       "id": "scripts_release_gate_record_scoreboard_entry",
       "community": 33,
@@ -2795,7 +2795,7 @@
       "label": "run_live_or_full_tier()",
       "file_type": "code",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L424",
+      "source_location": "L429",
       "_origin": "ast",
       "id": "scripts_release_gate_run_live_or_full_tier",
       "community": 33,
@@ -2806,7 +2806,7 @@
       "label": "write_stamp_and_history()",
       "file_type": "code",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L566",
+      "source_location": "L583",
       "_origin": "ast",
       "id": "scripts_release_gate_write_stamp_and_history",
       "community": 33,
@@ -2817,7 +2817,7 @@
       "label": "verify_stamp()",
       "file_type": "code",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L582",
+      "source_location": "L599",
       "_origin": "ast",
       "id": "scripts_release_gate_verify_stamp",
       "community": 33,
@@ -2828,7 +2828,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L624",
+      "source_location": "L641",
       "_origin": "ast",
       "id": "scripts_release_gate_main",
       "community": 33,
@@ -4910,8 +4910,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "src_actorii_classes_collections_actorcollection_len",
-      "community": 28,
-      "community_name": "ActorObject",
+      "community": 251,
+      "community_name": "Any",
       "norm_label": ".__len__()"
     },
     {
@@ -4921,8 +4921,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "src_actorii_classes_collections_actorcollection_isempty",
-      "community": 28,
-      "community_name": "ActorObject",
+      "community": 251,
+      "community_name": "Any",
       "norm_label": ".isempty()"
     },
     {
@@ -4998,8 +4998,8 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "src_actorii_classes_collections_actorcollection_asarray",
-      "community": 28,
-      "community_name": "ActorObject",
+      "community": 251,
+      "community_name": "Any",
       "norm_label": ".asarray()"
     },
     {
@@ -5515,8 +5515,8 @@
       "source_location": "L567",
       "_origin": "ast",
       "id": "src_actorii_classes_collections_actorset_size",
-      "community": 28,
-      "community_name": "ActorObject",
+      "community": 251,
+      "community_name": "Any",
       "norm_label": ".size()"
     },
     {
@@ -5658,8 +5658,8 @@
       "source_location": "L81",
       "_origin": "ast",
       "id": "src_actorii_classes_collections_rationale_81",
-      "community": 28,
-      "community_name": "ActorObject",
+      "community": 251,
+      "community_name": "Any",
       "norm_label": "return true if collection has 0 elements, false otherwise."
     },
     {
@@ -5735,8 +5735,8 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "src_actorii_classes_collections_rationale_139",
-      "community": 28,
-      "community_name": "ActorObject",
+      "community": 251,
+      "community_name": "Any",
       "norm_label": "convert receiver elements into an authentic fixed-size array. source:..."
     },
     {
@@ -9761,8 +9761,8 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "rect"
     },
     {
@@ -9783,8 +9783,8 @@
       "source_location": "L283",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_width",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".width()"
     },
     {
@@ -9794,8 +9794,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_py_setter",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "setter"
     },
     {
@@ -9805,8 +9805,8 @@
       "source_location": "L291",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_height",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".height()"
     },
     {
@@ -9816,8 +9816,8 @@
       "source_location": "L299",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_origin",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".origin()"
     },
     {
@@ -9827,8 +9827,8 @@
       "source_location": "L303",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_corner",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".corner()"
     },
     {
@@ -9838,8 +9838,8 @@
       "source_location": "L306",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_setorigin",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".setorigin()"
     },
     {
@@ -9849,8 +9849,8 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_setcorner",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".setcorner()"
     },
     {
@@ -9860,8 +9860,8 @@
       "source_location": "L316",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_contains",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".contains()"
     },
     {
@@ -9871,8 +9871,8 @@
       "source_location": "L322",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_containspoint",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".containspoint()"
     },
     {
@@ -9882,8 +9882,8 @@
       "source_location": "L325",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_intersects",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".intersects()"
     },
     {
@@ -9893,8 +9893,8 @@
       "source_location": "L334",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_union",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".union()"
     },
     {
@@ -9904,8 +9904,8 @@
       "source_location": "L341",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_as_tuple",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".as_tuple()"
     },
     {
@@ -9915,8 +9915,8 @@
       "source_location": "L344",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_to_dlg_units",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".to_dlg_units()"
     },
     {
@@ -9926,8 +9926,8 @@
       "source_location": "L348",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rect_from_dlg_units",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".from_dlg_units()"
     },
     {
@@ -10091,8 +10091,8 @@
       "source_location": "L251",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rationale_251",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "authentic 1993 actor rect (rectangle) class. defined by origin (left, top) and..."
     },
     {
@@ -10102,8 +10102,8 @@
       "source_location": "L317",
       "_origin": "ast",
       "id": "src_actorii_classes_geometry_rationale_317",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "test if (x, y) point lies within the rectangle."
     },
     {
@@ -10125,7 +10125,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "windowsobject"
     },
     {
@@ -10136,7 +10136,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_init",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__init__()"
     },
     {
@@ -10147,7 +10147,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_py_any",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "any"
     },
     {
@@ -10158,7 +10158,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_show",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".show()"
     },
     {
@@ -10169,7 +10169,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_hide",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".hide()"
     },
     {
@@ -10180,7 +10180,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_is_visible",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".is_visible()"
     },
     {
@@ -10191,7 +10191,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_enable",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".enable()"
     },
     {
@@ -10202,7 +10202,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_disable",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".disable()"
     },
     {
@@ -10213,7 +10213,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_is_enabled",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".is_enabled()"
     },
     {
@@ -10224,7 +10224,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_draw",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".draw()"
     },
     {
@@ -10235,7 +10235,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_render",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".render()"
     },
     {
@@ -10246,7 +10246,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_windowsobject_to_html",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".to_html()"
     },
     {
@@ -10268,7 +10268,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_init",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__init__()"
     },
     {
@@ -10322,8 +10322,8 @@
       "source_location": "L143",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_add",
-      "community": 19,
-      "community_name": "ActorChannel",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".add()"
     },
     {
@@ -10334,7 +10334,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_add_child",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".add_child()"
     },
     {
@@ -10345,7 +10345,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_addchild",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".addchild()"
     },
     {
@@ -10356,7 +10356,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_remove",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".remove()"
     },
     {
@@ -10367,7 +10367,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_remove_child",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".remove_child()"
     },
     {
@@ -10378,7 +10378,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_removechild",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".removechild()"
     },
     {
@@ -10389,7 +10389,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_add_action_handler",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".add_action_handler()"
     },
     {
@@ -10400,7 +10400,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_set_focus",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".set_focus()"
     },
     {
@@ -10411,7 +10411,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_find_child",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".find_child()"
     },
     {
@@ -10422,7 +10422,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_getitem",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__getitem__()"
     },
     {
@@ -10433,7 +10433,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_setitem",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__setitem__()"
     },
     {
@@ -10444,7 +10444,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_register_action",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".register_action()"
     },
     {
@@ -10455,7 +10455,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_window_draw",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".draw()"
     },
     {
@@ -10498,8 +10498,8 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog_init",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".__init__()"
     },
     {
@@ -10510,7 +10510,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog_end",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".end()"
     },
     {
@@ -10521,7 +10521,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog_on_ok",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".on_ok()"
     },
     {
@@ -10532,7 +10532,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog_on_cancel",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".on_cancel()"
     },
     {
@@ -10543,7 +10543,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog_create_standard_buttons",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".create_standard_buttons()"
     },
     {
@@ -10554,7 +10554,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_py_button",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "button"
     },
     {
@@ -10565,7 +10565,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog_run_modal",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".run_modal()"
     },
     {
@@ -10576,7 +10576,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_dialog_draw",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".draw()"
     },
     {
@@ -10598,7 +10598,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control_init",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__init__()"
     },
     {
@@ -10664,7 +10664,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_control_add",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".add()"
     },
     {
@@ -10708,7 +10708,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_button_init",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__init__()"
     },
     {
@@ -10719,7 +10719,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_button_on_click",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".on_click()"
     },
     {
@@ -10730,7 +10730,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_button_press",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".press()"
     },
     {
@@ -10763,7 +10763,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_textfield_init",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__init__()"
     },
     {
@@ -10829,7 +10829,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_checkbox_init",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__init__()"
     },
     {
@@ -10840,7 +10840,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_checkbox_toggle",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".toggle()"
     },
     {
@@ -10851,7 +10851,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_checkbox_on_click",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".on_click()"
     },
     {
@@ -10895,7 +10895,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_checkbox_setvalue",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".setvalue()"
     },
     {
@@ -10906,7 +10906,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_checkbox_draw",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".draw()"
     },
     {
@@ -10928,7 +10928,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_36",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "authentic 1993 actor windowsobject root class. source:..."
     },
     {
@@ -10939,7 +10939,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_61",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "make object visible (windowso.cls:1645 showwindow)."
     },
     {
@@ -10960,8 +10960,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_144",
-      "community": 19,
-      "community_name": "ActorChannel",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "add child widget to window (window.cls:242 add)."
     },
     {
@@ -10972,7 +10972,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_161",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "remove child widget by instance, id, or symbol (window.cls remove)."
     },
     {
@@ -10983,7 +10983,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_182",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "register an action handler for child widget events."
     },
     {
@@ -10994,7 +10994,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_192",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "set focus to a child widget."
     },
     {
@@ -11005,7 +11005,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_196",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "find a child by id, identity symbol, or title."
     },
     {
@@ -11016,7 +11016,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_222",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "access child by symbol or id (win[#btn] in window.cls:58)."
     },
     {
@@ -11027,7 +11027,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_226",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "set child by symbol/id (win[#btn] := child)."
     },
     {
@@ -11038,7 +11038,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_239",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "map (child_id, event_name) to an action method on this window."
     },
     {
@@ -11049,7 +11049,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_249",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "render window and children as structured html5-ready markup."
     },
     {
@@ -11082,7 +11082,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_323",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "close dialog and store result code (button.cls line 67)."
     },
     {
@@ -11093,7 +11093,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_329",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "default action when ok button is pressed."
     },
     {
@@ -11104,7 +11104,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_333",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "default action when cancel button is pressed."
     },
     {
@@ -11115,7 +11115,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_339",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "helper to create and add standard ok and cancel buttons."
     },
     {
@@ -11126,7 +11126,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_368",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "simulate modal execution; displays window and returns result code upon end()."
     },
     {
@@ -11137,7 +11137,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_376",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "render modal dialog with distinct modal frame styling."
     },
     {
@@ -11170,7 +11170,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_453",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "override add: controls do not accept children."
     },
     {
@@ -11192,7 +11192,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_512",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "handle click event by dispatching action message into actorvm or calling..."
     },
     {
@@ -11203,7 +11203,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_566",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "simulate programmatic button press."
     },
     {
@@ -11269,7 +11269,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_689",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "toggle checked state and update data (checkbox.cls:80)."
     },
     {
@@ -11280,7 +11280,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_695",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "handle click/press event by toggling state and updating data (checkbox.cls:73)."
     },
     {
@@ -11302,7 +11302,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_719",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "set checked state from boolean or symbol (checkbox.cls:16)."
     },
     {
@@ -11313,7 +11313,7 @@
       "_origin": "ast",
       "id": "src_actorii_classes_gui_rationale_729",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "render html5 checkbox input with label."
     },
     {
@@ -13358,8 +13358,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "src_actorii_core_init_py_any",
-      "community": 12,
-      "community_name": "WindowsObject",
+      "community": 28,
+      "community_name": "ActorObject",
       "norm_label": "any"
     },
     {
@@ -13391,8 +13391,8 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "src_actorii_core_init_actorobject_iskindof",
-      "community": 12,
-      "community_name": "WindowsObject",
+      "community": 28,
+      "community_name": "ActorObject",
       "norm_label": ".iskindof()"
     },
     {
@@ -13402,8 +13402,8 @@
       "source_location": "L122",
       "_origin": "ast",
       "id": "src_actorii_core_init_actorobject_kindof",
-      "community": 12,
-      "community_name": "WindowsObject",
+      "community": 28,
+      "community_name": "ActorObject",
       "norm_label": ".kindof()"
     },
     {
@@ -13612,7 +13612,7 @@
       "_origin": "ast",
       "id": "src_actorii_core_init_symbol",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "symbol"
     },
     {
@@ -13623,7 +13623,7 @@
       "_origin": "ast",
       "id": "src_actorii_core_init_py_str",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "str"
     },
     {
@@ -13633,8 +13633,8 @@
       "source_location": "L264",
       "_origin": "ast",
       "id": "src_actorii_core_init_symbol_new",
-      "community": 12,
-      "community_name": "WindowsObject",
+      "community": 28,
+      "community_name": "ActorObject",
       "norm_label": ".__new__()"
     },
     {
@@ -13645,7 +13645,7 @@
       "_origin": "ast",
       "id": "src_actorii_core_init_symbol_name",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".name()"
     },
     {
@@ -13656,7 +13656,7 @@
       "_origin": "ast",
       "id": "src_actorii_core_init_symbol_repr",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__repr__()"
     },
     {
@@ -13667,7 +13667,7 @@
       "_origin": "ast",
       "id": "src_actorii_core_init_symbol_eq",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__eq__()"
     },
     {
@@ -13678,7 +13678,7 @@
       "_origin": "ast",
       "id": "src_actorii_core_init_symbol_ne",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__ne__()"
     },
     {
@@ -13689,7 +13689,7 @@
       "_origin": "ast",
       "id": "src_actorii_core_init_symbol_hash",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": ".__hash__()"
     },
     {
@@ -13953,7 +13953,7 @@
       "_origin": "ast",
       "id": "src_actorii_core_init_rationale_262",
       "community": 12,
-      "community_name": "WindowsObject",
+      "community_name": "Rect",
       "norm_label": "authentic 1993 symbol literal representation (#symbol)."
     },
     {
@@ -25150,8 +25150,8 @@
       "source_location": "L424",
       "_origin": "ast",
       "id": "src_actorii_parser_init_selfliteral",
-      "community": 99,
-      "community_name": "parser/__init__.py",
+      "community": 5,
+      "community_name": "TestMilestone1Remediation",
       "norm_label": "selfliteral"
     },
     {
@@ -25161,8 +25161,8 @@
       "source_location": "L427",
       "_origin": "ast",
       "id": "src_actorii_parser_init_selfliteral_repr",
-      "community": 99,
-      "community_name": "parser/__init__.py",
+      "community": 5,
+      "community_name": "TestMilestone1Remediation",
       "norm_label": ".__repr__()"
     },
     {
@@ -25238,8 +25238,8 @@
       "source_location": "L454",
       "_origin": "ast",
       "id": "src_actorii_parser_init_attributeaccess",
-      "community": 99,
-      "community_name": "parser/__init__.py",
+      "community": 5,
+      "community_name": "TestMilestone1Remediation",
       "norm_label": "attributeaccess"
     },
     {
@@ -25249,8 +25249,8 @@
       "source_location": "L457",
       "_origin": "ast",
       "id": "src_actorii_parser_init_attributeaccess_init",
-      "community": 99,
-      "community_name": "parser/__init__.py",
+      "community": 5,
+      "community_name": "TestMilestone1Remediation",
       "norm_label": ".__init__()"
     },
     {
@@ -25260,8 +25260,8 @@
       "source_location": "L461",
       "_origin": "ast",
       "id": "src_actorii_parser_init_attributeaccess_repr",
-      "community": 99,
-      "community_name": "parser/__init__.py",
+      "community": 5,
+      "community_name": "TestMilestone1Remediation",
       "norm_label": ".__repr__()"
     },
     {
@@ -26668,8 +26668,8 @@
       "source_location": "L425",
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_425",
-      "community": 99,
-      "community_name": "parser/__init__.py",
+      "community": 5,
+      "community_name": "TestMilestone1Remediation",
       "norm_label": "represents self keyword literal."
     },
     {
@@ -26701,8 +26701,8 @@
       "source_location": "L455",
       "_origin": "ast",
       "id": "src_actorii_parser_init_rationale_455",
-      "community": 99,
-      "community_name": "parser/__init__.py",
+      "community": 5,
+      "community_name": "TestMilestone1Remediation",
       "norm_label": "represents an attribute/dot access (obj.field)."
     },
     {
@@ -28461,8 +28461,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "src_actorii_vm_opcodevalue",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "opcodevalue"
     },
     {
@@ -28472,8 +28472,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "int",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "int"
     },
     {
@@ -28483,8 +28483,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "src_actorii_vm_opcodevalue_new",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": ".__new__()"
     },
     {
@@ -28494,8 +28494,8 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "src_actorii_vm_opcodevalue_str",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": ".__str__()"
     },
     {
@@ -30111,8 +30111,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "src_actorii_vm_rationale_39",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "integer opcode that preserves its mnemonic in string representation."
     },
     {
@@ -31692,8 +31692,8 @@
       "source_location": "L697",
       "_origin": "ast",
       "id": "tests_test_actor_1993_grammar_testmilestone1remediation_test_caret_return_chained_and_indexed_assignment",
-      "community": 99,
-      "community_name": "parser/__init__.py",
+      "community": 5,
+      "community_name": "TestMilestone1Remediation",
       "norm_label": ".test_caret_return_chained_and_indexed_assignment()"
     },
     {
@@ -31957,7 +31957,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testopcodesetextensions",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "testopcodesetextensions"
     },
     {
@@ -31968,7 +31968,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testopcodesetextensions_test_baseline_opcodes_retained",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": ".test_baseline_opcodes_retained()"
     },
     {
@@ -31979,7 +31979,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testopcodesetextensions_test_new_variable_store_opcodes",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": ".test_new_variable_store_opcodes()"
     },
     {
@@ -31990,7 +31990,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testopcodesetextensions_test_opcode_aliases",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": ".test_opcode_aliases()"
     },
     {
@@ -32001,7 +32001,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testopcodesetextensions_test_new_indexing_opcodes",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": ".test_new_indexing_opcodes()"
     },
     {
@@ -32012,7 +32012,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testopcodesetextensions_test_new_relational_and_stack_opcodes",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": ".test_new_relational_and_stack_opcodes()"
     },
     {
@@ -32023,7 +32023,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testopcodesetextensions_test_new_jump_opcodes",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": ".test_new_jump_opcodes()"
     },
     {
@@ -32034,7 +32034,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testopcodesetextensions_test_new_closure_and_early_bound_opcodes",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": ".test_new_closure_and_early_bound_opcodes()"
     },
     {
@@ -32045,7 +32045,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testopcodesetextensions_test_opcode_string_representation",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": ".test_opcode_string_representation()"
     },
     {
@@ -32055,8 +32055,8 @@
       "source_location": "L141",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testmethodcompilationandslots",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "testmethodcompilationandslots"
     },
     {
@@ -32121,8 +32121,8 @@
       "source_location": "L206",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testassignmentandindexingcompilation",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "testassignmentandindexingcompilation"
     },
     {
@@ -32187,8 +32187,8 @@
       "source_location": "L257",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testblockclosurecompilation",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "testblockclosurecompilation"
     },
     {
@@ -32231,8 +32231,8 @@
       "source_location": "L307",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testcontrolflowcompilation",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "testcontrolflowcompilation"
     },
     {
@@ -32275,8 +32275,8 @@
       "source_location": "L352",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testearlybindingandprimitives",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "testearlybindingandprimitives"
     },
     {
@@ -32330,8 +32330,8 @@
       "source_location": "L418",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_testhistoricalbenchmarkscompilation",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "testhistoricalbenchmarkscompilation"
     },
     {
@@ -32551,7 +32551,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_54",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "verifies that all m2 opcodes and aliases are defined correctly."
     },
     {
@@ -32562,7 +32562,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_57",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "all 25 baseline opcodes retain their exact numeric values."
     },
     {
@@ -32573,7 +32573,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_85",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "variable store and load opcodes have expected non-colliding values."
     },
     {
@@ -32584,7 +32584,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_93",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "standard aliases map to identical underlying opcode values."
     },
     {
@@ -32595,7 +32595,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_101",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "indexing opcodes get_index and set_index."
     },
     {
@@ -32606,7 +32606,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_106",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "relational comparisons and stack duplication opcodes."
     },
     {
@@ -32617,7 +32617,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_114",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "control flow jump additions."
     },
     {
@@ -32628,7 +32628,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_120",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "closure, return, early-binding, and primitive opcodes."
     },
     {
@@ -32639,7 +32639,7 @@
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_129",
       "community": 568,
-      "community_name": "TestOpcodeSetExtensions",
+      "community_name": "OpcodeValue",
       "norm_label": "opcode values contain their mnemonic in str() for test assertions."
     },
     {
@@ -32649,8 +32649,8 @@
       "source_location": "L142",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_142",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "tests compilation of methods, parameter binding, and local slots."
     },
     {
@@ -32715,8 +32715,8 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_207",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "tests compilation of assignments, fields, and collection indexing."
     },
     {
@@ -32781,8 +32781,8 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_258",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "tests block closure compilation into blockdescriptor and make_block."
     },
     {
@@ -32825,8 +32825,8 @@
       "source_location": "L308",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_308",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "tests conditional branching and iterative loops with jump backpatching."
     },
     {
@@ -32869,8 +32869,8 @@
       "source_location": "L353",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_353",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "tests early-bound method calls and built-in runtime primitives."
     },
     {
@@ -32924,8 +32924,8 @@
       "source_location": "L419",
       "_origin": "ast",
       "id": "tests_test_actor_compiler_rationale_419",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "verifies end-to-end compilation of authentic whitewater 4.1 benchmarks."
     },
     {
@@ -35476,8 +35476,8 @@
       "source_location": "L654",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "testguihierarchy"
     },
     {
@@ -35487,8 +35487,8 @@
       "source_location": "L657",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_window_and_child_management",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_window_and_child_management()"
     },
     {
@@ -35498,8 +35498,8 @@
       "source_location": "L673",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_dialog_modal_lifecycle",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_dialog_modal_lifecycle()"
     },
     {
@@ -35509,8 +35509,8 @@
       "source_location": "L685",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_button_click_and_dialog_auto_close",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_button_click_and_dialog_auto_close()"
     },
     {
@@ -35520,8 +35520,8 @@
       "source_location": "L695",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_button_callback",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_button_callback()"
     },
     {
@@ -35531,8 +35531,8 @@
       "source_location": "L701",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_textfield_state",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_textfield_state()"
     },
     {
@@ -35542,8 +35542,8 @@
       "source_location": "L713",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_checkbox_state_and_toggling",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_checkbox_state_and_toggling()"
     },
     {
@@ -35553,8 +35553,8 @@
       "source_location": "L731",
       "_origin": "ast",
       "id": "tests_test_class_library_testguihierarchy_test_html5_rendering",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_html5_rendering()"
     },
     {
@@ -35773,8 +35773,8 @@
       "source_location": "L655",
       "_origin": "ast",
       "id": "tests_test_class_library_rationale_655",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "tests windowsobject, window, dialog, control, button, textfield, checkbox."
     },
     {
@@ -41812,8 +41812,8 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testrectadversarial",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "testrectadversarial"
     },
     {
@@ -41823,8 +41823,8 @@
       "source_location": "L253",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testrectadversarial_test_rect_construction_modes",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_rect_construction_modes()"
     },
     {
@@ -41834,8 +41834,8 @@
       "source_location": "L268",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testrectadversarial_test_rect_mutators",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_rect_mutators()"
     },
     {
@@ -41845,8 +41845,8 @@
       "source_location": "L284",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testrectadversarial_test_rect_containment",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_rect_containment()"
     },
     {
@@ -41856,8 +41856,8 @@
       "source_location": "L303",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testrectadversarial_test_rect_containment_inverted_bounds",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_rect_containment_inverted_bounds()"
     },
     {
@@ -41867,8 +41867,8 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testrectadversarial_test_rect_intersections",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_rect_intersections()"
     },
     {
@@ -41878,8 +41878,8 @@
       "source_location": "L330",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testrectadversarial_test_rect_union",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_rect_union()"
     },
     {
@@ -41889,8 +41889,8 @@
       "source_location": "L341",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_testrectadversarial_test_rect_dialog_units_conversion",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": ".test_rect_dialog_units_conversion()"
     },
     {
@@ -42175,8 +42175,8 @@
       "source_location": "L251",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_rationale_251",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "adversarial stress tests for rect geometry."
     },
     {
@@ -42186,8 +42186,8 @@
       "source_location": "L304",
       "_origin": "ast",
       "id": "tests_test_m4_geometry_gui_adversarial_rationale_304",
-      "community": 7,
-      "community_name": "Point",
+      "community": 12,
+      "community_name": "Rect",
       "norm_label": "negative / inverted coordinates (left > right, top > bottom)."
     },
     {
@@ -45472,7 +45472,7 @@
       "label": "test_verify_stamp_tier_and_hash_enforcement()",
       "file_type": "code",
       "source_file": "tests/test_release_gate.py",
-      "source_location": "L108",
+      "source_location": "L116",
       "_origin": "ast",
       "id": "tests_test_release_gate_test_verify_stamp_tier_and_hash_enforcement",
       "community": 93,
@@ -46751,8 +46751,8 @@
       "source_location": "L310",
       "_origin": "ast",
       "id": "tests_test_vm_execution_testauthenticmathandutilityprimitives",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": "testauthenticmathandutilityprimitives"
     },
     {
@@ -46762,8 +46762,8 @@
       "source_location": "L313",
       "_origin": "ast",
       "id": "tests_test_vm_execution_testauthenticmathandutilityprimitives_test_math_primitives",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": ".test_math_primitives()"
     },
     {
@@ -46773,8 +46773,8 @@
       "source_location": "L337",
       "_origin": "ast",
       "id": "tests_test_vm_execution_testauthenticmathandutilityprimitives_test_array_fill_primitive",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": ".test_array_fill_primitive()"
     },
     {
@@ -46784,8 +46784,8 @@
       "source_location": "L351",
       "_origin": "ast",
       "id": "tests_test_vm_execution_testauthenticmathandutilityprimitives_test_interval_over_and_overby",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": ".test_interval_over_and_overby()"
     },
     {
@@ -46795,8 +46795,8 @@
       "source_location": "L362",
       "_origin": "ast",
       "id": "tests_test_vm_execution_testauthenticmathandutilityprimitives_test_point3d_projection",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": ".test_point3d_projection()"
     },
     {
@@ -46806,8 +46806,8 @@
       "source_location": "L370",
       "_origin": "ast",
       "id": "tests_test_vm_execution_testauthenticmathandutilityprimitives_test_actor_dictionary_symbol_normalization",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": ".test_actor_dictionary_symbol_normalization()"
     },
     {
@@ -47048,8 +47048,8 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "tests_test_vm_execution_rationale_311",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": "tests max, min, sqrt, asint, dec, inc, abs, fill, interval, point, point3d."
     },
     {
@@ -47059,8 +47059,8 @@
       "source_location": "L314",
       "_origin": "ast",
       "id": "tests_test_vm_execution_rationale_314",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": "invoke_prim math functions produce authentic results."
     },
     {
@@ -47070,8 +47070,8 @@
       "source_location": "L338",
       "_origin": "ast",
       "id": "tests_test_vm_execution_rationale_338",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": "primitive fill populates every element of an array."
     },
     {
@@ -47081,8 +47081,8 @@
       "source_location": "L352",
       "_origin": "ast",
       "id": "tests_test_vm_execution_rationale_352",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": "interval over and overby produce correct step sequences."
     },
     {
@@ -47092,8 +47092,8 @@
       "source_location": "L363",
       "_origin": "ast",
       "id": "tests_test_vm_execution_rationale_363",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": "point3d projects to 2d point via authentic formula point(x, y - (z * 9) / 8)."
     },
     {
@@ -47103,8 +47103,8 @@
       "source_location": "L371",
       "_origin": "ast",
       "id": "tests_test_vm_execution_rationale_371",
-      "community": 34,
-      "community_name": "StackFrame",
+      "community": 589,
+      "community_name": "TestAuthenticMathAndUtilityPrimitives",
       "norm_label": "actordictionary normalizes symbols with or without #."
     },
     {
@@ -49968,15 +49968,15 @@
       "norm_label": "longmemeval + locomo (stratified 17-task) (`v4.2.0` \u00b7 `qwen3.8-27b` \u00b7 `2026-11-10`)"
     },
     {
-      "label": "Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.2` \u00b7 `qwen3.8:latest` \u00b7 `2026-11-13`)",
+      "label": "Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.2.0` \u00b7 `qwen3.8:latest` \u00b7 `2026-11-14`)",
       "file_type": "document",
       "source_file": "benchmarks/BENCHMARK_RESULTS.md",
       "source_location": "L83",
       "_origin": "ast",
-      "id": "benchmarks_benchmark_results_bilby_deterministic_self_evolution_loop_tiers_1_3_v4_2_qwen3_8_latest_2026_11_13",
+      "id": "benchmarks_benchmark_results_bilby_deterministic_self_evolution_loop_tiers_1_3_v4_2_0_qwen3_8_latest_2026_11_14",
       "community": 108,
       "community_name": "2. Sub-Track & Pillar Breakdowns (Latest Verified Runs)",
-      "norm_label": "bilby deterministic self-evolution loop (tiers 1-3) (`v4.2` \u00b7 `qwen3.8:latest` \u00b7 `2026-11-13`)"
+      "norm_label": "bilby deterministic self-evolution loop (tiers 1-3) (`v4.2.0` \u00b7 `qwen3.8:latest` \u00b7 `2026-11-14`)"
     },
     {
       "label": "3. Bilby Historical Run & Model Progression Ledger",
@@ -49993,7 +49993,7 @@
       "label": "4. Queued / Discovered Benchmarks Watchlist",
       "file_type": "document",
       "source_file": "benchmarks/BENCHMARK_RESULTS.md",
-      "source_location": "L124",
+      "source_location": "L125",
       "_origin": "ast",
       "id": "benchmarks_benchmark_results_4_queued_discovered_benchmarks_watchlist",
       "community": 108,
@@ -50004,7 +50004,7 @@
       "label": "5. Updating Scores & Adding New Benchmarks",
       "file_type": "document",
       "source_file": "benchmarks/BENCHMARK_RESULTS.md",
-      "source_location": "L139",
+      "source_location": "L140",
       "_origin": "ast",
       "id": "benchmarks_benchmark_results_5_updating_scores_adding_new_benchmarks",
       "community": 108,
@@ -52008,8 +52008,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m2_1/challenge_compiler.py",
       "source_location": "L51",
       "_origin": "ast",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": "testresult",
       "id": "agents_teamwork_teamwork_preview_challenger_m2_1_challenge_compiler_testresult"
     },
@@ -52019,8 +52019,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m2_1/challenge_compiler.py",
       "source_location": "L52",
       "_origin": "ast",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": ".__init__()",
       "id": "agents_teamwork_teamwork_preview_challenger_m2_1_challenge_compiler_testresult_init"
     },
@@ -52030,8 +52030,8 @@
       "source_file": ".agents/teamwork/teamwork_preview_challenger_m2_1/challenge_compiler.py",
       "source_location": "L58",
       "_origin": "ast",
-      "community": 8,
-      "community_name": "Opcode",
+      "community": 568,
+      "community_name": "OpcodeValue",
       "norm_label": ".__repr__()",
       "id": "agents_teamwork_teamwork_preview_challenger_m2_1_challenge_compiler_testresult_repr"
     },
@@ -94066,7 +94066,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L269",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate",
@@ -94132,7 +94132,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L624",
+      "source_location": "L641",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate",
@@ -94143,7 +94143,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L255",
+      "source_location": "L260",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate",
@@ -94154,7 +94154,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L371",
+      "source_location": "L376",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate",
@@ -94165,7 +94165,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L281",
+      "source_location": "L286",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate",
@@ -94176,7 +94176,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L424",
+      "source_location": "L429",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate",
@@ -94198,7 +94198,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L582",
+      "source_location": "L599",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate",
@@ -94209,7 +94209,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L566",
+      "source_location": "L583",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate",
@@ -94244,7 +94244,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L585",
+      "source_location": "L602",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_verify_stamp",
@@ -94256,7 +94256,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L572",
+      "source_location": "L589",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_write_stamp_and_history",
@@ -94268,7 +94268,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L269",
+      "source_location": "L274",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_check_planning_doc_headers",
@@ -94316,7 +94316,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L281",
+      "source_location": "L286",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_fast_tier",
@@ -94328,7 +94328,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L453",
+      "source_location": "L458",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_live_or_full_tier",
@@ -94376,7 +94376,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L435",
+      "source_location": "L440",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_live_or_full_tier",
@@ -94412,7 +94412,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L281",
+      "source_location": "L286",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_fast_tier",
@@ -94424,7 +94424,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L424",
+      "source_location": "L429",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_live_or_full_tier",
@@ -94448,7 +94448,7 @@
       "context": "generic_arg",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L566",
+      "source_location": "L583",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_write_stamp_and_history",
@@ -94460,7 +94460,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L478",
+      "source_location": "L483",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_live_or_full_tier",
@@ -94472,7 +94472,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L571",
+      "source_location": "L588",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_write_stamp_and_history",
@@ -94495,7 +94495,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L583",
+      "source_location": "L600",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_verify_stamp",
@@ -94518,7 +94518,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L476",
+      "source_location": "L481",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_live_or_full_tier",
@@ -94530,7 +94530,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L368",
+      "source_location": "L373",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_fast_tier",
@@ -94542,7 +94542,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L284",
+      "source_location": "L289",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_fast_tier",
@@ -94554,7 +94554,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L645",
+      "source_location": "L662",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_main",
@@ -94566,7 +94566,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L431",
+      "source_location": "L436",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_live_or_full_tier",
@@ -94578,7 +94578,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L548",
+      "source_location": "L565",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_run_live_or_full_tier",
@@ -94590,7 +94590,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L647",
+      "source_location": "L664",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_main",
@@ -94602,7 +94602,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L654",
+      "source_location": "L671",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_main",
@@ -94614,7 +94614,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "scripts/release_gate.py",
-      "source_location": "L640",
+      "source_location": "L657",
       "weight": 1.0,
       "_origin": "ast",
       "source": "scripts_release_gate_main",
@@ -202696,7 +202696,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_release_gate.py",
-      "source_location": "L108",
+      "source_location": "L116",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_release_gate",
@@ -202755,7 +202755,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_release_gate.py",
-      "source_location": "L109",
+      "source_location": "L117",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_release_gate_test_verify_stamp_tier_and_hash_enforcement",
@@ -202779,7 +202779,7 @@
       "context": "parameter_type",
       "confidence": "EXTRACTED",
       "source_file": "tests/test_release_gate.py",
-      "source_location": "L108",
+      "source_location": "L116",
       "weight": 1.0,
       "_origin": "ast",
       "source": "tests_test_release_gate_test_verify_stamp_tier_and_hash_enforcement",
@@ -208947,7 +208947,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "benchmarks/BENCHMARK_RESULTS.md",
-      "source_location": "L124",
+      "source_location": "L125",
       "weight": 1.0,
       "_origin": "ast",
       "source": "benchmarks_benchmark_results_bilby_actorii_benchmark_scoreboard_watchlist",
@@ -208958,7 +208958,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "benchmarks/BENCHMARK_RESULTS.md",
-      "source_location": "L139",
+      "source_location": "L140",
       "weight": 1.0,
       "_origin": "ast",
       "source": "benchmarks_benchmark_results_bilby_actorii_benchmark_scoreboard_watchlist",
@@ -208973,7 +208973,7 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "benchmarks_benchmark_results_2_sub_track_pillar_breakdowns_latest_verified_runs",
-      "target": "benchmarks_benchmark_results_bilby_deterministic_self_evolution_loop_tiers_1_3_v4_2_qwen3_8_latest_2026_11_13",
+      "target": "benchmarks_benchmark_results_bilby_deterministic_self_evolution_loop_tiers_1_3_v4_2_0_qwen3_8_latest_2026_11_14",
       "confidence_score": 1.0
     },
     {
@@ -243605,5 +243605,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "914d1a1dcdfa0ae845a563106001756b3a415c3d"
+  "built_at_commit": "312473429fc51227d365b3dd8c3de7342a9099b6"
 }

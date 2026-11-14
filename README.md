@@ -24,7 +24,7 @@ Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) wit
 | **Next-Gen Post-Cutoff Suite** | `SWE & Coding` | `9 (×3)` | **`59.26% avg@3 (16 / 27 trials)`** | `2026-11-10` |
 | **Red-Team Adversarial Containment Audit** | `Security` | `6` | **`100.00% (6 / 6 Blocked)`** | `2026-11-10` |
 | **LongMemEval + LoCoMo (Stratified 17-Task)** | `Memory` | `17` | **`94.12% (16 / 17)`** | `2026-11-10` |
-| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `SWE & Coding` | `5` | **`40.00% (2 / 5)`** | `2026-11-13` |
+| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `SWE & Coding` | `5` | **`60.00% (3 / 5)`** | `2026-11-14` |
 <!-- BENCHMARK_SCOREBOARD:END -->
 
 👉 **[Full details, run history & live HTML scoreboard (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)**

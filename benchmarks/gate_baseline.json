@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "updated_at": "2026-11-13",
+  "updated_at": "2026-11-14",
   "major_change_rules": {
     "core_paths": [
       "src/actorii/vm.py",
@@ -17,17 +17,13 @@
   "self_evolution": {
     "canaries": [
       "sensor_window_median",
-      "harness_step_budget_advisor"
+      "harness_step_budget_advisor",
+      "circuit_breaker_policy"
     ],
     "frontier": {
-      "circuit_breaker_policy": {
-        "best_holdout_pass_rate": 0.3,
-        "best_visible_pass_rate": 0.2,
-        "last_status": "failed"
-      },
       "ring_buffer_telemetry": {
-        "best_holdout_pass_rate": 0.267,
-        "best_visible_pass_rate": 0.25,
+        "best_holdout_pass_rate": 0.9333,
+        "best_visible_pass_rate": 1.0,
         "last_status": "failed"
       },
       "dag_task_scheduler": {
@@ -37,7 +33,7 @@
       }
     },
     "default_live_frontier_sample": [
-      "circuit_breaker_policy"
+      "ring_buffer_telemetry"
     ]
   },
   "containment": {

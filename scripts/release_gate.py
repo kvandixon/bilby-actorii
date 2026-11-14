@@ -182,8 +182,9 @@ def evaluate_self_evo_against_baseline(
     canaries: list[str] = list(se_cfg.get("canaries", []))
     frontier: dict[str, dict[str, Any]] = dict(se_cfg.get("frontier", {}))
 
+    raw_specs = evo_report.get("specs") or evo_report.get("results") or []
     by_id: dict[str, dict[str, Any]] = {
-        str(r.get("spec_id")): r for r in evo_report.get("results", []) if isinstance(r, dict)
+        str(r.get("spec_id")): r for r in raw_specs if isinstance(r, dict)
     }
 
     canary_failures: list[str] = []
@@ -240,6 +241,10 @@ def evaluate_self_evo_against_baseline(
     if baseline_mutated:
         se_cfg["canaries"] = canaries
         se_cfg["frontier"] = frontier
+        cur_sample = [s for s in se_cfg.get("default_live_frontier_sample", []) if s in frontier]
+        if not cur_sample and frontier:
+            cur_sample = [next(iter(frontier.keys()))]
+        se_cfg["default_live_frontier_sample"] = cur_sample
 
     return {
         "passed": len(canary_failures) == 0,
@@ -525,10 +530,22 @@ def run_live_or_full_tier(
         std_json_path = BENCH_DIR / "BENCHMARK_RESULTS.json"
         if std_proc.returncode == 0 and std_json_path.is_file():
             sdata = json.loads(std_json_path.read_text(encoding="utf-8"))
-            he_pass = int(sdata.get("humaneval", {}).get("actor_harness_passed", 0))
-            he_tot = int(sdata.get("humaneval", {}).get("total", he_n))
-            gsm_pass = int(sdata.get("gsm8k", {}).get("actor_harness_passed", 0))
-            gsm_tot = int(sdata.get("gsm8k", {}).get("total", gsm_n))
+            he_dict = sdata.get("humaneval", {})
+            gsm_dict = sdata.get("gsm8k", {})
+            he_tasks = he_dict.get("tasks", [])
+            gsm_tasks = gsm_dict.get("tasks", [])
+            he_pass = (
+                sum(1 for t in he_tasks if t.get("actor_harness_passed"))
+                if he_tasks
+                else int(he_dict.get("actor_harness_passed", 0))
+            )
+            he_tot = int(he_dict.get("n", he_dict.get("total", len(he_tasks) or he_n)))
+            gsm_pass = (
+                sum(1 for t in gsm_tasks if t.get("actor_harness_passed"))
+                if gsm_tasks
+                else int(gsm_dict.get("actor_harness_passed", 0))
+            )
+            gsm_tot = int(gsm_dict.get("n", gsm_dict.get("total", len(gsm_tasks) or gsm_n)))
             comb_pct = 100.0 * (he_pass + gsm_pass) / max(1, he_tot + gsm_tot)
             min_pct = float(std_cfg.get("min_combined_pass_rate_pct", 70.0))
             std_ok = comb_pct >= min_pct
@@ -542,7 +559,7 @@ def run_live_or_full_tier(
                 overall_passed = False
 
     if (tier == "full" or update_scoreboard) and specs_to_run == "all":
-        results_list = evo_report.get("results", [])
+        results_list = evo_report.get("specs") or evo_report.get("results") or []
         n_pass = sum(1 for r in results_list if r.get("passed"))
         n_tot = len(results_list)
         _record_scoreboard_entry(
