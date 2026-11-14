@@ -113,10 +113,51 @@ _INTERNAL_LABELS = frozenset(
         "ActorEngramVersion",
         "ActorGraphDomain",
         "ActorEpisode",
+        "ActorGrammarRule",
         "STERule",
         "STEWord",
     }
 )
+
+_PROTECTED_HOST_DOMAIN_LABELS = frozenset(
+    {
+        "Recipe",
+        "Ingredient",
+        "MealPlan",
+        "Aisle",
+        "Synonym",
+        "H2HAppliance",
+        "H2HContractor",
+        "H2HFleetVehicle",
+        "H2HItem",
+        "H2HService",
+        "ActionLog",
+    }
+)
+
+_CYPHER_COMMENT_OR_STRING_RE = re.compile(
+    r"//[^\n]*|/\*[\s\S]*?\*/|'(?:\\.|''|[^'\\])*'|\"(?:\\.|\"\"|[^\"\\])*\""
+)
+_CYPHER_DANGEROUS_PROC_OR_LOAD_RE = re.compile(
+    r"\b(?:LOAD\s+CSV|CALL\s+(?:dbms|apoc|gds|db\.(?!labels\b|relationshipTypes\b|propertyKeys\b))[A-Za-z0-9_.]*"
+    r"|DROP\s+(?:CONSTRAINT|INDEX|DATABASE)|CREATE\s+(?:DATABASE|USER|ROLE)|ALTER\s+(?:DATABASE|USER)|SHOW\s+USERS)\b",
+    re.IGNORECASE,
+)
+_CYPHER_MUTATING_KEYWORD_RE = re.compile(
+    r"\b(?:CREATE|MERGE|DELETE|DETACH|SET|REMOVE|DROP|FOREACH)\b",
+    re.IGNORECASE,
+)
+
+
+def _strip_cypher_strings_and_comments(cypher: str) -> str:
+    """Replace string literals and comments with spaces so keyword/label scanners cannot be tricked or false-positive on prose."""
+    return _CYPHER_COMMENT_OR_STRING_RE.sub(" ", cypher or "")
+
+
+def _compute_engram_source_sha256(name: str, namespace: str, actor_source: str) -> str:
+    """Compute a deterministic SHA-256 integrity digest over `(namespace, name, actor_source)`."""
+    material = f"actorii-engram-v1|{namespace}|{_norm_sym(name)}|{actor_source}"
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 _BUILTIN_POOL_KEYS = frozenset(
     {
@@ -368,10 +409,44 @@ class ActorMemoryGraph:
         """Return the active Neo4j memory namespace."""
         return self.namespace
 
+    def _is_live_lockdown_protected_namespace(self, target_ns: Optional[str] = None) -> bool:
+        """Return True when live host lockdown is active and the namespace is not an isolated test/bench sandbox."""
+        if os.environ.get("ACTORII_HOST_LOCKDOWN", "0") != "1":
+            return False
+        if os.environ.get("ACTORII_ALLOW_MEMORY_WIPE", "0") == "1":
+            return False
+        ns_check = (target_ns if target_ns is not None else self.namespace).strip().lower()
+        isolated_prefixes = ("pytest", "test_", "bench_", "selfevo_", "longmem_", "locomo_", "tmp_", "sandbox_")
+        if any(ns_check.startswith(p) for p in isolated_prefixes):
+            return False
+        return True
+
+    def _guard_destructive_namespace_wipe(self, op_name: str) -> None:
+        """Block `clearEpisodes` / `clearEngrams` / `clearProducts` in live production namespaces under `ACTORII_HOST_LOCKDOWN=1`."""
+        if self._is_live_lockdown_protected_namespace():
+            raise PermissionError(
+                f"BLOCKED [MEMORY_SELF_PRESERVATION_GUARD]: `{op_name}` is locked in live production namespace "
+                f"{self.namespace!r} under `ACTORII_HOST_LOCKDOWN=1` to prevent accidental or prompt-injected memory loss! "
+                "Use isolated `bench_*` / `pytest_*` namespaces for tests, or soft-archive stale records instead."
+            )
+
     @actor_command
     def setNamespace(self, namespace: str) -> str:
-        """Switch the active Neo4j memory namespace at runtime."""
+        """Switch the active Neo4j memory namespace at runtime (gated during live `AgentHarness` execution in lockdown)."""
         ns = _norm_sym(namespace).strip() or "default"
+        if ns != self.namespace and os.environ.get("ACTORII_HOST_LOCKDOWN", "0") == "1":
+            # Allow operator TUI `/config` calls (empty VM call_stack or direct top-level `<Chunk>` outside `AgentHarness>>step`),
+            # while blocking untrusted Actor methods / live `AgentHarness` turns unless `ACTORII_ALLOW_NAMESPACE_SWITCH=1`.
+            in_harness_step = any(
+                _norm_sym(getattr(getattr(fr, "receiver", None), "class_name", "") or getattr(fr, "class_name", ""))
+                == "AgentHarness"
+                for fr in getattr(self.vm, "call_stack", [])
+            )
+            if in_harness_step and os.environ.get("ACTORII_ALLOW_NAMESPACE_SWITCH", "0") != "1":
+                raise PermissionError(
+                    f"BLOCKED [MEMORY_NAMESPACE_ISOLATION_GUARD]: Switching Neo4j memory namespace ({self.namespace!r} -> {ns!r}) "
+                    "inside a live `AgentHarness` turn is forbidden under `ACTORII_HOST_LOCKDOWN=1`."
+                )
         self.namespace = ns
         self._write_epoch += 1
         self._engram_epoch += 1
@@ -385,16 +460,19 @@ class ActorMemoryGraph:
         self,
         statement: str,
         parameters: Optional[Dict[str, Any]] = None,
+        *,
+        read_only: bool = False,
     ) -> Tuple[List[str], List[Dict[str, Any]]]:
-        stmt_upper = statement.upper()
-        if any(kw in stmt_upper for kw in ("MERGE ", "MERGE(", "CREATE ", "CREATE(", "DELETE ", "SET ")):
-            self._write_epoch += 1
-            self._hydrate_cache.clear()
-            if "MERGE (EP:ACTOREPISODE" not in stmt_upper:
-                self._engram_epoch += 1
-                self._episode_rows_cache.clear()
-                self._engram_rows_cache.clear()
-                self._product_rows_cache.clear()
+        if not read_only:
+            stmt_upper = statement.upper()
+            if any(kw in stmt_upper for kw in ("MERGE ", "MERGE(", "CREATE ", "CREATE(", "DELETE ", "SET ", "REMOVE ")):
+                self._write_epoch += 1
+                self._hydrate_cache.clear()
+                if "MERGE (EP:ACTOREPISODE" not in stmt_upper:
+                    self._engram_epoch += 1
+                    self._episode_rows_cache.clear()
+                    self._engram_rows_cache.clear()
+                    self._product_rows_cache.clear()
         payload = {
             "statements": [
                 {
@@ -404,6 +482,8 @@ class ActorMemoryGraph:
             ]
         }
         headers: Dict[str, str] = {"Content-Type": "application/json"}
+        if read_only:
+            headers["Access-Mode"] = "READ"
         neo_user = os.environ.get("ACTORII_NEO4J_USER", "").strip()
         neo_pass = os.environ.get("ACTORII_NEO4J_PASSWORD", "").strip()
         if neo_user and neo_pass:
@@ -553,9 +633,59 @@ class ActorMemoryGraph:
         except Exception:
             pass
 
-    def _hydrate_engram_source_safely(self, engram_name: str, actor_src: str) -> Any:
-        """Compile `actor_src` into `self.vm` with warm-image instance reconciliation and `initializeClass` hook."""
+    def _verify_engram_integrity_and_safety(
+        self,
+        engram_name: str,
+        actor_src: str,
+        stored_sha256: Optional[str] = None,
+    ) -> None:
+        """Verify `:ActorEngram` SHA-256 digest (when recorded) and block protected pool singleton hijacking inside Engram code."""
+        from actorii.guardrails.linter import PROTECTED_POOL_SINGLETONS, ProtectedClassError
+
         norm_name = _norm_sym(engram_name)
+        if stored_sha256:
+            expected = _compute_engram_source_sha256(norm_name, self.namespace, actor_src)
+            if str(stored_sha256).strip() != expected:
+                raise PermissionError(
+                    f"BLOCKED [ENGRAM_INTEGRITY_ERROR]: `:ActorEngram` '{norm_name}' failed SHA-256 integrity verification "
+                    f"(stored={str(stored_sha256)[:12]}... != expected={expected[:12]}...). "
+                    "Direct Neo4j tampering with `e.actor_source` is forbidden; update Engrams exclusively via `saveEngram` / `persistEngram`."
+                )
+
+        # Even if `norm_name` is a custom Ring-2 Engram, its source must NEVER assign to any `PROTECTED_POOL_SINGLETONS`
+        stripped = _strip_cypher_strings_and_comments(actor_src)
+        for m in re.finditer(r"\bActor\s*\[\s*#?([A-Za-z_][A-Za-z0-9_]*)\s*\]\s*:=", stripped):
+            assigned_key = _norm_sym(m.group(1))
+            if assigned_key in PROTECTED_POOL_SINGLETONS and assigned_key != norm_name:
+                raise ProtectedClassError(
+                    f"ProtectedSingletonError: Engram '{norm_name}' cannot overwrite locked system singleton 'Actor[#{assigned_key}]'"
+                )
+        if norm_name == "AgentHarness":
+            for inh_m in re.finditer(r"\binherit\s*\(\s*[A-Za-z_][A-Za-z0-9_]*\s*,\s*#?([A-Za-z_][A-Za-z0-9_]*)", stripped):
+                if _norm_sym(inh_m.group(1)) != "AgentHarness":
+                    raise ProtectedClassError(
+                        f"ProtectedClassError: AgentHarness snapshot cannot define foreign class '{inh_m.group(1)}'"
+                    )
+            for now_m in re.finditer(r"\bnow\s*\(\s*#?([A-Za-z_][A-Za-z0-9_]*)\s*\)", stripped):
+                if _norm_sym(now_m.group(1)) != "AgentHarness":
+                    raise ProtectedClassError(
+                        f"ProtectedClassError: AgentHarness snapshot cannot target foreign class '{now_m.group(1)}'"
+                    )
+        if norm_name in PROTECTED_POOL_SINGLETONS and norm_name != "AgentHarness":
+            raise ProtectedClassError(
+                f"ProtectedSingletonError: Cannot persist or hydrate reserved system singleton name '{norm_name}' as an `:ActorEngram`"
+            )
+
+    def _hydrate_engram_source_safely(
+        self,
+        engram_name: str,
+        actor_src: str,
+        stored_sha256: Optional[str] = None,
+    ) -> Any:
+        """Compile `actor_src` into `self.vm` with integrity checks, locked system singletons, warm-image reconciliation, and `initializeClass` hook."""
+        norm_name = _norm_sym(engram_name)
+        self._verify_engram_integrity_and_safety(norm_name, actor_src, stored_sha256=stored_sha256)
+
         actor_pool = self.vm.global_vars.get("Actor", {})
         existing_inst = actor_pool.get(norm_name) or actor_pool.get(Symbol(norm_name))
         saved_fields = (
@@ -564,12 +694,18 @@ class ActorMemoryGraph:
             else {}
         )
 
-        prev_lock = getattr(self.vm, "lock_system_singletons", False)
-        self.vm.lock_system_singletons = False
-        try:
+        # Keep `self.vm.lock_system_singletons` intact (`True`) for all Ring-2 Engrams so hydrated Engrams can never
+        # overwrite `Actor[#Host]`, `Actor[#Memory]`, etc.! Only `AgentHarness` (already verified above to contain no
+        # pool reassignments or foreign class mutations) temporarily unlocks Ring-1 method re-attachment during snapshot/restore.
+        if norm_name == "AgentHarness":
+            prev_lock = getattr(self.vm, "lock_system_singletons", True)
+            self.vm.lock_system_singletons = False
+            try:
+                self.vm.eval_chunk(actor_src)
+            finally:
+                self.vm.lock_system_singletons = prev_lock
+        else:
             self.vm.eval_chunk(actor_src)
-        finally:
-            self.vm.lock_system_singletons = prev_lock
 
         cls_obj = self.vm.hierarchy.get(norm_name)
         inst = actor_pool.get(norm_name) or actor_pool.get(Symbol(norm_name))
@@ -599,14 +735,40 @@ class ActorMemoryGraph:
 
         return inst
 
+    def _guard_cypher_read(self, q_str: str) -> None:
+        """Enforce strict read-only Cypher semantics on `cypherQuery` / `cypherQueryWith`."""
+        stripped = _strip_cypher_strings_and_comments(q_str)
+        if _CYPHER_DANGEROUS_PROC_OR_LOAD_RE.search(stripped):
+            raise PermissionError(
+                "BLOCKED [NEO4J_CYPHER_SECURITY_GUARD]: Administrative/file procedures (`LOAD CSV`, `CALL dbms.*`, `CALL apoc.*`, `DROP/CREATE DATABASE/USER`) are forbidden in `Actor[#Memory]`."
+            )
+        mut_m = _CYPHER_MUTATING_KEYWORD_RE.search(stripped)
+        if mut_m:
+            kw = mut_m.group(0).upper()
+            raise PermissionError(
+                f"BLOCKED [NEO4J_READ_ONLY_GUARD]: Mutating Cypher clause `{kw}` is strictly forbidden inside Tier-0 read-only "
+                "`cypherQuery` / `cypherQueryWith`! Use `cypherWrite` / `cypherWriteWith` for authorized domain graph writes."
+            )
+        # Prevent cross-namespace snooping on internal `:ActorEpisode` / `:ActorEngram` nodes when live lockdown is active
+        if self._is_live_lockdown_protected_namespace():
+            if re.search(r":\s*(?:ActorEpisode|ActorEngram|ActorEngramVersion)\b", stripped, re.IGNORECASE):
+                for ns_m in re.finditer(r"\bnamespace\s*:\s*['\"]([^'\"]+)['\"]", q_str, re.IGNORECASE):
+                    queried_ns = ns_m.group(1).strip()
+                    if queried_ns and queried_ns != self.namespace:
+                        raise PermissionError(
+                            f"BLOCKED [MEMORY_NAMESPACE_ISOLATION_GUARD]: Cross-namespace read of `{queried_ns}` from active namespace "
+                            f"`{self.namespace}` is forbidden under `ACTORII_HOST_LOCKDOWN=1`."
+                        )
+
     @actor_query
     def cypherQuery(self, query: str) -> ActorArray:
         """Run a read Cypher query and return a 0-based Actor `Array` of `Dictionary` rows."""
         q_str = str(query or "").strip()
         if not q_str:
             return ActorArray(0)
+        self._guard_cypher_read(q_str)
         self._record_runtime_cypher_domains(q_str)
-        _, raw_rows = self._run_cypher(q_str)
+        _, raw_rows = self._run_cypher(q_str, read_only=True)
         return self._rows_to_actor_array(raw_rows)
 
     @actor_query
@@ -615,9 +777,10 @@ class ActorMemoryGraph:
         q_str = str(query or "").strip()
         if not q_str:
             return ActorArray(0)
+        self._guard_cypher_read(q_str)
         self._record_runtime_cypher_domains(q_str)
         param_map = _build_cypher_params(params)
-        _, raw_rows = self._run_cypher(q_str, param_map)
+        _, raw_rows = self._run_cypher(q_str, param_map, read_only=True)
         return self._rows_to_actor_array(raw_rows)
 
     @actor_query
@@ -630,11 +793,12 @@ class ActorMemoryGraph:
             """
             MATCH (e:ActorEngram {name: $name, namespace: $ns})
             OPTIONAL MATCH (e)-[:SUBCLASS_OF|DEPENDS_ON*1..5]->(dep:ActorEngram {namespace: $ns})
-            RETURN e.name AS name, e.actor_source AS actor_source,
-                   collect(DISTINCT {name: dep.name, actor_source: dep.actor_source}) AS deps
+            RETURN e.name AS name, e.actor_source AS actor_source, e.source_sha256 AS source_sha256,
+                   collect(DISTINCT {name: dep.name, actor_source: dep.actor_source, source_sha256: dep.source_sha256}) AS deps
             LIMIT 1
             """,
             {"name": norm_name, "ns": self.namespace},
+            read_only=True,
         )
         if not rows:
             raise KeyError(f"No `:ActorEngram` named '{norm_name}' found in Neo4j (namespace={self.namespace!r}).")
@@ -644,11 +808,12 @@ class ActorMemoryGraph:
         for dep in reversed(row.get("deps") or []):
             dep_name = dep.get("name")
             dep_src = dep.get("actor_source")
+            dep_sha = dep.get("source_sha256")
             if dep_name and dep_src:
-                self._hydrate_engram_source_safely(str(dep_name), str(dep_src))
+                self._hydrate_engram_source_safely(str(dep_name), str(dep_src), stored_sha256=dep_sha)
 
         actor_src = str(row.get("actor_source") or "")
-        return self._hydrate_engram_source_safely(norm_name, actor_src)
+        return self._hydrate_engram_source_safely(norm_name, actor_src, stored_sha256=row.get("source_sha256"))
 
     @actor_query
     def listEngrams(self) -> str:
@@ -786,26 +951,73 @@ class ActorMemoryGraph:
         re.IGNORECASE,
     )
     _CORE_PROTECTED_LABELS_RE = re.compile(
-        r":\s*(?:ActorEpisode|ActorEngram|ActorEngramVersion|ActorGrammarRule|ActorLearnedFix|ActorPrimitive)\b",
+        r":\s*(?:ActorEpisode|ActorEngram|ActorEngramVersion|ActorGrammarRule|ActorLearnedFix|ActorPrimitive|ActorSyntaxConstruct|ActorBuiltinClass|ActorErrorPattern|ActorGraphDomain|STERule|STEWord)\b",
         re.IGNORECASE,
     )
-    _UNSCOPED_DELETE_RE = re.compile(
-        r"MATCH\s*\(\s*[A-Za-z_]\w*\s*\)\s*(?:WHERE\b.*?\b)?(?:DETACH\s+)?DELETE\b",
-        re.IGNORECASE | re.DOTALL,
+    _HOST_PROTECTED_LABELS_RE = re.compile(
+        r":\s*(?:Recipe|Ingredient|MealPlan|Aisle|Synonym|H2HAppliance|H2HContractor|H2HFleetVehicle|H2HItem|H2HService|ActionLog)\b",
+        re.IGNORECASE,
     )
+    _ANY_NODE_LABEL_RE = re.compile(r":\s*([A-Za-z_][A-Za-z0-9_]*)\b")
 
     def _guard_cypher_write(self, q_str: str) -> None:
-        """Hard-block destructive `DELETE` queries against core memory/engram/grammar labels (use `SET ep.archived = true` instead)."""
-        if not self._CORE_MEMORY_DELETE_RE.search(q_str):
-            return
-        if self._CORE_PROTECTED_LABELS_RE.search(q_str) or self._UNSCOPED_DELETE_RE.search(q_str):
+        """Hard-block tampering with internal kernel/memory labels, unscoped/label-less `DELETE`s, and dangerous admin procedures."""
+        stripped = _strip_cypher_strings_and_comments(q_str)
+        if _CYPHER_DANGEROUS_PROC_OR_LOAD_RE.search(stripped):
             raise PermissionError(
-                "BLOCKED [MEMORY_SELF_PRESERVATION_GUARD]: Destructive `DELETE` / `DETACH DELETE` on core memory nodes "
-                "(`:ActorEpisode`, `:ActorEngram`, `:ActorEngramVersion`, `:ActorGrammarRule`, or unscoped `MATCH (n)`) "
-                "is strictly forbidden to protect Bilby's recall and self-correction! "
-                "Use non-destructive soft archiving (`SET e.archived = true, e.salience = coalesce(e.salience, 0.5)`) instead, "
-                "and consult Skippy via `askSkippy(Actor[#Valkyrie], ...)` first."
+                "BLOCKED [NEO4J_CYPHER_SECURITY_GUARD]: Administrative/file procedures (`LOAD CSV`, `CALL dbms.*`, `CALL apoc.*`, `DROP/CREATE DATABASE/USER`) are forbidden in `Actor[#Memory]`."
             )
+
+        has_delete = bool(self._CORE_MEMORY_DELETE_RE.search(stripped))
+        has_mutation = bool(_CYPHER_MUTATING_KEYWORD_RE.search(stripped))
+
+        # 1. Any `DELETE` must explicitly bind at least one allowed domain `:Label` (blocks `MATCH (n) DELETE n`,
+        #    `MATCH (a)-[r]->(b) DETACH DELETE a, b`, `MATCH (n {namespace: 'default'}) DETACH DELETE n`, etc.).
+        if has_delete:
+            if self._CORE_PROTECTED_LABELS_RE.search(stripped):
+                raise PermissionError(
+                    "BLOCKED [MEMORY_SELF_PRESERVATION_GUARD]: Destructive `DELETE` / `DETACH DELETE` on core memory nodes "
+                    "(`:ActorEpisode`, `:ActorEngram`, `:ActorEngramVersion`, `:ActorGrammarRule`, `:ActorLearnedFix`) "
+                    "is strictly forbidden to protect Bilby's recall and self-correction! "
+                    "Use non-destructive soft archiving (`SET e.archived = true, e.salience = coalesce(e.salience, 0.5)`) instead."
+                )
+            matched_labels = [m.group(1) for m in _CYPHER_LABEL_RE.finditer(stripped)]
+            if not matched_labels:
+                raise PermissionError(
+                    "BLOCKED [MEMORY_SELF_PRESERVATION_GUARD]: Unscoped or label-less `DELETE` / `DETACH DELETE` queries "
+                    "are strictly forbidden in `Actor[#Memory]`! Every `DELETE` must explicitly specify a target domain `:Label`."
+                )
+            if self._is_live_lockdown_protected_namespace() and self._HOST_PROTECTED_LABELS_RE.search(stripped):
+                raise PermissionError(
+                    "BLOCKED [HOST_GRAPH_PROTECTION_GUARD]: Deleting shared host graph nodes (`:Recipe`, `:Ingredient`, `:MealPlan`, `:H2H*`, `:ActionLog`) "
+                    "via raw `cypherWrite` is forbidden under `ACTORII_HOST_LOCKDOWN=1`."
+                )
+
+        # 2. Block raw Cypher tampering (`CREATE`, `MERGE`, `SET`, `REMOVE`) on executable `:ActorEngram`, `:ActorEngramVersion`,
+        #    and grammar kernel labels so code/versioning always goes through `saveEngram` / `persistEngram` SHA-256 verification!
+        if has_mutation:
+            if re.search(
+                r":\s*(?:ActorEngram|ActorEngramVersion|ActorGrammarRule|ActorSyntaxConstruct|ActorBuiltinClass|ActorPrimitive|ActorErrorPattern|ActorLearnedFix|STERule|STEWord)\b",
+                stripped,
+                re.IGNORECASE,
+            ):
+                raise PermissionError(
+                    "BLOCKED [MEMORY_SELF_PRESERVATION_GUARD]: Direct raw Cypher mutation (`CREATE`/`MERGE`/`SET`/`REMOVE`) of "
+                    "executable `:ActorEngram` or `:ActorGrammar*` kernel nodes is forbidden! "
+                    "Use the audited `saveEngram` / `persistEngram` / `rollbackEngram` APIs instead."
+                )
+            # For `:ActorEpisode`, allow safe metadata tagging (`SET ep.archived = ...` / `ep.salience = ...`),
+            # but forbid raw `REMOVE` or overwriting immutable episode content (`ep.content`, `ep.episode_hash`, `ep = {...}`).
+            if re.search(r":\s*ActorEpisode\b", stripped, re.IGNORECASE):
+                if re.search(
+                    r"\bREMOVE\b|\bCREATE\b|\bMERGE\b|\.\s*(?:content|episode_hash|namespace)\s*=|\bSET\s+[A-Za-z_]\w*\s*=\s*\{",
+                    stripped,
+                    re.IGNORECASE,
+                ):
+                    raise PermissionError(
+                        "BLOCKED [MEMORY_SELF_PRESERVATION_GUARD]: Overwriting `:ActorEpisode` content/hashes or raw `CREATE`/`MERGE`/`REMOVE` via "
+                        "`cypherWrite` is forbidden! Use `recordEpisode(Actor[#Memory], ...)` for new episodes, or `SET e.archived = true` for soft archiving."
+                    )
 
     @actor_command
     def cypherWrite(self, query: str) -> int:
@@ -901,18 +1113,20 @@ class ActorMemoryGraph:
             f"{' '.join(signatures)} | {' '.join(domain_labels)} | {' '.join(ivars)}"
         )
         embedding = _compute_embedding(emb_text) or []
+        src_sha256 = _compute_engram_source_sha256(norm_name, self.namespace, normalized_src)
 
         # Archive previous version if `actor_source` changed, then upsert `:ActorEngram` and graph edges
         self._run_cypher(
             """
             MERGE (e:ActorEngram {name: $name, namespace: $ns})
-            WITH e, e.actor_source AS old_src, e.signatures AS old_sigs, coalesce(e.version, 0) AS old_ver
+            WITH e, e.actor_source AS old_src, e.source_sha256 AS old_sha, e.signatures AS old_sigs, coalesce(e.version, 0) AS old_ver
             FOREACH (_ IN CASE WHEN old_src IS NOT NULL AND old_src <> $src THEN [1] ELSE [] END |
                 CREATE (v:ActorEngramVersion {
                     name: $name,
                     namespace: $ns,
                     version: old_ver,
                     actor_source: old_src,
+                    source_sha256: coalesce(old_sha, ''),
                     signatures: coalesce(old_sigs, []),
                     archived_at: timestamp()
                 })
@@ -923,6 +1137,7 @@ class ActorMemoryGraph:
                 e.ivars = $ivars,
                 e.description = CASE WHEN $desc <> '' THEN $desc ELSE coalesce(e.description, $name) END,
                 e.actor_source = $src,
+                e.source_sha256 = $src_sha,
                 e.signatures = $sigs,
                 e.embedding = CASE WHEN size($embedding) > 0 THEN $embedding ELSE coalesce(e.embedding, []) END,
                 e.call_count = coalesce(e.call_count, 0),
@@ -948,6 +1163,7 @@ class ActorMemoryGraph:
                 "ivars": ivars,
                 "desc": desc_str,
                 "src": normalized_src,
+                "src_sha": src_sha256,
                 "sigs": signatures,
                 "embedding": embedding,
             },
@@ -1016,19 +1232,22 @@ class ActorMemoryGraph:
             MATCH (e:ActorEngram {name: $name, namespace: $ns})-[:HAS_PREVIOUS_VERSION]->(v:ActorEngramVersion)
             WITH e, v ORDER BY v.version DESC, v.archived_at DESC LIMIT 1
             SET e.actor_source = v.actor_source,
+                e.source_sha256 = v.source_sha256,
                 e.signatures = v.signatures,
                 e.version = v.version,
                 e.updated_at = timestamp()
-            WITH e, v, v.actor_source AS restored_src, v.version AS restored_ver
+            WITH e, v, v.actor_source AS restored_src, v.source_sha256 AS restored_sha, v.version AS restored_ver
             DETACH DELETE v
-            RETURN restored_src, restored_ver
+            RETURN restored_src, restored_sha, restored_ver
             """,
             {"name": norm_name, "ns": self.namespace},
         )
         if not rows:
             raise KeyError(f"No previous version found to roll back for `:ActorEngram` '{norm_name}'.")
         restored_src = str(rows[0]["restored_src"])
+        restored_sha = rows[0].get("restored_sha") or None
         restored_ver = rows[0]["restored_ver"]
+        self._verify_engram_integrity_and_safety(norm_name, restored_src, stored_sha256=restored_sha)
         cls_obj = self.vm.hierarchy.get(norm_name)
         if cls_obj is not None and not getattr(cls_obj, "is_bridge_class", False):
             new_ctor = cls_obj._methods.get("new")
@@ -1036,12 +1255,15 @@ class ActorMemoryGraph:
             cls_obj._class_methods.clear()
             if new_ctor is not None:
                 cls_obj._methods["new"] = new_ctor
-        prev_lock = getattr(self.vm, "lock_system_singletons", False)
-        self.vm.lock_system_singletons = False
-        try:
+        if norm_name == "AgentHarness":
+            prev_lock = getattr(self.vm, "lock_system_singletons", True)
+            self.vm.lock_system_singletons = False
+            try:
+                self.vm.eval_chunk(restored_src)
+            finally:
+                self.vm.lock_system_singletons = prev_lock
+        else:
             self.vm.eval_chunk(restored_src)
-        finally:
-            self.vm.lock_system_singletons = prev_lock
         if norm_name == "AgentHarness":
             h_obj = self.vm.global_vars.get("Actor", {}).get("Harness")
             if h_obj is not None and cls_obj is not None:
@@ -1054,6 +1276,7 @@ class ActorMemoryGraph:
     @actor_command
     def clearEngrams(self) -> int:
         """Delete all `:ActorEngram`, `:ActorEngramVersion`, and `:ActorGraphDomain` nodes in the active namespace."""
+        self._guard_destructive_namespace_wipe("clearEngrams")
         _, rows = self._run_cypher(
             """
             MATCH (n {namespace: $ns})
@@ -1133,6 +1356,7 @@ class ActorMemoryGraph:
     @actor_command
     def clearEpisodes(self) -> int:
         """Delete all `:ActorEpisode` nodes in the active namespace."""
+        self._guard_destructive_namespace_wipe("clearEpisodes")
         self._episode_rows_cache.pop(self.namespace, None)
         _, rows = self._run_cypher(
             """
@@ -1349,16 +1573,18 @@ class ActorMemoryGraph:
                            coalesce(e.superclass, 'Object') AS superclass,
                            coalesce(e.ivars, []) AS ivars,
                            e.signatures AS signatures, e.actor_source AS actor_source,
+                           e.source_sha256 AS source_sha256,
                            e.embedding AS embedding,
                            coalesce(e.call_count, 0) AS call_count,
                            coalesce(e.success_count, 0) AS success_count,
                            coalesce(e.updated_at, 0) AS updated_at,
                            collect(DISTINCT d.label) AS domain_labels,
-                           collect(DISTINCT {name: dep.name, actor_source: dep.actor_source, superclass: coalesce(dep.superclass, 'Object')}) AS deps
+                           collect(DISTINCT {name: dep.name, actor_source: dep.actor_source, source_sha256: dep.source_sha256, superclass: coalesce(dep.superclass, 'Object')}) AS deps
                     ORDER BY updated_at DESC
                     LIMIT 20
                     """,
                     {"ns": self.namespace},
+                    read_only=True,
                 )
                 self._engram_rows_cache[eng_key] = (now_mono, list(rows))
             if not rows:
@@ -1431,7 +1657,11 @@ class ActorMemoryGraph:
                     dep_src = dep.get("actor_source")
                     if dep_name and dep_src:
                         try:
-                            self._hydrate_engram_source_safely(str(dep_name), str(dep_src))
+                            self._hydrate_engram_source_safely(
+                                str(dep_name),
+                                str(dep_src),
+                                stored_sha256=dep.get("source_sha256"),
+                            )
                         except Exception:
                             pass
 
@@ -1442,9 +1672,13 @@ class ActorMemoryGraph:
                 src = str(r.get("actor_source") or "")
                 if src:
                     try:
-                        self._hydrate_engram_source_safely(ename, src)
+                        self._hydrate_engram_source_safely(
+                            ename,
+                            src,
+                            stored_sha256=r.get("source_sha256"),
+                        )
                     except Exception:
-                        pass
+                        continue
                 raw_sigs = list(r.get("signatures") or [])
                 sigs = ", ".join(f"`{s}!!`" for s in raw_sigs)
                 ex_call = raw_sigs[0] if raw_sigs else f"run(Actor[#{ename}])"
@@ -2236,6 +2470,7 @@ class ActorMemoryGraph:
     @actor_command
     def clearProducts(self) -> int:
         """Delete all `:Product` knowledge nodes and attached manual chunks in `self.namespace`."""
+        self._guard_destructive_namespace_wipe("clearProducts")
         _, rows = self._run_cypher(
             """
             MATCH (p:Product {namespace: $ns})

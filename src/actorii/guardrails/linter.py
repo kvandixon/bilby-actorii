@@ -494,6 +494,79 @@ class ActorLinter:
                             )
                         )
 
+        # 3b. Compile-time Definite-Uninitialized Local Check (`| loc1, loc2`) — Must-Analysis (All-Paths Unassigned)
+        # Flag `PUSH_LOCAL` ONLY when a local variable reaches `PUSH_LOCAL` with ZERO prior `STORE_LOCAL` on EVERY
+        # acyclic forward path (`may_assigned` intersection/union):
+        #   - Catches `loop while (i < cap) begin add(buf, 0); i := i + 1; endLoop;` (`i` is unassigned on entry into `PUSH_LOCAL`!)
+        #   - Catches locals that are read without ever being assigned before that point
+        #   - NEVER false-positives on correlated conditions like `if n >= 3 then a := ... endif; if n >= 4 then ... a ... endif;`!
+        method_locals = list(getattr(compiled_method, "locals", None) or [])
+        if self.strict_ivars and method_locals and target_cls != "<Chunk>":
+            first_local_slot = 1 + len(getattr(compiled_method, "params", None) or [])
+            max_local_slot = first_local_slot + len(method_locals)
+            inst_list = list(getattr(compiled_method, "instructions", ()))
+            n_inst = len(inst_list)
+            if n_inst > 0:
+                may_in: Dict[int, Set[int]] = {0: set()}
+                worklist_pcs: List[int] = [0]
+                while worklist_pcs:
+                    pc = worklist_pcs.pop()
+                    if not (0 <= pc < n_inst):
+                        continue
+                    cur_may = set(may_in.get(pc, set()))
+                    op, arg = inst_list[pc]
+                    out_may = set(cur_may)
+                    if op == Opcode.STORE_LOCAL and isinstance(arg, int) and first_local_slot <= arg < max_local_slot:
+                        out_may.add(arg)
+                    if op in (Opcode.RETURN_VALUE, Opcode.RETURN, Opcode.RETURN_BLOCK, Opcode.HALT):
+                        continue
+                    succs: List[int] = []
+                    if op == Opcode.JMP and isinstance(arg, int):
+                        # Ignore backward loop-latch jumps (`arg <= pc`) so `i := i + 1` at the end of a loop
+                        # does NOT mask `i` being uninitialized on iteration 0 of `loop while (i < cap)`!
+                        if arg > pc:
+                            succs.append(arg)
+                    elif op in (Opcode.JMP_IF_FALSE, Opcode.JMP_IF_TRUE) and isinstance(arg, int):
+                        if arg > pc:
+                            succs.append(arg)
+                        succs.append(pc + 1)
+                    else:
+                        succs.append(pc + 1)
+                    for spc in succs:
+                        if 0 <= spc < n_inst:
+                            prev_set = may_in.get(spc)
+                            if prev_set is None:
+                                may_in[spc] = set(out_may)
+                                worklist_pcs.append(spc)
+                            elif not out_may.issubset(prev_set):
+                                prev_set.update(out_may)
+                                worklist_pcs.append(spc)
+
+                flagged_local_slots: Set[int] = set()
+                for pc, (op, arg) in enumerate(inst_list):
+                    if (
+                        op == Opcode.PUSH_LOCAL
+                        and isinstance(arg, int)
+                        and first_local_slot <= arg < max_local_slot
+                        and pc in may_in
+                        and arg not in may_in[pc]
+                        and arg not in flagged_local_slots
+                    ):
+                        flagged_local_slots.add(arg)
+                        loc_name = method_locals[arg - first_local_slot]
+                        issues.append(
+                            LintIssue(
+                                code="LINT_UNINITIALIZED_LOCAL",
+                                severity="error",
+                                message=(
+                                    f"Method '{target_cls}>>{selector}' reads local variable '{loc_name}' before assigning to it "
+                                    f"(uninitialized Actor locals default to `nil`, not `0` — initialize `{loc_name} := 0;` first)."
+                                ),
+                                class_name=target_cls,
+                                selector=selector,
+                            )
+                        )
+
         # 4. Determine Risk Tier
         if (
             globals_written
