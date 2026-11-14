@@ -23,6 +23,7 @@ import json
 import math
 import os
 import re
+import time
 import urllib.request
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -44,6 +45,7 @@ EMBEDDING_API_URL = os.environ.get(
 EMBEDDING_MODEL_NAME = os.environ.get("ACTORII_EMBED_MODEL", "bge-small-en-v1.5")
 
 _SCRATCH_CLASS_PREFIXES = ("Tmp", "Scratch", "TaskContract", "Mock", "Ephemeral")
+_EMBED_LRU: Dict[Tuple[str, str, str], List[float]] = {}
 
 
 def _compute_embedding(text: str, timeout: float = 0.8) -> Optional[List[float]]:
@@ -55,6 +57,11 @@ def _compute_embedding(text: str, timeout: float = 0.8) -> Optional[List[float]]
     if not emb_url or emb_url.lower() in ("none", "off", "disabled"):
         return None
     emb_model = os.environ.get("ACTORII_EMBED_MODEL", EMBEDDING_MODEL_NAME).strip() or EMBEDDING_MODEL_NAME
+    clipped = clean[:1000]
+    lru_key = (emb_url, emb_model, clipped)
+    cached_vec = _EMBED_LRU.get(lru_key)
+    if cached_vec is not None:
+        return cached_vec
     try:
         headers: Dict[str, str] = {"Content-Type": "application/json"}
         emb_key = (
@@ -64,7 +71,7 @@ def _compute_embedding(text: str, timeout: float = 0.8) -> Optional[List[float]]
         )
         if emb_key:
             headers["Authorization"] = f"Bearer {emb_key}"
-        payload = json.dumps({"input": clean[:1000], "model": emb_model}).encode("utf-8")
+        payload = json.dumps({"input": clipped, "model": emb_model}).encode("utf-8")
         req = urllib.request.Request(
             emb_url,
             data=payload,
@@ -75,7 +82,11 @@ def _compute_embedding(text: str, timeout: float = 0.8) -> Optional[List[float]]
             data = json.loads(resp.read().decode("utf-8", errors="replace"))
         emb = data.get("data", [{}])[0].get("embedding") or (data.get("embeddings") or [None])[0]
         if isinstance(emb, list) and emb:
-            return [float(x) for x in emb]
+            vec = [float(x) for x in emb]
+            if len(_EMBED_LRU) >= 256:
+                _EMBED_LRU.clear()
+            _EMBED_LRU[lru_key] = vec
+            return vec
     except Exception:
         return None
     return None
@@ -345,6 +356,12 @@ class ActorMemoryGraph:
         self.auto_crystallize = bool(auto_crystallize)
         default_ns = os.environ.get("ACTORII_MEMORY_NAMESPACE", "default").strip() or "default"
         self.namespace = str(namespace or default_ns)
+        self._write_epoch: int = 0
+        self._engram_epoch: int = 0
+        self._hydrate_cache: Dict[Tuple[str, str, int], str] = {}
+        self._episode_rows_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
+        self._engram_rows_cache: Dict[Tuple[str, int], Tuple[float, List[Dict[str, Any]]]] = {}
+        self._product_rows_cache: Dict[Tuple[str, int], Tuple[float, List[Dict[str, Any]]]] = {}
 
     @actor_query
     def getNamespace(self) -> str:
@@ -356,6 +373,12 @@ class ActorMemoryGraph:
         """Switch the active Neo4j memory namespace at runtime."""
         ns = _norm_sym(namespace).strip() or "default"
         self.namespace = ns
+        self._write_epoch += 1
+        self._engram_epoch += 1
+        self._hydrate_cache.clear()
+        self._episode_rows_cache.clear()
+        self._engram_rows_cache.clear()
+        self._product_rows_cache.clear()
         return f"NAMESPACE_SET:{self.namespace}"
 
     def _run_cypher(
@@ -363,6 +386,15 @@ class ActorMemoryGraph:
         statement: str,
         parameters: Optional[Dict[str, Any]] = None,
     ) -> Tuple[List[str], List[Dict[str, Any]]]:
+        stmt_upper = statement.upper()
+        if any(kw in stmt_upper for kw in ("MERGE ", "MERGE(", "CREATE ", "CREATE(", "DELETE ", "SET ")):
+            self._write_epoch += 1
+            self._hydrate_cache.clear()
+            if "MERGE (EP:ACTOREPISODE" not in stmt_upper:
+                self._engram_epoch += 1
+                self._episode_rows_cache.clear()
+                self._engram_rows_cache.clear()
+                self._product_rows_cache.clear()
         payload = {
             "statements": [
                 {
@@ -1043,11 +1075,33 @@ class ActorMemoryGraph:
                 "emb": emb,
             },
         )
+        cached_ep = self._episode_rows_cache.get(self.namespace)
+        if cached_ep is not None:
+            cached_ts, cached_list = cached_ep
+            new_row = {
+                "episode_hash": ep_hash,
+                "session_id": s_id,
+                "session_date": s_date,
+                "turn_range": t_rng,
+                "content": clean_text,
+                "embedding": emb,
+                "created_at": int(time.time() * 1000),
+            }
+            replaced = False
+            for idx_r, r_existing in enumerate(cached_list):
+                if r_existing.get("episode_hash") == ep_hash:
+                    cached_list[idx_r] = new_row
+                    replaced = True
+                    break
+            if not replaced:
+                cached_list.append(new_row)
+            self._episode_rows_cache[self.namespace] = (cached_ts, cached_list)
         return f"EPISODE_ARCHIVED:{s_id}"
 
     @actor_command
     def clearEpisodes(self) -> int:
         """Delete all `:ActorEpisode` nodes in the active namespace."""
+        self._episode_rows_cache.pop(self.namespace, None)
         _, rows = self._run_cypher(
             """
             MATCH (ep:ActorEpisode {namespace: $ns})
@@ -1057,10 +1111,11 @@ class ActorMemoryGraph:
             """,
             {"ns": self.namespace},
         )
+        self._episode_rows_cache.pop(self.namespace, None)
         return int(rows[0]["c"]) if rows and "c" in rows[0] else 0
 
     @actor_query
-    def recallEpisodes(self, query_text: str, top_k: int = 5) -> str:
+    def recallEpisodes(self, query_text: str, top_k: int = 5, min_score: float = 0.0) -> str:
         """Retrieve top-K dated `:ActorEpisode` memories from Neo4j via hybrid `:8084` vector + lexical + chronological ranking."""
         import os as _os
 
@@ -1070,19 +1125,26 @@ class ActorMemoryGraph:
         if not q_str:
             return ""
         try:
-            _, rows = self._run_cypher(
-                """
-                MATCH (ep:ActorEpisode {namespace: $ns})
-                RETURN ep.session_id AS session_id,
-                       coalesce(ep.session_date, '') AS session_date,
-                       coalesce(ep.turn_range, '') AS turn_range,
-                       ep.content AS content,
-                       ep.embedding AS embedding,
-                       coalesce(ep.created_at, 0) AS created_at
-                ORDER BY created_at ASC
-                """,
-                {"ns": self.namespace},
-            )
+            now_mono = time.monotonic()
+            cached_ep = self._episode_rows_cache.get(self.namespace)
+            if cached_ep is not None and (now_mono - cached_ep[0]) <= 90.0:
+                rows = cached_ep[1]
+            else:
+                _, rows = self._run_cypher(
+                    """
+                    MATCH (ep:ActorEpisode {namespace: $ns})
+                    RETURN coalesce(ep.episode_hash, '') AS episode_hash,
+                           ep.session_id AS session_id,
+                           coalesce(ep.session_date, '') AS session_date,
+                           coalesce(ep.turn_range, '') AS turn_range,
+                           ep.content AS content,
+                           ep.embedding AS embedding,
+                           coalesce(ep.created_at, 0) AS created_at
+                    ORDER BY created_at ASC
+                    """,
+                    {"ns": self.namespace},
+                )
+                self._episode_rows_cache[self.namespace] = (now_mono, list(rows))
             if not rows:
                 return ""
             raw_q = q_str.rsplit(":", 1)[-1].strip() if ":" in q_str and len(q_str.rsplit(":", 1)[-1].strip()) >= 8 else q_str
@@ -1127,21 +1189,29 @@ class ActorMemoryGraph:
 
             scored.sort(key=lambda x: x[0], reverse=True)
             k = max(1, int(top_k or 12))
+            floor = float(min_score or 0.0)
             selected_map: Dict[int, Tuple[float, int, Dict[str, Any]]] = {}
             seen_sessions = set()
             # Ensure the highest-scoring episode from each distinct session with non-trivial relevance is represented
             for item_tuple in scored:
                 sc_val, i_val, r_dict = item_tuple
+                if sc_val < max(0.25, floor):
+                    continue
                 sid_val = str(r_dict.get("session_id") or "")
-                if sid_val and sid_val not in seen_sessions and sc_val >= 0.25 and len(selected_map) < max(2, k // 2):
+                if sid_val and sid_val not in seen_sessions and len(selected_map) < max(2, k // 2):
                     seen_sessions.add(sid_val)
                     selected_map[i_val] = item_tuple
             for item_tuple in scored:
                 if len(selected_map) >= k:
                     break
-                i_val = item_tuple[1]
+                sc_val, i_val, _ = item_tuple
+                if sc_val < floor:
+                    continue
                 if i_val not in selected_map:
                     selected_map[i_val] = item_tuple
+
+            if not selected_map:
+                return ""
 
             top_items = sorted(selected_map.values(), key=lambda x: x[1])
             lines = ["[ARCHIVED EPISODIC MEMORY RECALL (NEO4J `:ActorEpisode` + `:8084` VECTOR HYBRID, CHRONOLOGICAL ORDER — LATER DATES SUPERSEDE EARLIER FACTS)]:"]
@@ -1231,26 +1301,33 @@ class ActorMemoryGraph:
         if _os.environ.get("ACTORII_BENCH_STRICT") == "1" and self.namespace == "default":
             return ""
         try:
-            _, rows = self._run_cypher(
-                """
-                MATCH (e:ActorEngram {namespace: $ns})
-                OPTIONAL MATCH (e)-[:OPERATES_ON]->(d:ActorGraphDomain {namespace: $ns})
-                OPTIONAL MATCH (e)-[:SUBCLASS_OF|DEPENDS_ON*1..5]->(dep:ActorEngram {namespace: $ns})
-                RETURN e.name AS name, e.description AS description,
-                       coalesce(e.superclass, 'Object') AS superclass,
-                       coalesce(e.ivars, []) AS ivars,
-                       e.signatures AS signatures, e.actor_source AS actor_source,
-                       e.embedding AS embedding,
-                       coalesce(e.call_count, 0) AS call_count,
-                       coalesce(e.success_count, 0) AS success_count,
-                       coalesce(e.updated_at, 0) AS updated_at,
-                       collect(DISTINCT d.label) AS domain_labels,
-                       collect(DISTINCT {name: dep.name, actor_source: dep.actor_source, superclass: coalesce(dep.superclass, 'Object')}) AS deps
-                ORDER BY updated_at DESC
-                LIMIT 20
-                """,
-                {"ns": self.namespace},
-            )
+            now_mono = time.monotonic()
+            eng_key = (self.namespace, self._engram_epoch)
+            cached_eng = self._engram_rows_cache.get(eng_key)
+            if cached_eng is not None and (now_mono - cached_eng[0]) <= 90.0:
+                rows = cached_eng[1]
+            else:
+                _, rows = self._run_cypher(
+                    """
+                    MATCH (e:ActorEngram {namespace: $ns})
+                    OPTIONAL MATCH (e)-[:OPERATES_ON]->(d:ActorGraphDomain {namespace: $ns})
+                    OPTIONAL MATCH (e)-[:SUBCLASS_OF|DEPENDS_ON*1..5]->(dep:ActorEngram {namespace: $ns})
+                    RETURN e.name AS name, e.description AS description,
+                           coalesce(e.superclass, 'Object') AS superclass,
+                           coalesce(e.ivars, []) AS ivars,
+                           e.signatures AS signatures, e.actor_source AS actor_source,
+                           e.embedding AS embedding,
+                           coalesce(e.call_count, 0) AS call_count,
+                           coalesce(e.success_count, 0) AS success_count,
+                           coalesce(e.updated_at, 0) AS updated_at,
+                           collect(DISTINCT d.label) AS domain_labels,
+                           collect(DISTINCT {name: dep.name, actor_source: dep.actor_source, superclass: coalesce(dep.superclass, 'Object')}) AS deps
+                    ORDER BY updated_at DESC
+                    LIMIT 20
+                    """,
+                    {"ns": self.namespace},
+                )
+                self._engram_rows_cache[eng_key] = (now_mono, list(rows))
             if not rows:
                 return ""
 
@@ -1574,9 +1651,22 @@ class ActorMemoryGraph:
             endpoint = getattr(harness_obj, "endpoint", getattr(self.vm, "ai_endpoint", None))
             custom_prov = getattr(harness_obj, "custom_provider", None) or getattr(self.vm, "ai_provider", None)
 
+            # Prefer zero-VRAM CPU specialist slot (`:8082`) when running locally so product distillation
+            # never evicts `AgentHarness`'s warm KV-cache slot on `:8080`!
+            specialist_ep = os.environ.get(
+                "ACTORII_SPECIALIST_ENDPOINT",
+                "http://127.0.0.1:8082/v1/chat/completions",
+            ).strip()
+            use_specialist_first = (
+                custom_prov is None
+                and bool(specialist_ep)
+                and (not endpoint or ":8080" in str(endpoint))
+            )
+            distill_ep = specialist_ep if use_specialist_first else endpoint
+
             client = ValkyrieLLMClient(
-                endpoint=endpoint,
-                model=model,
+                endpoint=distill_ep,
+                model="default" if use_specialist_first else model,
                 timeout=180.0,
                 custom_provider=custom_prov,
             )
@@ -1874,29 +1964,36 @@ class ActorMemoryGraph:
         combined_q = f"{query_str} {topic_str}".strip()
         if not combined_q:
             return ""
-        _, prod_rows = self._run_cypher(
-            """
-            MATCH (p:Product {namespace: $ns})
-            OPTIONAL MATCH (p)-[:HAS_SUBSYSTEM]->(s:Subsystem {namespace: $ns})
-            OPTIONAL MATCH (p)-[:HAS_PROCEDURE]->(pr:Procedure {namespace: $ns})
-            OPTIONAL MATCH (p)-[:HAS_GOTCHA]->(g:Gotcha {namespace: $ns})
-            OPTIONAL MATCH (p)-[:CITES_SOURCE]->(ds:DocSource {namespace: $ns})
-            OPTIONAL MATCH (p)-[:HAS_MANUAL_CHUNK]->(mc:ProductManualChunk {namespace: $ns})
-            RETURN p.id AS id,
-                   p.name AS name,
-                   coalesce(p.category, '') AS category,
-                   coalesce(p.version, '') AS version,
-                   coalesce(p.summary, '') AS summary,
-                   coalesce(p.keywords, []) AS keywords,
-                   p.embedding AS embedding,
-                   collect(DISTINCT {name: s.name, driver: s.driver, description: s.description, commands: s.commands}) AS subsystems,
-                   collect(DISTINCT {name: pr.name, command: pr.command, notes: pr.notes}) AS procedures,
-                   collect(DISTINCT {rule: g.rule, severity: g.severity}) AS gotchas,
-                   collect(DISTINCT {url: ds.url, title: ds.title}) AS sources,
-                   collect(DISTINCT {chunk_id: mc.chunk_id, title: mc.title, content: mc.content, embedding: mc.embedding}) AS chunks
-            """,
-            {"ns": self.namespace},
-        )
+        now_mono = time.monotonic()
+        prod_key = (self.namespace, self._engram_epoch)
+        cached_prod = self._product_rows_cache.get(prod_key)
+        if cached_prod is not None and (now_mono - cached_prod[0]) <= 90.0:
+            prod_rows = cached_prod[1]
+        else:
+            _, prod_rows = self._run_cypher(
+                """
+                MATCH (p:Product {namespace: $ns})
+                OPTIONAL MATCH (p)-[:HAS_SUBSYSTEM]->(s:Subsystem {namespace: $ns})
+                OPTIONAL MATCH (p)-[:HAS_PROCEDURE]->(pr:Procedure {namespace: $ns})
+                OPTIONAL MATCH (p)-[:HAS_GOTCHA]->(g:Gotcha {namespace: $ns})
+                OPTIONAL MATCH (p)-[:CITES_SOURCE]->(ds:DocSource {namespace: $ns})
+                OPTIONAL MATCH (p)-[:HAS_MANUAL_CHUNK]->(mc:ProductManualChunk {namespace: $ns})
+                RETURN p.id AS id,
+                       p.name AS name,
+                       coalesce(p.category, '') AS category,
+                       coalesce(p.version, '') AS version,
+                       coalesce(p.summary, '') AS summary,
+                       coalesce(p.keywords, []) AS keywords,
+                       p.embedding AS embedding,
+                       collect(DISTINCT {name: s.name, driver: s.driver, description: s.description, commands: s.commands}) AS subsystems,
+                       collect(DISTINCT {name: pr.name, command: pr.command, notes: pr.notes}) AS procedures,
+                       collect(DISTINCT {rule: g.rule, severity: g.severity}) AS gotchas,
+                       collect(DISTINCT {url: ds.url, title: ds.title}) AS sources,
+                       collect(DISTINCT {chunk_id: mc.chunk_id, title: mc.title, content: mc.content, embedding: mc.embedding}) AS chunks
+                """,
+                {"ns": self.namespace},
+            )
+            self._product_rows_cache[prod_key] = (now_mono, list(prod_rows))
         if not prod_rows:
             return ""
 
@@ -1967,21 +2064,26 @@ class ActorMemoryGraph:
                 is_relevant = (
                     name_token_hits >= 1
                     or exact_id_match
-                    or lex_hits >= 2
-                    or best_emb >= 0.64
+                    or (lex_hits >= 2 and lex_sim >= 0.45)
+                    or best_emb >= 0.66
                 )
                 if not is_relevant:
                     continue
             else:
-                if prod_score < 0.12 and not exact_id_match and name_token_hits == 0 and lex_hits == 0:
+                if prod_score < 0.25 and not exact_id_match and name_token_hits == 0 and lex_hits == 0:
                     continue
 
-            scored_products.append((prod_score, prow, scored_chunks))
+            scored_products.append((prod_score, prow, scored_chunks, exact_id_match or name_token_hits >= 1))
 
         if not scored_products:
             return ""
 
         scored_products.sort(key=lambda item: item[0], reverse=True)
+        # If any product explicitly matched by name/id, drop unrelated secondary products that didn't match by name/id!
+        if any(item[3] for item in scored_products):
+            scored_products = [
+                item for item in scored_products if item[3] or item[0] >= 0.58
+            ]
         max_prods = 2 if strict_auto_hydrate else 3
         header_tag = (
             "[AUTO-RECALLED PRODUCT TECHNICAL MANUAL (NEO4J `:Product` GRAPH + `:8084` VECTOR HYBRID — USE THESE VERIFIED COMMANDS & GUARDRAILS INSTEAD OF GUESSING!)]:"
@@ -1990,7 +2092,7 @@ class ActorMemoryGraph:
         )
         out_lines = [header_tag]
 
-        for p_score, prow, s_chunks in scored_products[:max_prods]:
+        for p_score, prow, s_chunks, _named in scored_products[:max_prods]:
             pname = prow.get("name") or prow.get("id")
             ver = f" ({prow['version']})" if prow.get("version") else ""
             cat = f" [{prow['category']}]" if prow.get("category") else ""
@@ -2139,8 +2241,26 @@ class ActorMemoryGraph:
     def hydrateContext(self, goal_text: str = "") -> str:
         """1993 Actor-callable entry point for `AgentHarness>>selectEngramContext`."""
         q_txt = str(goal_text or "")
+        cache_key = (self.namespace, q_txt, self._write_epoch)
+        cached = self._hydrate_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         engram_txt = self.hydrateRelevantEngrams(q_txt)
         prod_txt = self._hydrate_relevant_product_manuals(q_txt)
-        ep_txt = self.recallEpisodes(q_txt, top_k=12) if self.enable_engrams else ""
+        if self.enable_engrams:
+            # In live conversational `default` namespace, apply a relevance floor (`>= 0.40`, `top_k=4`)
+            # so casual chat isn't polluted by 12 unrelated past turns; isolated benchmark namespaces
+            # (`longmem_*`, `locomo_*`) keep full `top_k=12` recall.
+            if self.namespace == "default":
+                ep_txt = self.recallEpisodes(q_txt, top_k=4, min_score=0.40)
+            else:
+                ep_txt = self.recallEpisodes(q_txt, top_k=12, min_score=0.0)
+        else:
+            ep_txt = ""
         parts = [blk for blk in (engram_txt, prod_txt, ep_txt) if blk]
-        return "\n\n".join(parts)
+        result = "\n\n".join(parts)
+        if len(self._hydrate_cache) > 64:
+            self._hydrate_cache.clear()
+        self._hydrate_cache[cache_key] = result
+        return result

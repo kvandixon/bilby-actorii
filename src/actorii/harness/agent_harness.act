@@ -163,7 +163,15 @@ Def instructionBlock(self) {
 
 Def buildStepPrompt(self, engramCtx, grammarCtx, policyTxt | p turnsTxt stepsTxt errTxt instTxt) {
     p := "You are executing inside `ActorII` (the modern Linux-ported, Actor-inspired bytecode virtual machine & metacircular harness).\n";
-    p := p + "GOAL: " + asString(self.goal);
+    instTxt := instructionBlock(self);
+    if instTxt <> "" then
+        p := p + "\n" + instTxt;
+    endif;
+    turnsTxt := formatRecentTurns(self.sandbox, self);
+    if turnsTxt <> "" then
+        p := p + "\n\n" + turnsTxt;
+    endif;
+    p := p + "\n\nGOAL: " + asString(self.goal);
     if policyTxt <> "" then
         p := p + "\n\n[HARNESS RUNTIME POLICY OVERRIDE]:\n" + policyTxt;
     endif;
@@ -172,14 +180,6 @@ Def buildStepPrompt(self, engramCtx, grammarCtx, policyTxt | p turnsTxt stepsTxt
     endif;
     if grammarCtx <> "" then
         p := p + "\n\n" + grammarCtx;
-    endif;
-    instTxt := instructionBlock(self);
-    if instTxt <> "" then
-        p := p + "\n\n" + instTxt;
-    endif;
-    turnsTxt := formatRecentTurns(self.sandbox, self);
-    if turnsTxt <> "" then
-        p := p + "\n\n" + turnsTxt;
     endif;
     stepsTxt := formatStepHistory(self.sandbox, self);
     if stepsTxt <> "" then

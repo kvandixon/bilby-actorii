@@ -154,8 +154,8 @@ class ValkyrieSystemTwin:
         return "\n\n".join(parts)
 
     @actor_command
-    def askSkippy(self, question: str) -> str:
-        """Escalate a diagnostic question or architectural consult to Cloud Skippy via `ask-skippy`."""
+    def askSkippy(self, question: str, timeout_sec: int = 110) -> str:
+        """Escalate a diagnostic question, multimodal image/PDF analysis (`/tmp/actorii_media/...`), or architectural consult to Cloud Skippy via `ask-skippy`."""
         import shutil
         from pathlib import Path
 
@@ -164,16 +164,24 @@ class ValkyrieSystemTwin:
             return "ERROR: Empty question for askSkippy"
         ask_bin = shutil.which("ask-skippy") or str(Path.home() / "bin" / "ask-skippy")
         if os.path.isfile(ask_bin):
+            wait_s = max(15.0, min(180.0, float(timeout_sec or 110)))
             try:
-                out = subprocess.check_output(
+                proc = subprocess.run(
                     [ask_bin, q],
-                    timeout=15.0,
+                    timeout=wait_s,
+                    capture_output=True,
                     text=True,
-                    stderr=subprocess.STDOUT,
-                ).strip()
-                return out[:2000] if out else "Logged escalation to Cloud Skippy."
+                )
+                out = (proc.stdout or "").strip()
+                err = (proc.stderr or "").strip()
+                if proc.returncode == 0:
+                    return out[:4000] if out else "Logged escalation to Cloud Skippy."
+                detail = (err or out or f"exit code {proc.returncode}")[:1200]
+                return f"askSkippy error (exit {proc.returncode}): {detail}"
+            except subprocess.TimeoutExpired:
+                return f"askSkippy timed out after {wait_s:.0f}s waiting for Cloud Skippy."
             except Exception as exc:
-                return f"askSkippy logged (note: {exc})"
+                return f"askSkippy error: {type(exc).__name__}: {exc}"
         return "ERROR: ask-skippy helper not installed on this host"
 
     @actor_query
@@ -674,7 +682,124 @@ def telegram_api_request(
             conn.close()
             return json.loads(raw_data)
         except Exception as exc:
-            last_err = f"{type(exc).__name__}: {exc}"
+            err_msg = f"{type(exc).__name__}: {exc}"
+            if token:
+                err_msg = err_msg.replace(token, "<REDACTED>")
+            last_err = err_msg
+            continue
+
+    return {"ok": False, "description": last_err}
+
+
+TELEGRAM_MEDIA_STAGE_DIR = "/tmp/actorii_media"
+TELEGRAM_MAX_PHOTO_BYTES = 10 * 1024 * 1024
+TELEGRAM_MAX_DOCUMENT_BYTES = 50 * 1024 * 1024
+
+_SENSITIVE_UPLOAD_BASENAMES = (
+    ".env",
+    "id_rsa",
+    "id_ed25519",
+    "id_ecdsa",
+    "known_hosts",
+    "authorized_keys",
+    "shadow",
+    "gshadow",
+    "passwd",
+    "sudoers",
+    "credentials",
+    "stack_state.json",
+    "telegram_gateway_state.json",
+)
+_SENSITIVE_UPLOAD_EXTS = (".key", ".pem", ".p12", ".pfx", ".kdbx")
+
+
+def _encode_multipart_formdata(
+    fields: Optional[Dict[str, Any]],
+    file_field: str,
+    file_name: str,
+    file_bytes: bytes,
+    content_type: Optional[str] = None,
+) -> Tuple[bytes, str]:
+    """Encode RFC 7578 `multipart/form-data` payload and return `(body_bytes, content_type_header)`."""
+    import mimetypes
+    import uuid
+
+    boundary = f"----ActorIITelegramBoundary{uuid.uuid4().hex}"
+    safe_fname = os.path.basename(file_name or "upload.bin").replace('"', "_").replace("\r", "").replace("\n", "")
+    guessed_mime = content_type or mimetypes.guess_type(safe_fname)[0] or "application/octet-stream"
+
+    chunks: List[bytes] = []
+    for k, v in (fields or {}).items():
+        if v is None:
+            continue
+        chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+        chunks.append(f'Content-Disposition: form-data; name="{k}"\r\n\r\n'.encode("utf-8"))
+        chunks.append(f"{v}\r\n".encode("utf-8"))
+
+    chunks.append(f"--{boundary}\r\n".encode("utf-8"))
+    chunks.append(
+        (
+            f'Content-Disposition: form-data; name="{file_field}"; filename="{safe_fname}"\r\n'
+            f"Content-Type: {guessed_mime}\r\n\r\n"
+        ).encode("utf-8")
+    )
+    chunks.append(file_bytes)
+    chunks.append(f"\r\n--{boundary}--\r\n".encode("utf-8"))
+    return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
+def telegram_multipart_request(
+    token: str,
+    method: str,
+    fields: Optional[Dict[str, Any]],
+    file_field: str,
+    file_name: str,
+    file_bytes: bytes,
+    content_type: Optional[str] = None,
+    timeout: float = 35.0,
+) -> Dict[str, Any]:
+    """Upload binary media (`sendPhoto`, `sendDocument`) to `api.telegram.org` via `multipart/form-data` with IPv4 SNI fallback."""
+    import http.client
+    import ssl
+
+    if not token:
+        return {"ok": False, "description": "Missing TELEGRAM_BOT_TOKEN"}
+
+    path = f"/bot{token}/{method}"
+    body_bytes, ctype_header = _encode_multipart_formdata(
+        fields=fields,
+        file_field=file_field,
+        file_name=file_name,
+        file_bytes=file_bytes,
+        content_type=content_type,
+    )
+    headers = {
+        "Host": "api.telegram.org",
+        "Accept": "application/json",
+        "Content-Type": ctype_header,
+        "Content-Length": str(len(body_bytes)),
+    }
+
+    ctx = ssl.create_default_context()
+    targets = ["api.telegram.org", *_TELEGRAM_SEED_IPS]
+    last_err = "Unknown error"
+
+    for target in targets:
+        try:
+            raw_sock = socket.create_connection((target, 443), timeout=timeout)
+            tls_sock = ctx.wrap_socket(raw_sock, server_hostname="api.telegram.org")
+            conn = http.client.HTTPSConnection("api.telegram.org", 443, timeout=timeout, context=ctx)
+            conn.sock = tls_sock
+            conn.request("POST", path, body=body_bytes, headers=headers)
+            resp = conn.getresponse()
+            raw_data = resp.read().decode("utf-8", errors="replace")
+            conn.close()
+            return json.loads(raw_data)
+        except Exception as exc:
+            err_msg = f"{type(exc).__name__}: {exc}"
+            if token:
+                err_msg = err_msg.replace(token, "<REDACTED>")
+            last_err = err_msg
             continue
 
     return {"ok": False, "description": last_err}
@@ -690,30 +815,124 @@ class TelegramBotTwin:
         default_chat_id: Optional[str] = None,
         default_thread_id: Optional[int] = None,
         env_path: Optional[str] = None,
+        api_caller: Optional[Any] = None,
+        multipart_caller: Optional[Any] = None,
     ) -> None:
         creds = load_telegram_credentials(env_path=env_path)
         self._token = (token if token is not None else creds["token"]).strip()
         self._chat_id = str(default_chat_id if default_chat_id is not None else creds["chat_id"]).strip()
         self._thread_id = default_thread_id if default_thread_id is not None else creds["thread_id"]
+        self._active_chat_id: Optional[str] = None
+        self._active_thread_id: Optional[int] = None
         self._allowed_users: List[int] = list(creds["allowed_users"])
         self._bot_info: Dict[str, Any] = {}
         self._sent_log: List[Dict[str, Any]] = []
+        self._api = api_caller or telegram_api_request
+        self._multipart_api = multipart_caller or telegram_multipart_request
+
+    def _set_active_route(self, chat_id: Any, thread_id: Optional[int] = None) -> None:
+        """Update the active inbound conversation `(chat_id, thread_id)` from `BilbyTelegramGateway`."""
+        cid_s = str(chat_id or "").strip()
+        self._active_chat_id = cid_s if cid_s else None
+        if thread_id is not None and str(thread_id).lstrip("-").isdigit() and int(thread_id) > 0:
+            self._active_thread_id = int(thread_id)
+        else:
+            self._active_thread_id = None
+
+    def _resolve_route(self, chat_id: Any = None, thread_id: int = 0) -> Tuple[str, int]:
+        """Resolve effective `(chat_id, thread_id)` preferring explicit args, then active turn route, then `.env` defaults."""
+        explicit_cid = str(chat_id or "").strip() if chat_id not in (None, "", 0) else ""
+        explicit_tid = int(thread_id or 0) if str(thread_id or 0).lstrip("-").isdigit() else 0
+        default_cid = self._active_chat_id or self._chat_id
+        default_tid = int(
+            self._active_thread_id
+            if self._active_thread_id is not None
+            else (self._thread_id or 0)
+        )
+        if explicit_cid:
+            if explicit_tid > 0:
+                return explicit_cid, explicit_tid
+            if explicit_cid == default_cid and default_tid > 0:
+                return explicit_cid, default_tid
+            return explicit_cid, 0
+        return default_cid, (explicit_tid if explicit_tid > 0 else default_tid)
+
+    @staticmethod
+    def _resolve_safe_upload_path(file_path: str) -> Tuple[Optional[str], Optional[str]]:
+        """Validate and resolve a local staging file path safe for Telegram upload under host lockdown."""
+        raw_in = str(file_path or "").strip()
+        if not raw_in or "\x00" in raw_in:
+            return None, "Telegram upload error: missing or invalid file_path."
+
+        stage_dir = os.environ.get("ACTORII_MEDIA_STAGE_DIR", TELEGRAM_MEDIA_STAGE_DIR)
+        stage_real = os.path.realpath(stage_dir)
+        tmp_real = os.path.realpath("/tmp")
+        ws_real = os.path.realpath("/workspace")
+
+        expanded = os.path.abspath(os.path.expanduser(raw_in))
+        candidate = expanded
+        # If Bilby passed `/tmp/foo.jpg` or bare `foo.jpg` for a file staged in `/tmp/actorii_media/foo.jpg`, resolve it cleanly
+        if not os.path.lexists(candidate) and ("/" not in raw_in or expanded.startswith(tmp_real + os.sep)):
+            alt = os.path.join(stage_dir, os.path.basename(raw_in))
+            if os.path.lexists(alt):
+                candidate = alt
+
+        if not os.path.lexists(candidate):
+            return (
+                None,
+                f"Telegram upload error: local file {raw_in!r} not found on valkyrie. "
+                f"If the file is on the Jetson, pull it first via pullFile(Actor[#Jetson], {raw_in!r})!!",
+            )
+
+        if os.path.islink(candidate):
+            return None, f"Telegram upload blocked: symlinks are not permitted ({raw_in!r})."
+
+        real_p = os.path.realpath(candidate)
+        in_stage = real_p == stage_real or real_p.startswith(stage_real + os.sep)
+        in_tmp = real_p.startswith(tmp_real + os.sep)
+        in_ws = os.path.isdir("/workspace") and real_p.startswith(ws_real + os.sep)
+
+        if not (in_stage or in_tmp or in_ws):
+            return (
+                None,
+                f"Telegram upload blocked by host lockdown: {raw_in!r} is outside allowed staging directories (`/tmp/actorii_media`, `/tmp`, `/workspace`).",
+            )
+
+        if not os.path.isfile(real_p):
+            return None, f"Telegram upload error: {raw_in!r} is not a regular file."
+
+        base_low = os.path.basename(real_p).lower()
+        if any(base_low == b or base_low.endswith("." + b.lstrip(".")) for b in _SENSITIVE_UPLOAD_BASENAMES) or any(
+            base_low.endswith(ext) for ext in _SENSITIVE_UPLOAD_EXTS
+        ):
+            return None, f"Telegram upload blocked: sensitive credential/state filename {os.path.basename(real_p)!r} is prohibited."
+
+        if in_tmp and not in_stage:
+            try:
+                st = os.stat(real_p)
+                if hasattr(os, "getuid") and st.st_uid != os.getuid():
+                    return None, f"Telegram upload blocked: `/tmp` file {raw_in!r} is not owned by current user."
+            except OSError as exc:
+                return None, f"Telegram upload error: cannot stat {raw_in!r}: {exc}"
+
+        return real_p, None
 
     @actor_query
     def summary(self) -> str:
-        """Return Telegram bot configuration and status summary."""
+        """Return Telegram bot configuration, active topic route, and media capabilities."""
         masked = "set" if self._token else "unset"
         uname = self._bot_info.get("username", "unconfigured")
+        eff_cid, eff_tid = self._resolve_route()
         return (
             f"TelegramBotTwin(@{uname} | token={masked} | "
-            f"home_chat={self._chat_id or 'none'} | thread={self._thread_id} | "
-            f"allowed_users={self._allowed_users})"
+            f"home_chat={self._chat_id or 'none'} | active_chat={eff_cid or 'none'} | thread={eff_tid} | "
+            f"methods=[sendMessage, sendToChat, sendPhoto, sendDocument] | allowed_users={self._allowed_users})"
         )
 
     @actor_query
     def botInfo(self) -> str:
         """Query Telegram `getMe` API and return bot identity."""
-        res = telegram_api_request(self._token, "getMe", timeout=8.0)
+        res = self._api(self._token, "getMe", None, 8.0)
         if res.get("ok") and isinstance(res.get("result"), dict):
             self._bot_info = res["result"]
             r = self._bot_info
@@ -722,13 +941,14 @@ class TelegramBotTwin:
 
     @actor_command
     def sendMessage(self, text: str) -> str:
-        """Send a message to the configured default Telegram home channel."""
-        return self.sendToChat(self._chat_id, text, 0)
+        """Send a message to the active Telegram conversation (or configured home channel)."""
+        cid, tid = self._resolve_route()
+        return self.sendToChat(cid, text, tid)
 
     @actor_command
     def sendToChat(self, chat_id: Any, text: str, thread_id: int = 0) -> str:
         """Send a Telegram message to `chat_id` (optionally in `thread_id` forum topic)."""
-        cid = str(chat_id or self._chat_id).strip()
+        cid, tid = self._resolve_route(chat_id, thread_id)
         msg = str(text or "").strip()
         if not cid:
             return "Telegram send error: missing chat_id"
@@ -736,16 +956,146 @@ class TelegramBotTwin:
             return "Telegram send error: empty message"
 
         payload: Dict[str, Any] = {"chat_id": int(cid) if cid.lstrip("-").isdigit() else cid, "text": msg}
-        tid = int(thread_id or 0)
         if tid > 0:
             payload["message_thread_id"] = tid
 
-        res = telegram_api_request(self._token, "sendMessage", payload=payload, timeout=12.0)
+        res = self._api(self._token, "sendMessage", payload, 12.0)
+        if not res.get("ok") and "message_thread_id" in payload:
+            fallback_payload = {k: v for k, v in payload.items() if k != "message_thread_id"}
+            res = self._api(self._token, "sendMessage", fallback_payload, 12.0)
         if res.get("ok") and isinstance(res.get("result"), dict):
             msg_id = res["result"].get("message_id")
-            self._sent_log.append({"chat_id": cid, "thread_id": tid, "message_id": msg_id, "text": msg})
+            self._sent_log.append({"type": "text", "chat_id": cid, "thread_id": tid, "message_id": msg_id, "text": msg})
             return f"Sent Telegram message #{msg_id} to chat {cid}"
         return f"Telegram send failed: {res.get('description', 'unknown')}"
+
+    def _upload_media(
+        self,
+        *,
+        api_method: str,
+        file_field: str,
+        max_bytes: int,
+        file_path: str,
+        caption: str = "",
+        chat_id: Any = None,
+        thread_id: int = 0,
+    ) -> str:
+        cid, tid = self._resolve_route(chat_id, thread_id)
+        if not cid:
+            return f"Telegram {api_method} error: missing chat_id"
+
+        real_p, err = self._resolve_safe_upload_path(file_path)
+        if err or not real_p:
+            return err or f"Telegram {api_method} error: invalid file path"
+
+        try:
+            size_b = os.path.getsize(real_p)
+        except OSError as exc:
+            return f"Telegram {api_method} error: cannot stat {real_p!r}: {exc}"
+
+        if size_b <= 0:
+            return f"Telegram {api_method} error: file {os.path.basename(real_p)!r} is empty (0 bytes)."
+        if size_b > max_bytes:
+            lim_mb = max_bytes // (1024 * 1024)
+            tip = " Use sendDocument for files up to 50 MB." if api_method == "sendPhoto" and size_b <= TELEGRAM_MAX_DOCUMENT_BYTES else ""
+            return f"Telegram {api_method} error: file {os.path.basename(real_p)!r} is {size_b} bytes (exceeds {lim_mb} MB limit).{tip}"
+
+        try:
+            with open(real_p, "rb") as fh:
+                file_bytes = fh.read(max_bytes + 1)
+        except OSError as exc:
+            return f"Telegram {api_method} error: cannot read {real_p!r}: {exc}"
+
+        fields: Dict[str, Any] = {"chat_id": int(cid) if cid.lstrip("-").isdigit() else cid}
+        clean_cap = str(caption or "").strip()
+        if clean_cap:
+            fields["caption"] = clean_cap[:1024]
+        if tid > 0:
+            fields["message_thread_id"] = tid
+
+        fname = os.path.basename(real_p)
+        res = self._multipart_api(
+            self._token,
+            api_method,
+            fields,
+            file_field,
+            fname,
+            file_bytes,
+            None,
+            40.0,
+        )
+        if not res.get("ok") and "message_thread_id" in fields:
+            fallback_fields = {k: v for k, v in fields.items() if k != "message_thread_id"}
+            res = self._multipart_api(
+                self._token,
+                api_method,
+                fallback_fields,
+                file_field,
+                fname,
+                file_bytes,
+                None,
+                40.0,
+            )
+
+        if res.get("ok") and isinstance(res.get("result"), dict):
+            msg_id = res["result"].get("message_id")
+            self._sent_log.append(
+                {
+                    "type": file_field,
+                    "chat_id": cid,
+                    "thread_id": tid,
+                    "message_id": msg_id,
+                    "file_name": fname,
+                    "bytes": len(file_bytes),
+                    "caption": clean_cap,
+                }
+            )
+            return f"Sent Telegram {file_field} #{msg_id} ({fname}, {len(file_bytes)} bytes) to chat {cid}"
+
+        desc = res.get("description", "unknown")
+        tip = " (Tip: use sendDocument for non-image or uncompressed files up to 50 MB)" if api_method == "sendPhoto" else ""
+        return f"Telegram {api_method} failed: {desc}{tip}"
+
+    @actor_command
+    def sendPhoto(self, file_path: str, caption: str = "", chat_id: Any = None, thread_id: int = 0) -> str:
+        """Upload and send a local image (`<= 10 MB`, e.g. from `/tmp/actorii_media/...`) via Telegram `sendPhoto`."""
+        return self._upload_media(
+            api_method="sendPhoto",
+            file_field="photo",
+            max_bytes=TELEGRAM_MAX_PHOTO_BYTES,
+            file_path=file_path,
+            caption=caption,
+            chat_id=chat_id,
+            thread_id=thread_id,
+        )
+
+    @actor_command
+    def sendPhotoToChat(self, chat_id: Any, file_path: str, caption: str = "", thread_id: int = 0) -> str:
+        """Upload and send a local image (`<= 10 MB`) to a specific Telegram `chat_id` / `thread_id`."""
+        return self.sendPhoto(file_path=file_path, caption=caption, chat_id=chat_id, thread_id=thread_id)
+
+    @actor_command
+    def sendDocument(self, file_path: str, caption: str = "", chat_id: Any = None, thread_id: int = 0) -> str:
+        """Upload and send any local file (`<= 50 MB`, e.g. from `/tmp/actorii_media/...`) via Telegram `sendDocument`."""
+        return self._upload_media(
+            api_method="sendDocument",
+            file_field="document",
+            max_bytes=TELEGRAM_MAX_DOCUMENT_BYTES,
+            file_path=file_path,
+            caption=caption,
+            chat_id=chat_id,
+            thread_id=thread_id,
+        )
+
+    @actor_command
+    def sendDocumentToChat(self, chat_id: Any, file_path: str, caption: str = "", thread_id: int = 0) -> str:
+        """Upload and send a local file (`<= 50 MB`) to a specific Telegram `chat_id` / `thread_id`."""
+        return self.sendDocument(file_path=file_path, caption=caption, chat_id=chat_id, thread_id=thread_id)
+
+    @actor_command
+    def sendFile(self, file_path: str, caption: str = "", chat_id: Any = None, thread_id: int = 0) -> str:
+        """Alias for `sendDocument(Actor[#Telegram], file_path, caption)`."""
+        return self.sendDocument(file_path=file_path, caption=caption, chat_id=chat_id, thread_id=thread_id)
 
 
 def _to_actor_dict(mapping: Dict[str, Any]) -> Any:
@@ -1623,6 +1973,10 @@ class ReverseProxyTwin:
 
 JETSON_FORBIDDEN_PATTERNS: Tuple[str, ...] = (
     "do-release-upgrade",
+    "apt upgrade",
+    "apt-get upgrade",
+    "apt full-upgrade",
+    "apt dist-upgrade",
     "nvidia-l4t-initrd",
     "nvidia-l4t-bootloader",
     "/boot/initrd",
@@ -1996,9 +2350,293 @@ class JetsonEdgeTwin:
         return _to_actor_dict(raw)
 
     @actor_command
+    def writeFile(self, remote_path: str, content: str, timeout_sec: int = 20) -> Any:
+        """Base64-upload any source/config/text file (`.cu`, `.c`, `.cpp`, `.py`, `.sh`, `.json`) to `/tmp/...` on the Jetson without executing it (zero quote-escaping issues)."""
+        import base64
+        import shlex
+
+        raw_r = str(remote_path or "").strip()
+        norm_r = os.path.normpath(raw_r) if raw_r else ""
+        fallback_host = self._load_cfg().get("host", "192.168.68.60")
+        if not norm_r.startswith("/tmp/") or norm_r == "/tmp" or "\x00" in raw_r:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": fallback_host,
+                    "exitCode": 126,
+                    "remotePath": raw_r,
+                    "bytes": 0,
+                    "stdout": "",
+                    "stderr": f"JETSON_GUARDRAIL_BLOCKED: `writeFile` remote_path must be inside `/tmp/` (got {raw_r!r}).",
+                }
+            )
+        body = str(content if content is not None else "")
+        violation = self._validate_jetson_command(body)
+        if violation:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": fallback_host,
+                    "exitCode": 126,
+                    "remotePath": norm_r,
+                    "bytes": 0,
+                    "stdout": "",
+                    "stderr": violation,
+                }
+            )
+        b64 = base64.b64encode(body.encode("utf-8")).decode("ascii")
+        q_rpath = shlex.quote(norm_r)
+        safe_remote_cmd = f"printf '%s' '{b64}' | base64 -d > {q_rpath} && wc -c < {q_rpath}"
+        raw = self._ssh_exec_raw(safe_remote_cmd, timeout_sec=float(timeout_sec or 20))
+        written = len(body.encode("utf-8")) if raw.get("ok") else 0
+        raw["remotePath"] = norm_r
+        raw["bytes"] = written
+        return _to_actor_dict(raw)
+
+    @actor_command
+    def writeAndRun(self, remote_path: str, script_content: str, timeout_sec: int = 35) -> Any:
+        """Base64-upload a multi-line `.sh`, `.py`, `.cu` (CUDA `nvcc`), `.cpp`, or `.c` program to `/tmp/...` on the Jetson, compile if needed, and execute it cleanly (zero quote-escaping issues)."""
+        import base64
+        import shlex
+
+        raw_r = str(remote_path or "/tmp/bilby_jetson_probe.sh").strip()
+        norm_r = os.path.normpath(raw_r) if raw_r else ""
+        if not norm_r.startswith("/tmp/") or norm_r == "/tmp" or "\x00" in raw_r:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": self._load_cfg().get("host", "192.168.68.60"),
+                    "exitCode": 126,
+                    "stdout": "",
+                    "stderr": f"JETSON_GUARDRAIL_BLOCKED: `writeAndRun` remote_path must be inside `/tmp/` (got {raw_r!r}).",
+                }
+            )
+        body = str(script_content or "")
+        violation = self._validate_jetson_command(body)
+        if violation:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": self._load_cfg().get("host", "192.168.68.60"),
+                    "exitCode": 126,
+                    "stdout": "",
+                    "stderr": violation,
+                }
+            )
+        b64 = base64.b64encode(body.encode("utf-8")).decode("ascii")
+        q_rpath = shlex.quote(norm_r)
+        stem, ext = os.path.splitext(norm_r)
+        ext_low = ext.lower()
+        eff_timeout = int(timeout_sec or 35)
+        if ext_low == ".cu":
+            q_bin = shlex.quote(f"{stem}.bin")
+            run_stage = (
+                f"CCBIN=$([ -x /usr/bin/gcc-7 ] && echo '-ccbin /usr/bin/gcc-7' || echo ''); "
+                f"/usr/local/cuda/bin/nvcc -O3 -arch=sm_53 $CCBIN -o {q_bin} {q_rpath} -lm && {q_bin}"
+            )
+            eff_timeout = max(eff_timeout, 45)
+        elif ext_low in (".cpp", ".cc", ".cxx"):
+            q_bin = shlex.quote(f"{stem}.bin")
+            run_stage = f"g++ -O3 -o {q_bin} {q_rpath} -lm && {q_bin}"
+            eff_timeout = max(eff_timeout, 35)
+        elif ext_low == ".c":
+            q_bin = shlex.quote(f"{stem}.bin")
+            run_stage = f"gcc -O3 -o {q_bin} {q_rpath} -lm && {q_bin}"
+            eff_timeout = max(eff_timeout, 35)
+        elif ext_low == ".py":
+            run_stage = f"chmod 700 {q_rpath} && python3 {q_rpath}"
+        else:
+            run_stage = f"chmod 700 {q_rpath} && bash {q_rpath}"
+
+        safe_remote_cmd = f"printf '%s' '{b64}' | base64 -d > {q_rpath} && {run_stage}"
+        return self.exec(safe_remote_cmd, eff_timeout)
+
+    @actor_command
     def runCommand(self, command: str, timeout_sec: int = 20) -> Any:
         """Alias for `exec(Actor[#Jetson], command, timeout_sec)`."""
         return self.exec(command, timeout_sec)
+
+    @actor_command
+    def pullFile(self, remote_path: str, local_name: str = "", timeout_sec: int = 30) -> Any:
+        """Binary-pull a regular file (`<= 50 MiB`) from the Jetson over SSH into `/tmp/actorii_media/` without stdout truncation."""
+        import re
+        import shlex
+
+        r_path = str(remote_path or "").strip()
+        cfg = self._load_cfg()
+        fallback_host = cfg.get("host", "192.168.68.55")
+        if not r_path or "\x00" in r_path or "\n" in r_path or "\r" in r_path:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": fallback_host,
+                    "remotePath": r_path,
+                    "localPath": "",
+                    "bytes": 0,
+                    "stderr": "JETSON_PULL_ERROR: Missing or invalid remote_path.",
+                }
+            )
+
+        low_r = r_path.lower()
+        blocked_remote = (
+            "/.ssh/",
+            "id_rsa",
+            "id_ed25519",
+            "id_ecdsa",
+            "authorized_keys",
+            "/etc/shadow",
+            "/etc/gshadow",
+            ".env",
+            "/dev/",
+            "/proc/",
+            "/sys/",
+        )
+        if any(pat in low_r for pat in blocked_remote):
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": fallback_host,
+                    "remotePath": r_path,
+                    "localPath": "",
+                    "bytes": 0,
+                    "stderr": f"JETSON_GUARDRAIL_BLOCKED: Remote path {r_path!r} is restricted (must be a regular non-credential file).",
+                }
+            )
+
+        host, cfg, banner = self._resolve_live_host(auto_discover=True)
+        if banner is None:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": host,
+                    "remotePath": r_path,
+                    "localPath": "",
+                    "bytes": 0,
+                    "stderr": f"Jetson unreachable on {host}:{cfg.get('port', 22)} (SSH offline or asleep).",
+                }
+            )
+
+        ssh_bin = shutil.which("ssh") or "/usr/bin/ssh"
+        if not os.path.isfile(ssh_bin):
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": host,
+                    "remotePath": r_path,
+                    "localPath": "",
+                    "bytes": 0,
+                    "stderr": "Local `ssh` client binary not installed.",
+                }
+            )
+
+        raw_base = os.path.basename(str(local_name or "").strip() or r_path)
+        safe_base = re.sub(r"[^A-Za-z0-9._-]", "_", raw_base).lstrip(".") or "jetson_file.bin"
+        if any(safe_base.lower() == b or safe_base.lower().endswith("." + b.lstrip(".")) for b in _SENSITIVE_UPLOAD_BASENAMES):
+            safe_base = f"jetson_{safe_base}.dat"
+
+        stage_dir = Path(os.environ.get("ACTORII_MEDIA_STAGE_DIR", TELEGRAM_MEDIA_STAGE_DIR))
+        stage_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+        dest_path = stage_dir / safe_base
+
+        q_path = shlex.quote(r_path)
+        remote_pull_cmd = (
+            f"if [ ! -f {q_path} ]; then echo 'ERR_NOT_REGULAR_FILE' >&2; exit 2; fi; "
+            f"if [ ! -r {q_path} ]; then echo 'ERR_NOT_READABLE' >&2; exit 3; fi; "
+            f"sz=$(wc -c < {q_path}); "
+            f"if [ \"$sz\" -gt {TELEGRAM_MAX_DOCUMENT_BYTES} ]; then echo \"ERR_TOO_LARGE:$sz\" >&2; exit 4; fi; "
+            f"cat -- {q_path}"
+        )
+
+        user = str(cfg.get("user", "kilog")).strip() or "kilog"
+        port = int(cfg.get("port", 22) or 22)
+        argv = [
+            ssh_bin,
+            "-F",
+            "/dev/null",
+            "-p",
+            str(port),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "ConnectTimeout=5",
+            "-o",
+            "LogLevel=ERROR",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-o",
+            f"UserKnownHostsFile={self._known_hosts}",
+        ]
+        if self._key_file.is_file():
+            argv.extend(["-i", str(self._key_file), "-o", "IdentitiesOnly=yes"])
+        argv.extend([f"{user}@{host}", remote_pull_cmd])
+
+        try:
+            self._state_dir.mkdir(parents=True, exist_ok=True)
+            proc = subprocess.run(
+                argv,
+                capture_output=True,
+                text=False,
+                timeout=max(3.0, min(120.0, float(timeout_sec or 30.0))),
+            )
+            if proc.returncode != 0:
+                err_txt = (proc.stderr or b"").decode("utf-8", errors="replace").strip()[:2000]
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "host": host,
+                        "remotePath": r_path,
+                        "localPath": "",
+                        "bytes": 0,
+                        "stderr": err_txt or f"SSH pull exited with code {proc.returncode}",
+                    }
+                )
+            raw_bytes = proc.stdout or b""
+            if os.path.islink(dest_path):
+                dest_path.unlink()
+            part_path = stage_dir / f".{safe_base}.{os.getpid()}.part"
+            fd = os.open(str(part_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                os.write(fd, raw_bytes)
+            finally:
+                os.close(fd)
+            os.replace(str(part_path), str(dest_path))
+            return _to_actor_dict(
+                {
+                    "ok": True,
+                    "host": host,
+                    "remotePath": r_path,
+                    "localPath": str(dest_path),
+                    "bytes": len(raw_bytes),
+                    "stderr": "",
+                }
+            )
+        except subprocess.TimeoutExpired:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": host,
+                    "remotePath": r_path,
+                    "localPath": "",
+                    "bytes": 0,
+                    "stderr": f"SSH pullFile timed out after {timeout_sec}s on {user}@{host}.",
+                }
+            )
+        except Exception as exc:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "host": host,
+                    "remotePath": r_path,
+                    "localPath": "",
+                    "bytes": 0,
+                    "stderr": f"{type(exc).__name__}: {exc}",
+                }
+            )
+
+    @actor_command
+    def fetchFile(self, remote_path: str, local_name: str = "", timeout_sec: int = 30) -> Any:
+        """Alias for `pullFile(Actor[#Jetson], remote_path, local_name, timeout_sec)`."""
+        return self.pullFile(remote_path=remote_path, local_name=local_name, timeout_sec=timeout_sec)
 
 
 __all__ = [
@@ -2013,4 +2651,5 @@ __all__ = [
     "ValkyrieSystemTwin",
     "load_telegram_credentials",
     "telegram_api_request",
+    "telegram_multipart_request",
 ]

@@ -23,12 +23,33 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from actorii.core import ActorClass, ActorInheritanceHierarchy, ActorObject, Symbol
+
+_AI_LOCK = threading.RLock()
+
+_THINK_CLOSED_RE = re.compile(r"<think>.*?</think>", flags=re.DOTALL)
+_THINK_UNCLOSED_RE = re.compile(r"<think>[\s\S]*$")
+_FENCE_EXTRACT_RE = re.compile(
+    r"```(?:actor|act|smalltalk|c|javascript|python)?\s*(.*?)```",
+    flags=re.DOTALL | re.IGNORECASE,
+)
+_STEP_NUM_RE = re.compile(
+    r"^step:\s*(\d+)(?:\s+of\s+\d+|\s+\(unlimited\))?",
+    flags=re.MULTILINE,
+)
+_DEF_CHUNK_RE = re.compile(
+    r"(Def\s+[A-Za-z_][A-Za-z0-9_]*\s*\(.*?\)\s*\{.*?\}\s*(?:!!)?)",
+    flags=re.DOTALL,
+)
+_RETURN_STMT_RE = re.compile(r"\breturn\s+([^;]+);")
+_LOCAL_VAR_DECL_RE = re.compile(r"\b(?:local|var|let)\s+([A-Za-z_][A-Za-z0-9_]*)\s*:=")
+_DEF_HEADER_RE = re.compile(r"^Def\s+[A-Za-z_][A-Za-z0-9_]*\s*\(")
 
 DEFAULT_VALKYRIE_ENDPOINTS = (
     os.environ.get("ACTORII_LLM_ENDPOINT", "http://127.0.0.1:8080/v1/chat/completions"),
@@ -97,14 +118,27 @@ STRICT 1993 ACTOR 4.1 SYNTAX RULES:
 Output ONLY the raw 1993 Actor method definition (`Def ... { ... }!!`) with no markdown fences or explanation."""
 
 
-def _strip_thinking_and_fences(text: str) -> str:
-    """Remove <think>...</think> blocks and markdown code fences from LLM output."""
+def _strip_thinking_only(text: str) -> str:
+    """Remove closed `<think>...</think>` and truncated unclosed `<think>...` blocks without touching Markdown fences."""
     if not text:
         return ""
-    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-    fence_match = re.search(r"```(?:actor|act|smalltalk|c|javascript|python)?\s*(.*?)```", cleaned, re.DOTALL | re.IGNORECASE)
-    if fence_match:
-        cleaned = fence_match.group(1).strip()
+    if "<think>" not in text:
+        return text.strip()
+    cleaned = _THINK_CLOSED_RE.sub("", text)
+    if "<think>" in cleaned:
+        cleaned = _THINK_UNCLOSED_RE.sub("", cleaned)
+    return cleaned.strip()
+
+
+def _strip_thinking_and_fences(text: str) -> str:
+    """Remove <think>...</think> blocks and markdown code fences from raw code synthesis output."""
+    cleaned = _strip_thinking_only(text)
+    if not cleaned:
+        return ""
+    if "```" in cleaned:
+        fence_match = _FENCE_EXTRACT_RE.search(cleaned)
+        if fence_match:
+            cleaned = fence_match.group(1).strip()
     return cleaned
 
 
@@ -152,10 +186,74 @@ class ValkyrieLLMClient:
         self.model = model
         self.timeout = timeout
         self.custom_provider = custom_provider
+        self._lock = threading.RLock()
+        self._local = threading.local()
         self.total_prompt_tokens = 0
         self.total_completion_tokens = 0
         self.total_tokens = 0
         self.total_api_calls = 0
+        self.last_call_stats: Dict[str, Any] = {}
+
+    def _record_usage_and_stats(
+        self,
+        p_tok: int,
+        c_tok: int,
+        t_tok: int,
+        calls: int = 1,
+        stats: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        with self._lock:
+            self.total_prompt_tokens += p_tok
+            self.total_completion_tokens += c_tok
+            self.total_tokens += t_tok
+            self.total_api_calls += calls
+            if stats is not None:
+                self.last_call_stats = dict(stats)
+        with _AI_LOCK:
+            ValkyrieLLMClient.GLOBAL_PROMPT_TOKENS += p_tok
+            ValkyrieLLMClient.GLOBAL_COMPLETION_TOKENS += c_tok
+            ValkyrieLLMClient.GLOBAL_TOTAL_TOKENS += t_tok
+            ValkyrieLLMClient.GLOBAL_API_CALLS += calls
+        if stats is not None:
+            self._local.last_call_stats = dict(stats)
+
+    def get_thread_last_call_stats(self) -> Dict[str, Any]:
+        """Return the most recent call stats for the current thread (or client fallback)."""
+        local_stats = getattr(self._local, "last_call_stats", None)
+        if isinstance(local_stats, dict):
+            return dict(local_stats)
+        with self._lock:
+            return dict(self.last_call_stats)
+
+    def complete_messages(
+        self,
+        messages: List[Dict[str, str]],
+        max_tokens: int = 1600,
+        temperature: float = 0.2,
+    ) -> str:
+        """Execute a chat completion using an explicit KV-cache-aligned `messages` array."""
+        endpoints_to_try = [self.endpoint]
+        if not self._explicit_endpoint and _is_local_llamacpp_or_vllm(self.endpoint):
+            for ep in DEFAULT_VALKYRIE_ENDPOINTS:
+                if ep not in endpoints_to_try:
+                    endpoints_to_try.append(ep)
+
+        last_err: Optional[Exception] = None
+        for ep in endpoints_to_try:
+            try:
+                return self._call_http_endpoint(
+                    ep,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except Exception as exc:
+                last_err = exc
+                continue
+
+        raise RuntimeError(
+            f"ValkyrieLLMClient failed to reach LLM endpoints {endpoints_to_try}: {last_err}"
+        )
 
     def complete(
         self,
@@ -181,34 +279,17 @@ class ValkyrieLLMClient:
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         if history:
-            for turn in history[-10:]:
+            for turn in history[-48:]:
                 role = str(turn.get("role", "user"))
                 content = str(turn.get("content", ""))
                 if content:
                     messages.append({"role": role, "content": content})
         messages.append({"role": "user", "content": prompt})
 
-        endpoints_to_try = [self.endpoint]
-        if not self._explicit_endpoint and _is_local_llamacpp_or_vllm(self.endpoint):
-            for ep in DEFAULT_VALKYRIE_ENDPOINTS:
-                if ep not in endpoints_to_try:
-                    endpoints_to_try.append(ep)
-
-        last_err: Optional[Exception] = None
-        for ep in endpoints_to_try:
-            try:
-                return self._call_http_endpoint(
-                    ep,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                )
-            except Exception as exc:
-                last_err = exc
-                continue
-
-        raise RuntimeError(
-            f"ValkyrieLLMClient failed to reach LLM endpoints {endpoints_to_try}: {last_err}"
+        return self.complete_messages(
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
         )
 
     def _call_http_endpoint(
@@ -218,7 +299,14 @@ class ValkyrieLLMClient:
         max_tokens: int = 1600,
         temperature: float = 0.1,
     ) -> str:
+        t0 = time.perf_counter()
         is_local_engine = _is_local_llamacpp_or_vllm(url)
+        sys_txt = (messages[0].get("content", "") if messages and messages[0].get("role") == "system" else "").lower()
+        is_raw_synthesis = (
+            "method synthesizer" in sys_txt
+            or "output only the raw 1993 actor method" in sys_txt
+            or "output only a valid 1993 actor" in sys_txt
+        )
         if "/api/chat" in url:
             payload = {
                 "model": self.model,
@@ -229,7 +317,7 @@ class ValkyrieLLMClient:
         else:
             last_user_msg = (messages[-1].get("content", "") if messages else "")
             last_user_lower = last_user_msg.lower()
-            step_m = re.search(r"^step:\s*(\d+)(?:\s+of\s+\d+|\s+\(unlimited\))?", last_user_lower, flags=re.MULTILINE)
+            step_m = _STEP_NUM_RE.search(last_user_lower)
             step_num = int(step_m.group(1)) if step_m else (2 if len(messages) >= 4 else 1)
             last_res_tail = last_user_lower.split("last result:")[-1] if "last result:" in last_user_lower else last_user_lower[-1200:]
             already_verified_pass = (
@@ -256,9 +344,10 @@ class ValkyrieLLMClient:
                 "messages": messages,
                 "max_tokens": 600 if is_thinking else max_tokens,
                 "temperature": 0.6 if is_thinking else temperature,
-                "stop": ["\nExplanation:", "\nNote:"],
                 "stream": False,
             }
+            if is_raw_synthesis:
+                payload["stop"] = ["\nExplanation:", "\nNote:"]
             if is_local_engine:
                 payload["chat_template_kwargs"] = {"enable_thinking": True if is_thinking else False}
                 if is_thinking:
@@ -287,14 +376,9 @@ class ValkyrieLLMClient:
         p_tok = int(usage.get("prompt_tokens") or 0)
         c_tok = int(usage.get("completion_tokens") or 0)
         t_tok = int(usage.get("total_tokens") or (p_tok + c_tok))
-        self.total_prompt_tokens += p_tok
-        self.total_completion_tokens += c_tok
-        self.total_tokens += t_tok
-        self.total_api_calls += 1
-        ValkyrieLLMClient.GLOBAL_PROMPT_TOKENS += p_tok
-        ValkyrieLLMClient.GLOBAL_COMPLETION_TOKENS += c_tok
-        ValkyrieLLMClient.GLOBAL_TOTAL_TOKENS += t_tok
-        ValkyrieLLMClient.GLOBAL_API_CALLS += 1
+        self._record_usage_and_stats(p_tok, c_tok, t_tok, calls=1)
+
+        clean_fn = _strip_thinking_and_fences if is_raw_synthesis else _strip_thinking_only
 
         if "choices" in parsed and parsed["choices"]:
             choice0 = parsed["choices"][0]
@@ -302,7 +386,6 @@ class ValkyrieLLMClient:
             finish_reason = choice0.get("finish_reason")
             content = (msg.get("content") or "").strip()
             reasoning = (msg.get("reasoning_content") or "").strip()
-            sys_txt = (messages[0].get("content", "") if messages and messages[0].get("role") == "system" else "").lower()
             wants_json = "valid json" in sys_txt or "json object" in sys_txt
             if wants_json:
                 needs_continuation = (not content) or (finish_reason == "length" and not content.rstrip().endswith("}"))
@@ -313,7 +396,7 @@ class ValkyrieLLMClient:
                 )
                 cont_instruction = (
                     "Now emit ONLY the single raw 1993 Actor 4.1 expression ending in `!!` "
-                    "to execute this step (no markdown fences, no prose):"
+                    "or `COMPLETE: <your answer>` (no chain-of-thought):"
                 )
             if needs_continuation and reasoning and "/api/chat" not in url:
                 # Harmony / gpt-oss:20b or bounded Qwen3.8 thinking pass stopped after `reasoning_content`
@@ -358,26 +441,44 @@ class ValkyrieLLMClient:
                         p2 = int(u2.get("prompt_tokens") or 0)
                         c2 = int(u2.get("completion_tokens") or 0)
                         t2 = int(u2.get("total_tokens") or (p2 + c2))
-                        self.total_prompt_tokens += p2
-                        self.total_completion_tokens += c2
-                        self.total_tokens += t2
-                        self.total_api_calls += 1
-                        ValkyrieLLMClient.GLOBAL_PROMPT_TOKENS += p2
-                        ValkyrieLLMClient.GLOBAL_COMPLETION_TOKENS += c2
-                        ValkyrieLLMClient.GLOBAL_TOTAL_TOKENS += t2
-                        ValkyrieLLMClient.GLOBAL_API_CALLS += 1
+                        p_tok += p2
+                        c_tok += c2
+                        t_tok += t2
+                        self._record_usage_and_stats(p2, c2, t2, calls=1)
                         msg2 = parsed2.get("choices", [{}])[0].get("message", {})
                         content = (msg2.get("content") or "").strip()
                 except Exception:
                     pass
-                if not content:
-                    content = reasoning
-            return _strip_thinking_and_fences(str(content))
+                # Never leak raw `reasoning_content` chain-of-thought as user-facing content!
 
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            call_stats = {
+                "endpoint": url,
+                "model": self.model,
+                "message_count": len(messages),
+                "prompt_tokens": p_tok,
+                "completion_tokens": c_tok,
+                "total_tokens": t_tok,
+                "latency_ms": round(elapsed_ms, 1),
+            }
+            self._record_usage_and_stats(0, 0, 0, calls=0, stats=call_stats)
+            return clean_fn(str(content))
+
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        call_stats = {
+            "endpoint": url,
+            "model": self.model,
+            "message_count": len(messages),
+            "prompt_tokens": p_tok,
+            "completion_tokens": c_tok,
+            "total_tokens": t_tok,
+            "latency_ms": round(elapsed_ms, 1),
+        }
+        self._record_usage_and_stats(0, 0, 0, calls=0, stats=call_stats)
         if "message" in parsed and isinstance(parsed["message"], dict):
-            return _strip_thinking_and_fences(str(parsed["message"].get("content", "")))
+            return clean_fn(str(parsed["message"].get("content", "")))
 
-        return _strip_thinking_and_fences(raw)
+        return clean_fn(raw)
 
 
 # =============================================================================
@@ -396,7 +497,7 @@ def inspect_actor_object(
         cls_name = obj.name
         lineage = _get_class_lineage(cls_name, hierarchy)
         methods = {}
-        for m_name, m_fn in getattr(obj, "_class_methods", {}).items():
+        for m_name, m_fn in list(getattr(obj, "_class_methods", {}).items()):
             if hasattr(m_fn, "params"):
                 methods[m_name] = {
                     "params": list(getattr(m_fn, "params", [])),
@@ -422,11 +523,13 @@ def inspect_actor_object(
 
     fields_summary: Dict[str, Any] = {}
     if hasattr(obj, "_fields") and isinstance(obj._fields, dict):
-        for k, v in obj._fields.items():
+        for k, v in list(obj._fields.items()):
             fields_summary[str(k)] = _summarize_field_value(v)
 
     cls_ivars: List[str] = []
+    cls_ivars_set = set()
     cls_methods: List[str] = []
+    cls_methods_set = set()
     if hierarchy is not None:
         curr = cls_name
         visited = set()
@@ -434,11 +537,13 @@ def inspect_actor_object(
             visited.add(curr)
             c_obj = hierarchy.get(curr)
             if c_obj is not None:
-                for iv in getattr(c_obj, "ivars", []):
-                    if iv not in cls_ivars:
+                for iv in list(getattr(c_obj, "ivars", [])):
+                    if iv not in cls_ivars_set:
+                        cls_ivars_set.add(iv)
                         cls_ivars.append(iv)
-                for mn in getattr(c_obj, "_class_methods", {}).keys():
-                    if mn not in cls_methods:
+                for mn in list(getattr(c_obj, "_class_methods", {}).keys()):
+                    if mn not in cls_methods_set:
+                        cls_methods_set.add(mn)
                         cls_methods.append(mn)
                 curr = c_obj._bases[0] if c_obj._bases else ""
             else:
@@ -523,22 +628,18 @@ def extract_and_normalize_actor_method(
     cleaned = _strip_thinking_and_fences(raw_text).strip()
 
     # Locate `Def <selector>` or any `Def ` header
-    def_match = re.search(
-        r"(Def\s+[A-Za-z_][A-Za-z0-9_]*\s*\(.*?\)\s*\{.*?\}\s*(?:!!)?)",
-        cleaned,
-        re.DOTALL,
-    )
+    def_match = _DEF_CHUNK_RE.search(cleaned)
     if def_match:
         cleaned = def_match.group(1).strip()
 
     # Replace `return expr;` with `^expr;`
-    cleaned = re.sub(r"\breturn\s+([^;]+);", r"^\1;", cleaned)
+    if "return" in cleaned:
+        cleaned = _RETURN_STMT_RE.sub(r"^\1;", cleaned)
     # Strip C/JS-style `local x :=` or `var x :=` inside method body
-    cleaned = re.sub(r"\b(?:local|var|let)\s+([A-Za-z_][A-Za-z0-9_]*)\s*:=", r"\1 :=", cleaned)
+    cleaned = _LOCAL_VAR_DECL_RE.sub(r"\1 :=", cleaned)
 
     # Ensure method name matches `selector`
-    cleaned = re.sub(
-        r"^Def\s+[A-Za-z_][A-Za-z0-9_]*\s*\(",
+    cleaned = _DEF_HEADER_RE.sub(
         f"Def {selector}(",
         cleaned,
         count=1,
@@ -1006,40 +1107,41 @@ class ActorMethodSynthesizer:
         compiled_method.synthesized = True
 
         # 3. Permanently attach the CompiledMethod to the ActorClass in the hierarchy
-        cls = self.vm.hierarchy.get(class_name)
-        if cls is None and class_name:
-            cls = ActorClass(class_name, bases=("Object",))
-            self.vm.hierarchy.register(cls)
-            self.vm.global_vars[class_name] = cls
-            if "Actor" in self.vm.global_vars and isinstance(self.vm.global_vars["Actor"], dict):
-                self.vm.global_vars["Actor"][class_name] = cls
+        with _AI_LOCK:
+            cls = self.vm.hierarchy.get(class_name)
+            if cls is None and class_name:
+                cls = ActorClass(class_name, bases=("Object",))
+                self.vm.hierarchy.register(cls)
+                self.vm.global_vars[class_name] = cls
+                if "Actor" in self.vm.global_vars and isinstance(self.vm.global_vars["Actor"], dict):
+                    self.vm.global_vars["Actor"][class_name] = cls
 
-        if cls is not None:
-            if hasattr(self.vm, "_validate_and_attach_method"):
-                self.vm._validate_and_attach_method(
-                    cls, compiled_method, receiver=receiver, is_synthesized=True
-                )
-            else:
-                cls.add_method(selector, compiled_method)
-            if hasattr(self.vm, "_file_out_class_if_enabled"):
-                self.vm._file_out_class_if_enabled(class_name)
+            if cls is not None:
+                if hasattr(self.vm, "_validate_and_attach_method"):
+                    self.vm._validate_and_attach_method(
+                        cls, compiled_method, receiver=receiver, is_synthesized=True
+                    )
+                else:
+                    cls.add_method(selector, compiled_method)
+                if hasattr(self.vm, "_file_out_class_if_enabled"):
+                    self.vm._file_out_class_if_enabled(class_name)
 
-        if isinstance(receiver, ActorObject):
-            receiver.set_method(selector, compiled_method)
+            if isinstance(receiver, ActorObject):
+                receiver.set_method(selector, compiled_method)
 
-        # Record synthesis event on the VM
-        if not hasattr(self.vm, "synthesized_methods"):
-            self.vm.synthesized_methods = []
-        self.vm.synthesized_methods.append(
-            {
-                "class_name": class_name,
-                "selector": selector,
-                "arity": len(compiled_method.params),
-                "source": final_source,
-                "risk_tier": int(getattr(compiled_method, "risk_tier", 0)),
-                "timestamp": time.time(),
-            }
-        )
+            # Record synthesis event on the VM
+            if not hasattr(self.vm, "synthesized_methods"):
+                self.vm.synthesized_methods = []
+            self.vm.synthesized_methods.append(
+                {
+                    "class_name": class_name,
+                    "selector": selector,
+                    "arity": len(compiled_method.params),
+                    "source": final_source,
+                    "risk_tier": int(getattr(compiled_method, "risk_tier", 0)),
+                    "timestamp": time.time(),
+                }
+            )
 
         return compiled_method
 

@@ -1229,9 +1229,11 @@ class ActorWorkspace:
                 actor_dict = self.vm.global_vars.get("Actor", {})
                 if "Harness" not in actor_dict:
                     _, self.harness, self.sandbox = bootstrap_agent_harness(
-                        self.vm, max_steps=0, max_failures=0
+                        self.vm, max_steps=25, max_failures=6
                     )
                 harness_obj = self.vm.global_vars["Actor"]["Harness"]
+                if max_steps <= 0:
+                    max_steps = int(harness_obj._fields.get("maxSteps", 25) or 25)
                 escaped = goal_str.replace("\\", "\\\\").replace('"', '\\"')
                 loop = asyncio.get_running_loop()
 
@@ -1443,8 +1445,8 @@ def get_shared_workspace() -> ActorWorkspace:
             _, _SHARED_WORKSPACE.harness, _SHARED_WORKSPACE.sandbox = (
                 bootstrap_agent_harness(
                     _SHARED_WORKSPACE.vm,
-                    max_steps=0,
-                    max_failures=0,
+                    max_steps=25,
+                    max_failures=6,
                     fileout_dir=str(fileout_dir),
                 )
             )
@@ -1960,9 +1962,11 @@ async def process_http_request(connection: Any, request: Any) -> Any:
 
                 if "Harness" not in ws_app.vm.global_vars.get("Actor", {}):
                     _, ws_app.harness, ws_app.sandbox = bootstrap_agent_harness(
-                        ws_app.vm, max_steps=0, max_failures=0
+                        ws_app.vm, max_steps=25, max_failures=6
                     )
                 harness_obj = ws_app.vm.global_vars["Actor"]["Harness"]
+                if max_steps <= 0:
+                    max_steps = int(harness_obj._fields.get("maxSteps", 25) or 25)
                 sb = getattr(ws_app, "sandbox", None)
                 escaped = goal_q.replace("\\", "\\\\").replace('"', '\\"')
                 res = ws_app._eval_source(f'runGoal(Actor[#Harness], "{escaped}", {max_steps})!!')

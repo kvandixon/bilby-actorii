@@ -232,10 +232,26 @@ SEED_PRIMITIVES: List[Dict[str, str]] = [
     {"cls": "JetsonEdgeTwin", "selector": "scanLan", "syntax": "scanLan(Actor[#Jetson])", "desc": "Scan 192.168.68.0/22 LAN for SSH (:22) and RTSP (:8554) edge devices without host shell"},
     {"cls": "JetsonEdgeTwin", "selector": "discover", "syntax": "discover(Actor[#Jetson])", "desc": "Auto-discover Jetson IP via mDNS / LAN SSH banner scan"},
     {"cls": "JetsonEdgeTwin", "selector": "exec", "syntax": "exec(Actor[#Jetson], \"uname -a\", 20)", "desc": "Execute a guarded command over SSH on the NVIDIA Jetson board and return Dictionary (#ok, #exitCode, #stdout, #stderr)"},
+    {"cls": "JetsonEdgeTwin", "selector": "writeFile", "syntax": "writeFile(Actor[#Jetson], \"/tmp/kernel.cu\", \"\"\"#include <stdio.h>\n...\"\"\", 20)", "desc": "Write multi-line C/CUDA/Python/shell source cleanly to `/tmp/...` on the Jetson without executing it (use triple quotes `\"\"\"...\"\"\"`)"},
+    {"cls": "JetsonEdgeTwin", "selector": "writeAndRun", "syntax": "writeAndRun(Actor[#Jetson], \"/tmp/kernel.cu\", \"\"\"#include <cuda_runtime.h>\n...\"\"\", 45)", "desc": "Write and execute `.sh`, `.py`, `.cu` (CUDA `nvcc -arch=sm_53 -ccbin /usr/bin/gcc-7`), `.cpp`, or `.c` in `/tmp/...` on the Jetson"},
+    {"cls": "JetsonEdgeTwin", "selector": "pullFile", "syntax": "pullFile(Actor[#Jetson], \"/tmp/snap.jpg\", \"snap.jpg\", 30)", "desc": "Binary-pull a regular file (<= 50 MiB) from Jetson over SSH into `/tmp/actorii_media/` and return Dictionary (#ok, #localPath, #bytes, #stderr)"},
+    {"cls": "TelegramBotTwin", "selector": "sendPhoto", "syntax": "sendPhoto(Actor[#Telegram], \"/tmp/actorii_media/snap.jpg\", \"Caption\")", "desc": "Upload and send a local image (<= 10 MB) to the active Telegram chat/topic via multipart/form-data"},
+    {"cls": "TelegramBotTwin", "selector": "sendDocument", "syntax": "sendDocument(Actor[#Telegram], \"/tmp/actorii_media/file.bin\", \"Caption\")", "desc": "Upload and send any local file (<= 50 MB) to the active Telegram chat/topic via multipart/form-data"},
     {"cls": "ProductLearner", "selector": "learnProduct", "syntax": "learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")", "desc": "Search official web/PDF manuals for a product, distill specs/drivers/commands/gotchas via LLM, and persist Dual-Mode Neo4j `:Product` graph + `:8084` vector `:ProductManualChunk` memory"},
     {"cls": "ProductLearner", "selector": "ingestManual", "syntax": "ingestManual(Actor[#ProductLearner], \"Product Name\", urlOrPdfOrPath, \"focus topics\")", "desc": "Ingest a specific manual URL, PDF datasheet, or local doc into Neo4j `:Product` graph + `:8084` vector manual chunks"},
     {"cls": "ProductLearner", "selector": "recallProduct", "syntax": "recallProduct(Actor[#ProductLearner], \"Product Name\", \"query topic\")", "desc": "Hybrid Neo4j Cypher + `:8084` vector recall of a learned product's subsystems, exact commands, gotchas, and manual excerpts"},
     {"cls": "ProductLearner", "selector": "listProducts", "syntax": "listProducts(Actor[#ProductLearner])", "desc": "List all learned `:Product` technical manuals stored in Neo4j"},
+    {"cls": "ActorBenchSuite", "selector": "selfEvoSuites", "syntax": "selfEvoSuites(Actor[#Bench])", "desc": "List all built-in deterministic self-evolution benchmark specs (Tier 1-3)"},
+    {"cls": "ActorBenchSuite", "selector": "runSelfEvo", "syntax": "runSelfEvo(Actor[#Bench], #specId, #scripted)", "desc": "Run a self-evolution benchmark spec in an isolated sandbox VM (`#scripted` or `#live`)"},
+    {"cls": "ActorBenchSuite", "selector": "selfEvoScoreboard", "syntax": "selfEvoScoreboard(Actor[#Bench])", "desc": "Run the scripted self-evolution suite in an isolated sandbox and return a Markdown scoreboard"},
+    {"cls": "ThreadPool", "selector": "spawn", "syntax": "spawn(Actor[#Threads], recv, #selector, argsArray)", "desc": "Spawn an async Actor message send on the worker pool and return a Future"},
+    {"cls": "ThreadPool", "selector": "spawnChunk", "syntax": "spawnChunk(Actor[#Threads], \"expr!!\", gasLimit)", "desc": "Evaluate an Actor 4.1 chunk concurrently on an isolated fiber and return a Future"},
+    {"cls": "ThreadPool", "selector": "parallelAll", "syntax": "parallelAll(Actor[#Threads], tasksArray, timeoutMs)", "desc": "Fan out Actor tasks in parallel and return Array of results in input order"},
+    {"cls": "ThreadPool", "selector": "parallelMap", "syntax": "parallelMap(Actor[#Threads], itemsArray, recv, #selector)", "desc": "Apply a selector across itemsArray concurrently and return ordered results"},
+    {"cls": "ThreadPool", "selector": "newChannel", "syntax": "newChannel(Actor[#Threads], capacity)", "desc": "Create a bounded thread-safe Channel for concurrent message passing"},
+    {"cls": "Future", "selector": "await", "syntax": "await(fut, timeoutMs)", "desc": "Block until Future completes (within timeoutMs) and return value or raise on error/timeout"},
+    {"cls": "Channel", "selector": "send", "syntax": "send(ch, value)", "desc": "Send value into a thread-safe Channel"},
+    {"cls": "Channel", "selector": "receive", "syntax": "receive(ch, timeoutMs)", "desc": "Receive next value from Channel (or nil on timeout)"},
 ]
 
 SEED_ERROR_PATTERNS: List[Dict[str, str]] = [
@@ -259,6 +275,11 @@ SEED_ERROR_PATTERNS: List[Dict[str, str]] = [
         "hint": "Do not use `.` dot method calls or output plain English sentences. Use prefix calls `size(x)` and output ONLY valid 1993 Actor code ending in `!!`.",
     },
     {
+        "pattern": "Expected class name in inherit()",
+        "construct_id": "class_and_pool",
+        "hint": "Pass a bare class identifier (such as `Object`, `DomainEntity`, or `GraphService`) as the first argument to `inherit(SuperCls, #NewClass, #(#ivar), 1, nil)!!` — NEVER pass `Actor[#Singleton]`! Locked Ring-1 bridges (`Actor[#Telegram]`, `Actor[#Jetson]`) cannot be subclassed; compose them by calling `pullFile(Actor[#Jetson], ...)` / `sendPhoto(Actor[#Telegram], ...)` inside methods of a `DomainEntity` or `Object` subclass.",
+    },
+    {
         "pattern": "E_UNDECLARED_IVAR",
         "construct_id": "class_and_pool",
         "hint": "Instance variable accessed via `self.ivar` was not declared in `inherit(Super, #Class, #(#ivar), ...)`. Declare local variables after `|` in `Def m(self | loc)`.",
@@ -276,7 +297,12 @@ SEED_ERROR_PATTERNS: List[Dict[str, str]] = [
     {
         "pattern": "Expected ')' closing argument list",
         "construct_id": "collections_and_dispatch",
-        "hint": "Missing closing `)` before `!!` or `;` in a prefix function call (e.g., `storeScratch(Actor[#Harness], #answer, val)!!`). Ensure `)` comes before `!!`.",
+        "hint": "Either a closing `)` is missing before `!!`, OR unescaped `\"` quotes inside a single-quoted `\"...\"` string closed your string early! When passing multi-line shell, Python, or C/CUDA source containing `\"` quotes, ALWAYS wrap the string in raw triple quotes `\"\"\"...\"\"\"` (e.g. `writeFile(Actor[#Jetson], \"/tmp/code.cu\", \"\"\"...\"\"\", 20)!!` or `writeAndRun(Actor[#Jetson], \"/tmp/code.cu\", \"\"\"...\"\"\", 45)!!`).",
+    },
+    {
+        "pattern": "Unterminated string literal",
+        "construct_id": "collections_and_dispatch",
+        "hint": "CRITICAL: NEVER generate raw base64 payloads in Actor code (they exceed `max_tokens` and truncate mid-string) and NEVER nest multi-level escaped quotes in `exec(...)`! Pass plain human-readable source inside raw triple quotes `\"\"\"...\"\"\"` to `writeFile(Actor[#Jetson], \"/tmp/file.cu\", \"\"\"...\"\"\", 20)!!` or `writeAndRun(Actor[#Jetson], \"/tmp/file.cu\", \"\"\"...\"\"\", 45)!!` — Python handles base64 encoding for you automatically.",
     },
     {
         "pattern": "RBRACE",
@@ -443,6 +469,52 @@ class ActorGrammarGraph:
         return f"No specific construct matched {topic!r}"
 
     @actor_query
+    def compactCoreReference(self) -> str:
+        """Return a goal-invariant, compact 1993 Actor 4.1 syntax core so `sys_msg` stays 100% KV-cache static across turns."""
+        return (
+            "[1993 ACTOR 4.1 CORE SYNTAX CHEAT-SHEET]:\n"
+            "• Prefix message dispatch ONLY (NEVER `obj.method()`): `selector(receiver, arg1, arg2)!!`.\n"
+            "• Every executable chunk MUST end with `!!`; statements inside `{ ... }` or loops end with `;`.\n"
+            "• Assignment: `x := expr;` | Equality: `==`, `!=` | Return from method: `^expr;`.\n"
+            "• Conditionals: `if (cond) then stmt1; else stmt2; endif;` (ALWAYS `endif;`, NEVER `end;`).\n"
+            "• Loops: `loop while (cond) begin stmt1; stmt2; endLoop;` (declare loop vars in `| i, acc`).\n"
+            "• Classes & Methods: `inherit(SuperCls, #MyCls, #(#ivar1 #ivar2), 2, nil)!! now(MyCls)!! Def myMethod(self, a | tmp) { self.ivar1 := a; ^self.ivar1; }!!`.\n"
+            "• Collections & Math: `d := new(Dictionary, 8)!! atPut(d, #k, v)!!` (`atPut` returns `v`, NOT `d`!); divide by `2.0` for float division (`15 / 2 == 7`).\n"
+            "• Concurrency (`Actor[#Threads]`): `spawn`, `spawnChunk`, `parallelAll`, `parallelMap`, `Future` (`await(f, ms)`), `Channel` (`newChannel`, `send`, `receive`)."
+        )
+
+    @actor_query
+    def queryTaskSpecificConstructs(self, task_text: str) -> str:
+        """Return extended grammar/primitive reference ONLY when `task_text` requires workspace, Cypher, or OOP/algorithm synthesis."""
+        task_lower = str(task_text or "").lower()
+        if not task_lower:
+            return ""
+        coding_or_graph_kws = (
+            "/workspace",
+            "inherit(",
+            "actor class",
+            "subclass",
+            "define a class",
+            "engram",
+            "neo4j",
+            "cypher",
+            "graphschema",
+            "algorithm",
+            "endloop",
+            "dictionary",
+            "orderedcollection",
+            "array",
+            "compile",
+            "bytecode",
+            "kata",
+            "runtask",
+            "setuptask",
+        )
+        if any(kw in task_lower for kw in coding_or_graph_kws):
+            return self.queryConstructsForTask(task_text, "", "")
+        return ""
+
+    @actor_query
     def queryConstructsForTask(self, task_text: str, entry_point: str = "", params_str: str = "") -> str:
         """Query Neo4j for all 1993 Actor grammar rules and primitives relevant to a task."""
         task_lower = str(task_text or "").lower()
@@ -467,20 +539,28 @@ class ActorGrammarGraph:
             for kw in ("neo4j", "cypher", "graph", "engram", "memory", "schema", "node", "persist", "actor[#memory]")
         )
         try:
-            constructs = self._run_cypher(
-                """
-                MATCH (sc:ActorSyntaxConstruct)
-                RETURN sc.id AS id, sc.title AS title, sc.rule AS rule, sc.canonical_example AS example
-                ORDER BY sc.id
-                """
-            )
-            primitives = self._run_cypher(
-                """
-                MATCH (bc:ActorBuiltinClass)-[:HAS_PRIMITIVE]->(pm:ActorPrimitive)
-                RETURN bc.name AS cls, pm.syntax AS syntax, pm.description AS desc
-                ORDER BY bc.name, pm.selector
-                """
-            )
+            constructs = getattr(self, "_cached_constructs", None)
+            primitives = getattr(self, "_cached_primitives", None)
+            if constructs is None or primitives is None:
+                constructs = self._run_cypher(
+                    """
+                    MATCH (sc:ActorSyntaxConstruct)
+                    RETURN sc.id AS id, sc.title AS title, sc.rule AS rule, sc.canonical_example AS example
+                    ORDER BY sc.id
+                    """
+                )
+                primitives = self._run_cypher(
+                    """
+                    MATCH (bc:ActorBuiltinClass)-[:HAS_PRIMITIVE]->(pm:ActorPrimitive)
+                    RETURN bc.name AS cls, pm.syntax AS syntax, pm.description AS desc
+                    ORDER BY bc.name, pm.selector
+                    """
+                )
+                self._cached_constructs = list(constructs)
+                self._cached_primitives = list(primitives)
+            else:
+                constructs = list(constructs)
+                primitives = list(primitives)
             if not needs_graph_constructs:
                 constructs = [c for c in constructs if c.get("id") != "neo4j_cypher_and_engrams"]
                 primitives = [p for p in primitives if p.get("cls") != "ActorMemoryGraph"]

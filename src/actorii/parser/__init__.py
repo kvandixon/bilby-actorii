@@ -11,12 +11,17 @@ the ActorVM.
 
 from __future__ import annotations
 
+import copy
+from collections import OrderedDict
 import re
+import threading
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 __all__ = [
     "parse_actor",
     "compile_to_bytecode",
+    "clear_parser_caches",
+    "get_parser_cache_stats",
     "ASTNode",
     "ClassDef",
     "ClassDefNode",
@@ -684,18 +689,105 @@ def _decode_string_literal(
     raise SyntaxError(f"Unterminated string literal starting at {start}")
 
 
+_OPERATOR_TWO_CHAR_SYMBOLS = frozenset(("<=", ">=", "<>", "~=", "=="))
+_OPERATOR_ONE_CHAR_SYMBOLS = frozenset(("+", "-", "*", "/", "<", ">", "=", "^", "@"))
+
+_TWO_CHAR_TOKENS: Dict[str, Tuple[str, str]] = {
+    "!!": ("BANG_BANG", "!!"),
+    ":=": ("ASSIGN", ":="),
+    "::": ("DOUBLE_COLON", "::"),
+    "->": ("ARROW", "->"),
+    "==": ("EQ", "=="),
+    "!=": ("NEQ", "!="),
+    "<>": ("NEQ", "<>"),
+    "~=": ("ID_NEQ", "~="),
+    "<=": ("LE", "<="),
+    ">=": ("GE", ">="),
+}
+
+_ONE_CHAR_TOKENS: Dict[str, Tuple[str, str]] = {
+    "=": ("ASSIGN", "="),
+    "^": ("CARET", "^"),
+    "@": ("AT_SIGN", "@"),
+    ";": ("SEMICOLON", ";"),
+    "|": ("PIPE", "|"),
+    "+": ("PLUS", "+"),
+    "-": ("MINUS", "-"),
+    "*": ("STAR", "*"),
+    "/": ("SLASH", "/"),
+    "(": ("LPAREN", "("),
+    ")": ("RPAREN", ")"),
+    "[": ("LBRACKET", "["),
+    "]": ("RBRACKET", "]"),
+    "{": ("LBRACE", "{"),
+    "}": ("RBRACE", "}"),
+    ",": ("COMMA", ","),
+    ":": ("COLON", ":"),
+    ".": ("DOT", "."),
+    "<": ("LT", "<"),
+    ">": ("GT", ">"),
+}
+
+_EXACT_KEYWORD_TYPES: Dict[str, str] = {
+    "class": "CLASS",
+    "def": "DEF",
+    "Def": "DEF",
+    "now": "NOW",
+    "inherit": "INHERIT",
+    "action": "ACTION",
+    "Action": "ACTION",
+    "prim": "PRIM",
+    "Prim": "PRIM",
+    "using": "USING",
+    "self": "SELF",
+    "nil": "NIL",
+    "true": "TRUE",
+    "false": "FALSE",
+    "cand": "CAND",
+    "cor": "COR",
+    "and": "AND",
+    "or": "OR",
+    "not": "NOT",
+    "in": "IN",
+    "return": "RETURN",
+    "Call": "CALL",
+    "import": "IMPORT",
+    "from": "FROM",
+    "pass": "PASS",
+}
+
+_LOWER_KEYWORD_TYPES: Dict[str, str] = {
+    "if": "IF",
+    "then": "THEN",
+    "else": "ELSE",
+    "endif": "ENDIF",
+    "loop": "LOOP",
+    "while": "WHILE",
+    "begin": "BEGIN",
+    "endloop": "ENDLOOP",
+}
+
+_HEX_CHARS = frozenset("0123456789abcdefABCDEF")
+_OCT_CHARS = frozenset("01234567")
+_WHITESPACE_CHARS = frozenset(" \t\r\x1a")
+_PYTHON_CLASS_RE = re.compile(
+    r"^\s*class\s+[a-zA-Z_][a-zA-Z0-9_]*(\([^)]*\))?\s*:",
+    flags=re.MULTILINE,
+)
+
+
 def _match_operator_symbol(source: str, start: int) -> Optional[str]:
     """Match operator symbol following #, such as #+, #-, #*, #/, #<=, etc."""
     if start >= len(source):
         return None
     if start + 1 < len(source):
         two = source[start : start + 2]
-        if two in ("<=", ">=", "<>", "~=", "=="):
+        if two in _OPERATOR_TWO_CHAR_SYMBOLS:
             return two
         if two == "--":
             return None
     one = source[start]
-    if one in ("+", "-", "*", "/", "<", ">", "=", "^", "@"):
+    if one in _OPERATOR_ONE_CHAR_SYMBOLS:
         return one
     return None
 
@@ -707,31 +799,40 @@ def _tokenize(source: str) -> List[Tuple[str, str]]:
     Handles both authentic 1993 Whitewater Actor syntax and legacy Pythonic syntax.
     """
     tokens: List[Tuple[str, str]] = []
+    append_tok = tokens.append
     i = 0
     n = len(source)
+    two_char_map = _TWO_CHAR_TOKENS
+    one_char_map = _ONE_CHAR_TOKENS
+    exact_kw_map = _EXACT_KEYWORD_TYPES
+    lower_kw_map = _LOWER_KEYWORD_TYPES
+    ws_chars = _WHITESPACE_CHARS
 
     while i < n:
         char = source[i]
 
         # Whitespace and DOS EOF (0x1A)
-        if char in " \t\r\x1a":
+        if char in ws_chars:
             i += 1
+            while i < n and source[i] in ws_chars:
+                i += 1
             continue
 
         if char == "\n":
-            tokens.append(("NEWLINE", "\n"))
+            append_tok(("NEWLINE", "\n"))
             i += 1
             continue
 
         # C-style comments: /* ... */ with nested comment support
-        if source[i : i + 2] == "/*":
+        if char == "/" and i + 1 < n and source[i + 1] == "*":
             depth = 1
             i += 2
             while i < n and depth > 0:
-                if source[i : i + 2] == "/*":
+                c2 = source[i : i + 2]
+                if c2 == "/*":
                     depth += 1
                     i += 2
-                elif source[i : i + 2] == "*/":
+                elif c2 == "*/":
                     depth -= 1
                     i += 2
                 else:
@@ -742,137 +843,73 @@ def _tokenize(source: str) -> List[Tuple[str, str]]:
 
         # Hash character (#) disambiguation
         if char == "#":
-            # Literal array start: #(
-            if i + 1 < n and source[i + 1] == "(":
-                tokens.append(("HASH_LPAREN", "#("))
-                i += 2
-                continue
+            if i + 1 < n:
+                nxt = source[i + 1]
+                # Literal array start: #(
+                if nxt == "(":
+                    append_tok(("HASH_LPAREN", "#("))
+                    i += 2
+                    continue
 
-            # Literal range collection start: #[
-            if i + 1 < n and source[i + 1] == "[":
-                tokens.append(("HASH_LBRACKET", "#["))
-                i += 2
-                continue
+                # Literal range collection start: #[
+                if nxt == "[":
+                    append_tok(("HASH_LBRACKET", "#["))
+                    i += 2
+                    continue
 
-            # Quoted symbol literal: #'...'
-            if i + 1 < n and source[i + 1] == "'":
-                sym_val, next_i = _decode_string_literal(source, i + 1, "'")
-                tokens.append(("SYMBOL", sym_val))
-                i = next_i
-                continue
+                # Quoted symbol literal: #'...'
+                if nxt == "'":
+                    sym_val, next_i = _decode_string_literal(source, i + 1, "'")
+                    append_tok(("SYMBOL", sym_val))
+                    i = next_i
+                    continue
 
-            # Identifier symbol: #ident, #Class, #?hasElements, #_ivar
-            if i + 1 < n and (source[i + 1].isalpha() or source[i + 1] in ("_", "?")):
-                j = i + 1
-                while j < n and (source[j].isalnum() or source[j] in ("_", "?")):
-                    j += 1
-                tokens.append(("SYMBOL", source[i + 1 : j]))
-                i = j
-                continue
+                # Identifier symbol: #ident, #Class, #?hasElements, #_ivar
+                if nxt.isalpha() or nxt in ("_", "?"):
+                    j = i + 2
+                    while j < n and (source[j].isalnum() or source[j] in ("_", "?")):
+                        j += 1
+                    append_tok(("SYMBOL", source[i + 1 : j]))
+                    i = j
+                    continue
 
-            # Operator symbol: #+, #-, #*, #/, #<=, #>=, #<>, #~=, #==, #=, #<, #>, #^, #@
-            op_sym = _match_operator_symbol(source, i + 1)
-            if op_sym is not None:
-                tokens.append(("SYMBOL", op_sym))
-                i += 1 + len(op_sym)
-                continue
+                # Operator symbol: #+, #-, #*, #/, #<=, #>=, #<>, #~=, #==, #=, #<, #>, #^, #@
+                op_sym = _match_operator_symbol(source, i + 1)
+                if op_sym is not None:
+                    append_tok(("SYMBOL", op_sym))
+                    i += 1 + len(op_sym)
+                    continue
 
             # Line comment (# ...) for backward compatibility
-            while i < n and source[i] != "\n":
-                i += 1
+            nl_idx = source.find("\n", i)
+            i = nl_idx if nl_idx != -1 else n
             continue
 
         # Multi-character operators
         if i + 1 < n:
-            two = source[i : i + 2]
-            if two == "!!":
-                tokens.append(("BANG_BANG", "!!"))
-                i += 2
-                continue
-            if two == ":=":
-                tokens.append(("ASSIGN", ":="))
-                i += 2
-                continue
-            if two == "::":
-                tokens.append(("DOUBLE_COLON", "::"))
-                i += 2
-                continue
-            if two == "->":
-                tokens.append(("ARROW", "->"))
-                i += 2
-                continue
-            if two == "==":
-                tokens.append(("EQ", "=="))
-                i += 2
-                continue
-            if two == "!=":
-                tokens.append(("NEQ", "!="))
-                i += 2
-                continue
-            if two == "<>":
-                tokens.append(("NEQ", "<>"))
-                i += 2
-                continue
-            if two == "~=":
-                tokens.append(("ID_NEQ", "~="))
-                i += 2
-                continue
-            if two == "<=":
-                tokens.append(("LE", "<="))
-                i += 2
-                continue
-            if two == ">=":
-                tokens.append(("GE", ">="))
+            two_tok = two_char_map.get(source[i : i + 2])
+            if two_tok is not None:
+                append_tok(two_tok)
                 i += 2
                 continue
 
         # Single-character operators and delimiters
-        if char == "=":
-            tokens.append(("ASSIGN", "="))
+        one_tok = one_char_map.get(char)
+        if one_tok is not None:
+            append_tok(one_tok)
             i += 1
             continue
-        if char == "^":
-            tokens.append(("CARET", "^"))
-            i += 1
-            continue
-        if char == "@":
-            tokens.append(("AT_SIGN", "@"))
-            i += 1
-            continue
-        if char == ";":
-            tokens.append(("SEMICOLON", ";"))
-            i += 1
-            continue
-        if char == "|":
-            tokens.append(("PIPE", "|"))
-            i += 1
-            continue
-        if char == "+":
-            tokens.append(("PLUS", "+"))
-            i += 1
-            continue
-        if char == "-":
-            tokens.append(("MINUS", "-"))
-            i += 1
-            continue
-        if char == "*":
-            tokens.append(("STAR", "*"))
-            i += 1
-            continue
-        if char == "/":
-            tokens.append(("SLASH", "/"))
-            i += 1
-            continue
+
         if char == "%":
             if i + 1 < n and source[i + 1] == '"':
                 str_val, next_i = _decode_string_literal(
                     source, i + 1, '"', is_c_string=True
                 )
-                tokens.append(("STRING", str_val))
+                append_tok(("STRING", str_val))
                 i = next_i
                 continue
             if i + 3 < n and source[i : i + 4] == "%'''":
-                tokens.append(("CHAR", "'"))
+                append_tok(("CHAR", "'"))
                 i += 4
                 continue
             if i + 1 < n and source[i + 1] == "'":
@@ -880,63 +917,19 @@ def _tokenize(source: str) -> List[Tuple[str, str]]:
                     source, i + 1, "'", is_c_string=True
                 )
                 if len(char_val) == 1:
-                    tokens.append(("CHAR", char_val))
+                    append_tok(("CHAR", char_val))
                 else:
-                    tokens.append(("STRING", char_val))
+                    append_tok(("STRING", char_val))
                 i = next_i
                 continue
             if i + 1 < n and (source[i + 1].isalpha() or source[i + 1] == "_"):
                 j = i + 1
                 while j < n and (source[j].isalnum() or source[j] in ("_", "?")):
                     j += 1
-                tokens.append(("IDENT", source[i:j]))
+                append_tok(("IDENT", source[i:j]))
                 i = j
                 continue
-            tokens.append(("MOD", "%"))
-            i += 1
-            continue
-        if char == "(":
-            tokens.append(("LPAREN", "("))
-            i += 1
-            continue
-        if char == ")":
-            tokens.append(("RPAREN", ")"))
-            i += 1
-            continue
-        if char == "[":
-            tokens.append(("LBRACKET", "["))
-            i += 1
-            continue
-        if char == "]":
-            tokens.append(("RBRACKET", "]"))
-            i += 1
-            continue
-        if char == "{":
-            tokens.append(("LBRACE", "{"))
-            i += 1
-            continue
-        if char == "}":
-            tokens.append(("RBRACE", "}"))
-            i += 1
-            continue
-        if char == ",":
-            tokens.append(("COMMA", ","))
-            i += 1
-            continue
-        if char == ":":
-            tokens.append(("COLON", ":"))
-            i += 1
-            continue
-        if char == ".":
-            tokens.append(("DOT", "."))
-            i += 1
-            continue
-        if char == "<":
-            tokens.append(("LT", "<"))
-            i += 1
-            continue
-        if char == ">":
-            tokens.append(("GT", ">"))
+            append_tok(("MOD", "%"))
             i += 1
             continue
 
@@ -946,9 +939,9 @@ def _tokenize(source: str) -> List[Tuple[str, str]]:
             # Hex literal: 0x...
             if char == "0" and j + 1 < n and source[j + 1] in ("x", "X"):
                 j += 2
-                while j < n and (source[j].isdigit() or source[j] in "abcdefABCDEF"):
+                while j < n and source[j] in _HEX_CHARS:
                     j += 1
-                tokens.append(("INTEGER", source[i:j]))
+                append_tok(("INTEGER", source[i:j]))
                 i = j
                 continue
 
@@ -967,18 +960,18 @@ def _tokenize(source: str) -> List[Tuple[str, str]]:
                         j += 1
                     while j < n and source[j].isdigit():
                         j += 1
-                tokens.append(("REAL", source[i:j]))
+                append_tok(("REAL", source[i:j]))
                 i = j
                 continue
 
             # Long integer suffix L / l
             if j < n and source[j] in ("L", "l"):
                 j += 1
-                tokens.append(("INTEGER", source[i:j]))
+                append_tok(("INTEGER", source[i:j]))
                 i = j
                 continue
 
-            tokens.append(("INTEGER", source[i:j]))
+            append_tok(("INTEGER", source[i:j]))
             i = j
             continue
 
@@ -986,11 +979,11 @@ def _tokenize(source: str) -> List[Tuple[str, str]]:
         if char == '"':
             if source[i : i + 3] == '"""':
                 str_val, next_i = _decode_triple_quoted_string(source, i, '"""')
-                tokens.append(("STRING", str_val))
+                append_tok(("STRING", str_val))
                 i = next_i
                 continue
             str_val, next_i = _decode_string_literal(source, i, '"', is_c_string=False)
-            tokens.append(("STRING", str_val))
+            append_tok(("STRING", str_val))
             i = next_i
             continue
 
@@ -998,91 +991,36 @@ def _tokenize(source: str) -> List[Tuple[str, str]]:
         if char == "'":
             if source[i : i + 3] == "'''":
                 str_val, next_i = _decode_triple_quoted_string(source, i, "'''")
-                tokens.append(("STRING", str_val))
+                append_tok(("STRING", str_val))
                 i = next_i
                 continue
             if source[i : i + 3] == "'\\'":
-                tokens.append(("CHAR", "\\"))
+                append_tok(("CHAR", "\\"))
                 i += 3
                 continue
             char_val, next_i = _decode_string_literal(source, i, "'", is_c_string=False)
             if len(char_val) == 1:
-                tokens.append(("CHAR", char_val))
+                append_tok(("CHAR", char_val))
             else:
-                tokens.append(("STRING", char_val))
+                append_tok(("STRING", char_val))
             i = next_i
             continue
 
         # Identifiers and keywords
         if char.isalpha() or char in ("_", "?", "$"):
-            j = i
+            j = i + 1
             while j < n and (source[j].isalnum() or source[j] in ("_", "?", "$")):
                 j += 1
             word = source[i:j]
-            lower_word = word.lower()
-
-            if word == "class":
-                tokens.append(("CLASS", word))
-            elif word in ("def", "Def"):
-                tokens.append(("DEF", word))
-            elif word == "now":
-                tokens.append(("NOW", word))
-            elif word == "inherit":
-                tokens.append(("INHERIT", word))
-            elif word in ("action", "Action"):
-                tokens.append(("ACTION", word))
-            elif word in ("prim", "Prim"):
-                tokens.append(("PRIM", word))
-            elif lower_word == "if":
-                tokens.append(("IF", word))
-            elif lower_word == "then":
-                tokens.append(("THEN", word))
-            elif lower_word == "else":
-                tokens.append(("ELSE", word))
-            elif lower_word == "endif":
-                tokens.append(("ENDIF", word))
-            elif lower_word == "loop":
-                tokens.append(("LOOP", word))
-            elif lower_word == "while":
-                tokens.append(("WHILE", word))
-            elif lower_word == "begin":
-                tokens.append(("BEGIN", word))
-            elif lower_word == "endloop":
-                tokens.append(("ENDLOOP", word))
-            elif word == "using":
-                tokens.append(("USING", word))
-            elif word == "self":
-                tokens.append(("SELF", word))
-            elif word == "nil":
-                tokens.append(("NIL", word))
-            elif word == "true":
-                tokens.append(("TRUE", word))
-            elif word == "false":
-                tokens.append(("FALSE", word))
-            elif word == "cand":
-                tokens.append(("CAND", word))
-            elif word == "cor":
-                tokens.append(("COR", word))
-            elif word == "and":
-                tokens.append(("AND", word))
-            elif word == "or":
-                tokens.append(("OR", word))
-            elif word == "not":
-                tokens.append(("NOT", word))
-            elif word == "in":
-                tokens.append(("IN", word))
-            elif word == "return":
-                tokens.append(("RETURN", word))
-            elif word == "Call":
-                tokens.append(("CALL", word))
-            elif word == "import":
-                tokens.append(("IMPORT", word))
-            elif word == "from":
-                tokens.append(("FROM", word))
-            elif word == "pass":
-                tokens.append(("PASS", word))
+            kw_type = exact_kw_map.get(word)
+            if kw_type is not None:
+                append_tok((kw_type, word))
             else:
-                tokens.append(("IDENT", word))
+                lkw_type = lower_kw_map.get(word.lower())
+                if lkw_type is not None:
+                    append_tok((lkw_type, word))
+                else:
+                    append_tok(("IDENT", word))
             i = j
             continue
 
@@ -2367,20 +2305,127 @@ def _strip_comments_and_strings(source: str) -> str:
     return "".join(chars)
 
 
+_PARSER_CACHE_LOCK = threading.RLock()
+_PARSER_CACHE_MAXSIZE = 512
+_AST_LRU_CACHE: "OrderedDict[str, List[ASTNode]]" = OrderedDict()
+_DISCRIMINATOR_LRU_CACHE: "OrderedDict[str, bool]" = OrderedDict()
+_BYTECODE_LRU_CACHE: "OrderedDict[str, Tuple[List[Tuple[int, int]], List[Any], List[str]]]" = OrderedDict()
+
+_PARSER_CACHE_STATS: Dict[str, int] = {
+    "ast_hits": 0,
+    "ast_misses": 0,
+    "bytecode_hits": 0,
+    "bytecode_misses": 0,
+    "discriminator_hits": 0,
+    "discriminator_misses": 0,
+}
+
+
+def clear_parser_caches() -> None:
+    """Clear all thread-safe parser and bytecode compilation LRU caches."""
+    with _PARSER_CACHE_LOCK:
+        _AST_LRU_CACHE.clear()
+        _DISCRIMINATOR_LRU_CACHE.clear()
+        _BYTECODE_LRU_CACHE.clear()
+        for k in _PARSER_CACHE_STATS:
+            _PARSER_CACHE_STATS[k] = 0
+
+
+def get_parser_cache_stats() -> Dict[str, int]:
+    """Return a thread-safe snapshot of parser and bytecode cache hit/miss counters."""
+    with _PARSER_CACHE_LOCK:
+        stats = dict(_PARSER_CACHE_STATS)
+        stats["ast_cache_size"] = len(_AST_LRU_CACHE)
+        stats["bytecode_cache_size"] = len(_BYTECODE_LRU_CACHE)
+        stats["discriminator_cache_size"] = len(_DISCRIMINATOR_LRU_CACHE)
+        return stats
+
+
+def _fast_clone_top_node(node: ASTNode, memo: Optional[Dict[int, ASTNode]] = None) -> ASTNode:
+    """Fast shallow clone of a top-level AST node and its container lists, preserving shared MethodDefNode identity."""
+    if memo is not None:
+        nid = id(node)
+        existing = memo.get(nid)
+        if existing is not None:
+            return existing
+    cloned = copy.copy(node)
+    if memo is not None:
+        memo[id(node)] = cloned
+    if isinstance(cloned, (MethodDefNode, MethodDef)):
+        cloned.params = list(cloned.params)
+        cloned.locals = list(cloned.locals)
+        cloned.body = list(cloned.body)
+    elif isinstance(cloned, (ClassDefNode, ClassDef)):
+        if getattr(cloned, "ivars", None) is not None:
+            cloned.ivars = list(cloned.ivars)
+        if getattr(cloned, "methods", None) is not None:
+            cloned.methods = [_fast_clone_top_node(m, memo) for m in cloned.methods]
+    return cloned
+
+
+def _compute_ast_top_signature(nodes: List[ASTNode]) -> tuple:
+    """Compute a lightweight O(top-level) signature to detect in-place AST mutations before compile."""
+    return tuple(
+        (
+            type(n),
+            getattr(n, "name", None),
+            tuple(getattr(n, "params", ()) or ()) if isinstance(getattr(n, "params", None), list) else None,
+            len(getattr(n, "body", ()) or ()) if isinstance(getattr(n, "body", None), list) else None,
+        )
+        for n in nodes
+    )
+
+
+def _clone_ast_nodes(
+    nodes: List[ASTNode],
+    source_key: Optional[str] = None,
+    source_sig: Optional[tuple] = None,
+) -> List[ASTNode]:
+    """Return a fresh clone of top-level `nodes` so callers can mutate AST nodes without corrupting the cache."""
+    memo: Dict[int, ASTNode] = {}
+    cloned = [_fast_clone_top_node(n, memo) for n in nodes]
+    if source_key is not None:
+        out = _ASTListWithSource(cloned)
+        out._source_cache_key = source_key
+        out._source_signature = source_sig if source_sig is not None else _compute_ast_top_signature(cloned)
+        return out
+    return cloned
+
+
+class _ASTListWithSource(list):
+    """List subclass carrying the immutable source key and top-level signature when AST has not been mutated."""
+
+    _source_cache_key: Optional[str] = None
+    _source_signature: Optional[tuple] = None
+
+
 def is_authentic_1993_actor(source: str) -> bool:
     """Determine whether source string should be parsed with the 1993 Actor grammar.
 
     Returns False ONLY if source defines a Python-style class (class Foo:\n def bar:).
     Otherwise returns True to enable authentic 1993 Whitewater Actor 4.1 syntax.
     """
+    if "class" not in source:
+        return True
+    if len(source) <= 65536:
+        with _PARSER_CACHE_LOCK:
+            cached = _DISCRIMINATOR_LRU_CACHE.get(source)
+            if cached is not None:
+                _DISCRIMINATOR_LRU_CACHE.move_to_end(source)
+                _PARSER_CACHE_STATS["discriminator_hits"] += 1
+                return cached
+            _PARSER_CACHE_STATS["discriminator_misses"] += 1
+
     cleaned = _strip_comments_and_strings(source)
-    if re.search(
-        r"^\s*class\s+[a-zA-Z_][a-zA-Z0-9_]*(\([^)]*\))?\s*:",
-        cleaned,
-        flags=re.MULTILINE,
-    ):
-        return False
-    return True
+    res = not bool(_PYTHON_CLASS_RE.search(cleaned))
+
+    if len(source) <= 65536:
+        with _PARSER_CACHE_LOCK:
+            _DISCRIMINATOR_LRU_CACHE[source] = res
+            _DISCRIMINATOR_LRU_CACHE.move_to_end(source)
+            while len(_DISCRIMINATOR_LRU_CACHE) > _PARSER_CACHE_MAXSIZE:
+                _DISCRIMINATOR_LRU_CACHE.popitem(last=False)
+    return res
 
 
 def parse_actor(source: str) -> List[ASTNode]:
@@ -2388,6 +2433,7 @@ def parse_actor(source: str) -> List[ASTNode]:
 
     Automatically routes to legacy parser for Pythonic syntax (class Foo: def bar:),
     or to the authentic 1993 recursive-descent and Pratt parser for authentic syntax.
+    Uses a thread-safe bounded LRU cache returning fresh AST node clones.
 
     Args:
         source: String containing actor language source code.
@@ -2395,14 +2441,41 @@ def parse_actor(source: str) -> List[ASTNode]:
     Returns:
         List of AST nodes representing the parsed source.
     """
-    if not source.strip():
+    if not source or not source.strip():
         return []
 
+    cacheable = isinstance(source, str) and len(source) <= 65536
+    if cacheable:
+        with _PARSER_CACHE_LOCK:
+            cached_entry = _AST_LRU_CACHE.get(source)
+            if cached_entry is not None:
+                _AST_LRU_CACHE.move_to_end(source)
+                _PARSER_CACHE_STATS["ast_hits"] += 1
+                cached_nodes, cached_sig = cached_entry
+                return _clone_ast_nodes(cached_nodes, source_key=source, source_sig=cached_sig)
+            _PARSER_CACHE_STATS["ast_misses"] += 1
+
     if is_authentic_1993_actor(source):
-        return _parse_actor_1993(source)
+        parsed = _parse_actor_1993(source)
     else:
         tokens = _tokenize(source)
-        return _parse_tokens(tokens)
+        parsed = _parse_tokens(tokens)
+
+    if cacheable:
+        sig = _compute_ast_top_signature(parsed)
+        memo_store: Dict[int, ASTNode] = {}
+        stored_template = [_fast_clone_top_node(n, memo_store) for n in parsed]
+        with _PARSER_CACHE_LOCK:
+            _AST_LRU_CACHE[source] = (stored_template, sig)
+            _AST_LRU_CACHE.move_to_end(source)
+            while len(_AST_LRU_CACHE) > _PARSER_CACHE_MAXSIZE:
+                _AST_LRU_CACHE.popitem(last=False)
+        out = _ASTListWithSource(parsed)
+        out._source_cache_key = source
+        out._source_signature = sig
+        return out
+
+    return parsed
 
 
 class BlockDescriptor:
@@ -3126,6 +3199,37 @@ class BytecodeCompiler:
             self.emit(Opcode.PUSH_INT, 0)
 
 
+def _clone_bytecode_unit(
+    unit: Tuple[List[Tuple[int, int]], List[Any], List[str]],
+) -> Tuple[List[Tuple[int, int]], List[Any], List[str]]:
+    """Return a fresh copy of (instructions, constants, string_table) so callers can mutate lists safely."""
+    insts, consts, strings = unit
+    new_insts = list(insts)
+    new_strings = list(strings)
+    new_consts: List[Any] = []
+    for c in consts:
+        if isinstance(c, BlockDescriptor):
+            new_consts.append(
+                BlockDescriptor(
+                    name=c.name,
+                    params=list(c.params),
+                    locals=list(c.locals),
+                    instructions=list(c.instructions),
+                    constants=new_consts,
+                    string_table=new_strings,
+                    captured_vars=list(c.captured_vars),
+                    has_nonlocal_return=c.has_nonlocal_return,
+                )
+            )
+        elif isinstance(c, list):
+            new_consts.append(list(c))
+        elif isinstance(c, dict):
+            new_consts.append(dict(c))
+        else:
+            new_consts.append(c)
+    return new_insts, new_consts, new_strings
+
+
 def compile_to_bytecode(
     ast: List[ASTNode],
 ) -> Tuple[List[Tuple[int, int]], List[Any], List[str]]:
@@ -3133,8 +3237,25 @@ def compile_to_bytecode(
 
     Returns (instructions, constants, string_table) tuple.
     Instructions are (opcode_int, operand_int) tuples matching Opcode enum values in vm.py.
+    Uses a thread-safe bounded LRU cache when `ast` carries a canonical `_source_cache_key`
+    and its top-level signature is unmodified, returning fresh copies of the compiled lists.
     """
     from actorii.vm import Opcode
+
+    cache_key: Optional[str] = getattr(ast, "_source_cache_key", None)
+    if cache_key is not None:
+        orig_sig = getattr(ast, "_source_signature", None)
+        if orig_sig is not None and _compute_ast_top_signature(ast) != orig_sig:
+            cache_key = None
+
+    if cache_key is not None and len(cache_key) <= 65536:
+        with _PARSER_CACHE_LOCK:
+            cached_unit = _BYTECODE_LRU_CACHE.get(cache_key)
+            if cached_unit is not None:
+                _BYTECODE_LRU_CACHE.move_to_end(cache_key)
+                _PARSER_CACHE_STATS["bytecode_hits"] += 1
+                return _clone_bytecode_unit(cached_unit)
+            _PARSER_CACHE_STATS["bytecode_misses"] += 1
 
     compiler = BytecodeCompiler()
     for node in ast:
@@ -3159,4 +3280,12 @@ def compile_to_bytecode(
     ):
         compiler.emit(Opcode.RETURN, 0)
 
-    return compiler.instructions, compiler.constants, compiler.string_table
+    unit = (compiler.instructions, compiler.constants, compiler.string_table)
+    if cache_key is not None and len(cache_key) <= 65536:
+        with _PARSER_CACHE_LOCK:
+            _BYTECODE_LRU_CACHE[cache_key] = _clone_bytecode_unit(unit)
+            _BYTECODE_LRU_CACHE.move_to_end(cache_key)
+            while len(_BYTECODE_LRU_CACHE) > _PARSER_CACHE_MAXSIZE:
+                _BYTECODE_LRU_CACHE.popitem(last=False)
+
+    return unit

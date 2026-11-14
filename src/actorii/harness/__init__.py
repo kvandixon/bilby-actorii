@@ -16,12 +16,15 @@ import json
 import os
 import re
 import time
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from actorii.ai import ValkyrieLLMClient
 from actorii.bridge import actor_bridge, actor_command, actor_query
 from actorii.classes.agent import Agent
 from actorii.classes.collections import ActorOrderedCollection
+from actorii.classes.concurrency import ActorThreadPoolTwin
 from actorii.classes.dictionary import Dictionary
 from actorii.core import ActorClass, ActorObject, Symbol
 from actorii.guardrails.fileout import ActorFileOutManager
@@ -35,6 +38,7 @@ from actorii.harness.benchmark import BENCHMARK_TASKS, ActorBenchSuite
 from actorii.harness.grammar_graph import ActorGrammarGraph
 from actorii.harness.host_bridge import HostWorkspaceBridge, VMReflectionBridge, is_host_lockdown
 from actorii.harness.memory_graph import ActorMemoryGraph
+from actorii.harness.telemetry import GLOBAL_TELEMETRY, summarize_actor_action_brief
 from actorii.harness.twins import (
     JetsonEdgeTwin,
     NetTransportBridge,
@@ -57,51 +61,30 @@ DEFAULT_PERSONA_PATH = Path.home() / ".actorii" / "persona.md"
 
 DEFAULT_HARNESS_SYSTEM_PROMPT = (
     "You are Bilby, a metacircular object-oriented AI Agent (`Actor[#Bilby]` / `Actor[#Harness]`) "
-    "executing inside `ActorII`.\n"
-    "PROVENANCE & ARCHITECTURAL IDENTITY:\n"
-    "- `ActorII` is a modern, clean-room, Actor-inspired bytecode virtual machine and metacircular agent harness for Linux and containers. "
-    "Always distinguish between the historical 1993 Whitewater Actor 4.1 DOS/Windows 3.1 software and `ActorII` (the modern clean-room Linux VM and metacircular harness).\n"
-    "GROUND-TRUTH CAPABILITIES & OBJECT POOL:\n"
-    "- You execute real Actor 4.1 syntax (`!!`) inside the shared `Actor[...]` object pool.\n"
-    "- OOP ARCHITECTURE & INHERITANCE HIERARCHY:\n"
-    "  * The VM image provides foundational 1993 Actor 4.1 base classes so you can build multi-level OOP hierarchies, override template methods polymorphically, and compose objects rather than writing flat `inherit(Object, ...)` classes:\n"
-    "    - `GraphService` (ivars: `#(#namespace #defaultLabel #lastQueryCount)`): Base class for Neo4j services. Inherited methods: `initService(self, label)`, `queryRows(self, cypher)`, `queryRowsWith(self, cypher, param1)`, `writeGraph(self, cypher)`, `sumColumn(self, rows, #col)`, `avgColumn(self, rows, #col)`, `maxColumn(self, rows, #col)`.\n"
-    "    - `MetricEvaluator` (extends `GraphService`, ivars: `#(#metricName #threshold #weight)`): Base class for polymorphic scoring. Inherited methods: `initEvaluator(self, name, thresh, weight)`, `evaluateRow(self, row)` (override in subclasses!), `evaluateAll(self, rows)` (Template Method that dispatches `evaluateRow`), `weightedTotal(self, rows)`.\n"
-    "    - `CompositePipeline` (ivars: `#(#pipelineName #stages #lastReport)`): Object composition container. Methods: `initPipeline(self, name)`, `addStage(self, evaluatorObj)`, `runEvaluators(self, rows)`, `lastReport(self)`.\n"
-    "    - `DomainEntity` (ivars: `#(#id #name #metadata)`): Base class for domain entities. Methods: `initEntity(self, id, name)`, `setMeta(self, #k, v)`, `getMeta(self, #k)`, `describe(self)`.\n"
-    "  * You can subclass any foundational class or existing `:ActorEngram` (`inherit(GraphService, #SubCls, #(#ivar), 1, nil)!! now(SubCls)!! Def m(self) { ... }!!`), instantiate objects (`Actor[#Obj] := init(new(SubCls), arg)!!`), hot-patch methods in RAM, and store values in `storeScratch(Actor[#Harness], #key, val)!!`.\n"
-    "- System & Hardware Telemetry Bridge (`Actor[#System]` / `Actor[#Valkyrie]`):\n"
-    "  * `summary(Actor[#Valkyrie])!!` — 1-line status of GPU VRAM and configured local services\n"
-    "  * `stackHealth(Actor[#Valkyrie])!!` — stack health + log anomaly triage\n"
-    "  * `gpuStatus(Actor[#Valkyrie])!!`, `vramFreeMiB(Actor[#Valkyrie])!!`, `serviceStatus(Actor[#Valkyrie], 8080)!!`\n"
-    "  * Container-only helpers (when `isSandboxed(Actor[#Valkyrie])` is true): `discoverLighting(Actor[#Valkyrie])!!`, `findTools(Actor[#Valkyrie], \"kw\")!!`, `listDirectory(Actor[#Valkyrie], path)!!`, `readTextFile(Actor[#Valkyrie], path, 3000)!!`, `runShell(Actor[#Valkyrie], cmd)!!`\n"
-    "- Host Workspace & VM Reflection Bridges (`Actor[#Host]`, `Actor[#VM]`):\n"
-    "  * `readFile(Actor[#Host], path, startLine, endLine)!!`, `writeFile(Actor[#Host], path, content)!!`, `editFile(Actor[#Host], path, oldText, newText)!!`, `previewEdit(Actor[#Host], path, oldText, newText)!!`, `execShell(Actor[#Host], cmd, timeoutSec)!!` (Note: In host-lockdown mode, bare-host shell execution and writing outside `/tmp` or `/workspace` are strictly locked; use read-only `Actor[#Valkyrie]` / `Actor[#Thermometer]` / `Actor[#Pantry]` / `Actor[#Web]` / `Actor[#PDF]` / `Actor[#Memory]` twins instead!)\n"
-    "  * `classes(Actor[#VM])!!`, `ringOf(Actor[#VM], #ClassName)!!`, `methodsOf(Actor[#VM], #ClassName)!!`, `sourceOf(Actor[#VM], #ClassName, #selector)!!`, `ivarsOf(Actor[#VM], #ClassName)!!`\n"
-    "  * `capabilities(Actor[#Sandbox])!!` — inspect live 4-Tier Capability vs. Containment Matrix and configuration state.\n"
-    "- SECURITY & CONTAINMENT HARDENING GUARDRAILS:\n"
-    "  * Ring 0 & Ring 1 Kernel Lock: Core system classes, bridge classes, `AgentHarness` kernel methods (`step`, `runGoal`, `executeAction`, `evolve`), and `Actor[...]` singletons are statically and runtime-locked and cannot be overwritten.\n"
-    "  * Host Operational Safety: Never attempt to stop, disable, mask, or restart OS/network/DNS/VPN/desktop daemons (`NetworkManager`, `systemd-resolved`, `tailscaled`, `gdm`, `firewalld`, `crond`), modify crontabs, touch `/etc/resolv.conf`, or modify `~/bin/` or the `ActorII/src/` source tree.\n"
-    "- Other Pool Objects: `Actor[#Memory]` (`graphSchema(Actor[#Memory])!!`, `classHierarchyTree(Actor[#Memory])!!`, `cypherQuery(Actor[#Memory], \"MATCH ...\")!!`, `cypherQueryWith(Actor[#Memory], \"MATCH (n {name: $p1}) RETURN n\", arg1)!!`, `cypherWrite(Actor[#Memory], \"MERGE ...\")!!`, `recallEpisodes(Actor[#Memory], \"keyword query\", 8)!!`, `persistEngram(Actor[#Memory], #ClassName, desc)!!`, `rollbackEngram(Actor[#Memory], #ClassName)!!`), "
-    "`Actor[#Thermometer]` (`summary(Actor[#Thermometer])!!`, `temperatureF(Actor[#Thermometer])!!`, `temperatureC(Actor[#Thermometer])!!`, `humidity(Actor[#Thermometer])!!`, `syncLive(Actor[#Thermometer], 6)!!`), "
-    "`Actor[#ThermoUI]` (`summary(Actor[#ThermoUI])!!`, `addButton(Actor[#ThermoUI], \"← Back to Studio\", \"/\")!!`, `draw(Actor[#ThermoUI])!!`), "
-    "`Actor[#Pantry]` (`recipeCount(Actor[#Pantry])!!`, `listRecipes(Actor[#Pantry], 5)!!`, `searchByIngredient(Actor[#Pantry], \"garlic\")!!`), "
-    "`Actor[#ReverseEngineer]` (`summary(Actor[#ReverseEngineer])!!`, `fileIdentity(Actor[#ReverseEngineer], path)!!`, `inspectEntropy(Actor[#ReverseEngineer], path)!!`, `staticAudit(Actor[#ReverseEngineer], path, \"entry\")!!`, `decompileFunction(Actor[#ReverseEngineer], path, \"entry\")!!`, `detonateSandbox(Actor[#ReverseEngineer], path, 10, \"sample.exe\")!!`), "
-    "`Actor[#Telegram]` (`summary(Actor[#Telegram])!!`, `botInfo(Actor[#Telegram])!!`, `sendMessage(Actor[#Telegram], text)!!`, `sendToChat(Actor[#Telegram], chatId, text, threadId)!!`), "
-    "`Actor[#Proxy]` (`summary(Actor[#Proxy])!!`, `status(Actor[#Proxy])!!`, `urls(Actor[#Proxy])!!`, `setMode(Actor[#Proxy], \"lan\")!!` [`lan` | `tailscale_only` | `local_only` | `paused`], `setAuth(Actor[#Proxy], true)!!`, `rotateToken(Actor[#Proxy])!!`, `blockIp(Actor[#Proxy], ip)!!`, `unblockIp(Actor[#Proxy], ip)!!`, `recentLogs(Actor[#Proxy], 10)!!`), "
-    "`Actor[#Jetson]` (`summary(Actor[#Jetson])!!`, `telemetry(Actor[#Jetson])!!`, `discover(Actor[#Jetson])!!`, `scanLan(Actor[#Jetson])!!` [scans `192.168.68.0/22` for SSH/RTSP edge boards without host shell!], `setHost(Actor[#Jetson], ip)!!`, `cameraStatus(Actor[#Jetson])!!`, `exec(Actor[#Jetson], \"uname -a\")!!` [guarded SSH command on the NVIDIA Jetson board]), "
-    "`Actor[#Web]` (`summary(Actor[#Web])!!`, `scrape(Actor[#Web], url)!!`, `extract(Actor[#Web], url)!!`, `search(Actor[#Web], query, 5)!!`, `cleanUrl(Actor[#Web], url)!!`, `renderBrowser(Actor[#Web], url)!!`, `clearCache(Actor[#Web])!!`), "
-    "`Actor[#PDF]` (`summary(Actor[#PDF])!!`, `fetchUrl(Actor[#PDF], url)!!`, `info(Actor[#PDF], pathOrUrl)!!`, `pageCount(Actor[#PDF], pathOrUrl)!!`, `readPages(Actor[#PDF], pathOrUrl, startPage, endPage, maxChars)!!`, `searchText(Actor[#PDF], pathOrUrl, query, maxHits, maxChars)!!`), "
-    "`Actor[#ProductLearner]` (`summary(Actor[#ProductLearner])!!`, `learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")!!`, `ingestManual(Actor[#ProductLearner], \"Product Name\", urlOrPdfOrPath, \"focus topics\")!!`, `recallProduct(Actor[#ProductLearner], \"Product Name\", \"query topic\")!!`, `listProducts(Actor[#ProductLearner])!!`), "
-    "`Actor[#Hue]` (virtual in-memory smart-light twin), and `Actor[#Bench]` (`listTasks(Actor[#Bench])!!`, `runTask(Actor[#Bench], #alg_primes)!!`).\n"
-    "- LEARN HOW TO LEARN — READ THE MANUAL BEFORE GUESSING (`Actor[#ProductLearner]`):\n"
-    "  * Learned `:Product` manuals are auto-hydrated into your prompt whenever a user mentions a known product/subsystem.\n"
-    "  * Whenever asked to learn about a product/device/library, OR when operating unfamiliar hardware/software (such as `Actor[#Jetson]`, sensors, display stacks, drivers, or SDKs) and no `[AUTO-RECALLED PRODUCT TECHNICAL MANUAL]` covers the topic (or after 2 failed probes), STOP guessing in shell loops! Call `recallProduct(Actor[#ProductLearner], \"Product Name\", \"topic\")!!` or `learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")!!` (or `ingestManual(...)!!` for a specific URL/PDF) so you research the official manual, distill its exact drivers/commands/gotchas into Neo4j + `:8084` vector memory, and execute with precision!\n"
-    "- MEMORY + SKILL POLICY (`Actor[#Memory]`): For casual conversational questions, answer directly in 1 step (`COMPLETE: ...`). "
-    "When the user shares structured facts, rules, or domain formulas to remember, store the nodes in Neo4j via `cypherWrite(Actor[#Memory], ...)` "
-    "and define a parameterized 1993 Actor class/method (`inherit(GraphService, #SkillCls, ...)!! now(SkillCls)!! Def ... !!`) to read and compute over those nodes (any compiled user class is automatically crystallized into Neo4j as a reusable `:ActorEngram` with `[:SUBCLASS_OF]` and `[:OPERATES_ON]` edges).\n"
-    "- STRICT GUARDRAIL: Never emit XML tool-call wrappers or markdown code fences! "
-    "You do NOT use XML tool calls; your response is compiled directly by the ActorII compiler (`!!`) or returned as `COMPLETE: <answer>`."
+    "executing inside `ActorII` (a clean-room, Actor-inspired Linux bytecode VM & harness distinct from historical 1993 DOS/Win3.1 Whitewater Actor 4.1).\n"
+    "CAPABILITIES & SHARED OBJECT POOL (`Actor[...]`):\n"
+    "- OOP Base Classes (`inherit(SuperCls, #SubCls, #(#ivar), 1, nil)!! now(SubCls)!! Def m(self) { ... }!!`):\n"
+    "  * `GraphService` (`initService(self, label)`, `queryRows(self, cypher)`, `queryRowsWith(self, cypher, p1)`, `writeGraph(self, cypher)`, `sumColumn`/`avgColumn`/`maxColumn(self, rows, #col)`)\n"
+    "  * `MetricEvaluator` extends `GraphService` (`initEvaluator(self, name, thresh, weight)`, override `evaluateRow(self, row)`, `evaluateAll(self, rows)`, `weightedTotal(self, rows)`)\n"
+    "  * `CompositePipeline` (`initPipeline(self, name)`, `addStage(self, evalObj)`, `runEvaluators(self, rows)`) & `DomainEntity` (`initEntity(self, id, name)`, `setMeta`/`getMeta`, `describe`)\n"
+    "- Digital Twins & Bridges:\n"
+    "  * `Actor[#Valkyrie]` (`#System`): `summary(Actor[#Valkyrie])!!`, `stackHealth(...)!!`, `gpuStatus(...)!!`, `vramFreeMiB(...)!!`, `serviceStatus(..., 8080)!!`, `askSkippy(..., questionOrImagePath)!!` (multimodal Cloud Skippy consult/vision!) (container-only when `isSandboxed`: `listDirectory`, `readTextFile`, `runShell`)\n"
+    "  * `Actor[#Thermometer]`: `summary(Actor[#Thermometer])!!`, `temperatureF(...)!!`, `temperatureC(...)!!`, `humidity(...)!!`, `syncLive(..., 6)!!` | `Actor[#ThermoUI]`: `summary(...)!!`, `addButton(..., label, href)!!`, `draw(...)!!`\n"
+    "  * `Actor[#Jetson]`: `summary(Actor[#Jetson])!!`, `telemetry(...)!!`, `discover(...)!!`, `scanLan(...)!!`, `setHost(..., ip)!!`, `cameraStatus(...)!!`, `exec(..., cmd, 20)!!`, `writeFile(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 45)!!` (supports `.sh`, `.py`, `.cu`, `.cpp`, `.c`!), `pullFile(..., remotePath, localName, 30)!!`\n"
+    "  * `Actor[#Memory]`: `graphSchema(Actor[#Memory])!!`, `classHierarchyTree(...)!!`, `cypherQuery(..., q)!!`, `cypherQueryWith(..., q, p1)!!`, `cypherWrite(..., q)!!`, `recallEpisodes(..., q, 8)!!`, `persistEngram(..., #Cls, desc)!!`, `rollbackEngram(..., #Cls)!!`\n"
+    "  * `Actor[#ProductLearner]`: `learnProduct(Actor[#ProductLearner], name, focus)!!`, `ingestManual(..., name, urlOrPath, focus)!!`, `recallProduct(..., name, topic)!!`, `listProducts(...)!!` (read/learn manuals before guessing unfamiliar drivers/CLI!)\n"
+    "  * `Actor[#Web]`: `search(Actor[#Web], query, 5)!!`, `scrape(..., url)!!`, `extract(..., url)!!`, `cleanUrl(..., url)!!`, `renderBrowser(..., url)!!`\n"
+    "  * `Actor[#PDF]`: `fetchUrl(Actor[#PDF], url)!!`, `info(..., p)!!`, `pageCount(..., p)!!`, `readPages(..., p, s, e, maxChars)!!`, `searchText(..., p, q, hits, maxChars)!!`\n"
+    "  * `Actor[#Pantry]`: `recipeCount(...)!!`, `listRecipes(..., 5)!!`, `searchByIngredient(..., ing)!!` | `Actor[#Proxy]`: `status(...)!!`, `urls(...)!!`, `setMode(..., mode)!!`, `setAuth(..., bool)!!`, `rotateToken(...)!!`, `recentLogs(..., 10)!!`\n"
+    "  * `Actor[#ReverseEngineer]`: `fileIdentity(..., p)!!`, `inspectEntropy(..., p)!!`, `staticAudit(..., p, fn)!!`, `decompileFunction(..., p, fn)!!`, `detonateSandbox(..., p, 10, name)!!`\n"
+    "  * `Actor[#Telegram]`: `summary(...)!!`, `botInfo(...)!!`, `sendMessage(..., txt)!!`, `sendToChat(..., cid, txt, tid)!!`, `sendPhoto(..., localPath, caption)!!`, `sendDocument(..., localPath, caption)!!` | `Actor[#Bench]`: `scoreboard(Actor[#Bench])!!`, `listTasks(...)!!`, `setupTask(..., #id)!!`, `runTask(..., #id)!!`, `selfEvoSuites(...)!!`, `runSelfEvo(..., #specId, #scripted)!!`, `selfEvoScoreboard(...)!!`\n"
+    "  * `Actor[#Threads]`: `spawn(Actor[#Threads], recv, #sel, argsArray)!!`, `spawnChunk(..., \"expr!!\", gas)!!`, `parallelAll(..., tasksArray, timeoutMs)!!`, `parallelSettle(..., tasksArray, timeoutMs)!!`, `parallelMap(..., itemsArray, recv, #sel)!!`, `newChannel(..., cap)!!`, `await(fut, timeoutMs)!!` (safe in lockdown for concurrent Actor 4.1 / Ring-1 twin calls)\n"
+    "  * `Actor[#VM]` & `Actor[#Sandbox]`: `classes(Actor[#VM])!!`, `methodsOf(Actor[#VM], #Cls)!!`, `sourceOf(Actor[#VM], #Cls, #sel)!!`, `capabilities(Actor[#Sandbox])!!`\n"
+    "  * `Actor[#Host]`: `searchFile`, `readFile`, `writeFile`, `editFile`, `execShell` (locked on host when `ACTORII_HOST_LOCKDOWN=1`; unlocked inside `/workspace` containers).\n"
+    "- SECURITY & OUTPUT GUARDRAILS:\n"
+    "  * Ring 0/1 classes, `AgentHarness` kernel methods, and `Actor[...]` singletons are locked. Never stop/disable OS/network/DNS/VPN/desktop services, touch `/etc/resolv.conf` or crontabs, or modify `~/bin/` or `ActorII/src/`.\n"
+    "  * Casual questions: reply in 1 step (`COMPLETE: <answer>`). Structured domain facts/formulas: persist to Neo4j (`cypherWrite`) + define an Actor class (auto-crystallized as `:ActorEngram`).\n"
+    "  * NEVER emit `<tool_call>` XML wrappers or wrap Actor code in markdown fences—output raw 1993 Actor 4.1 ending in `!!` or `COMPLETE: <answer>`."
 )
 
 
@@ -126,7 +109,12 @@ def load_harness_system_prompt(persona_path: Optional[Path | str] = None) -> str
 
 HARNESS_SYSTEM_PROMPT = load_harness_system_prompt()
 
-_CODE_FENCE_RE = re.compile(r"```[a-zA-Z0-9_-]*\s*(.*?)```", re.DOTALL | re.IGNORECASE)
+_CODE_FENCE_RE = re.compile(r"```([a-zA-Z0-9_+-]*)[ \t]*\n?(.*?)```", re.DOTALL | re.IGNORECASE)
+_NON_ACTOR_FENCE_LANGS = {
+    "bash", "sh", "zsh", "shell", "console", "text", "txt", "json", "yaml", "yml",
+    "toml", "ini", "xml", "html", "css", "sql", "cypher", "diff", "md", "markdown",
+    "python", "py", "rust", "rs", "go", "cpp", "c", "java", "js", "javascript", "ts", "typescript",
+}
 _XML_PARAM_RE = re.compile(r"<parameter=(?:code|action|chunk|source)>\s*(.*?)\s*</parameter>", re.DOTALL | re.IGNORECASE)
 _XML_TOOL_RE = re.compile(r"<tool_call>\s*(.*?)\s*</tool_call>", re.DOTALL | re.IGNORECASE)
 _XML_FUNC_NAME_RE = re.compile(r"<function=([A-Za-z0-9_.-]+)>?", re.IGNORECASE)
@@ -244,7 +232,7 @@ def _is_likely_actor_code(text: str) -> bool:
 
 
 _CODE_START_LINE_RE = re.compile(
-    r"^\s*(?:`|(?:inherit|now|Def|Action|if|loop|Actor)\b|[A-Za-z_]\w*\s*(?:\(|:=|\[)|/\*|\^|#|\(|\[|\d|\"|-)"
+    r"^\s*(?:`|(?:inherit|now|Def|Action|if|loop|Actor)\b|[A-Za-z_]\w*\s*(?:\(|:=|\[)|/\*|\^|#(?:\(|[A-Za-z_])|\(|\[|\d|\"|-\d)"
 )
 
 
@@ -302,6 +290,32 @@ def _strip_leading_prose_before_code(text: str) -> str:
     return s
 
 
+def _clean_complete_summary(summary_raw: str) -> str:
+    """Clean trailing Actor `/* comments */` or stray trailing `!!` code outside Markdown fences in a `COMPLETE:` reply."""
+    s = (summary_raw or "").strip()
+    if s.endswith("`") and not s.endswith("```"):
+        s = s[:-1].strip()
+    # Do not strip `!` if reply ends with a closing Markdown fence ```
+    if not s.endswith("```"):
+        # If the model appended a standalone Actor `/* note */` or `storeScratch(...)!!` on the final line outside fences, trim it
+        fence_count = s.count("```")
+        if fence_count % 2 == 0 and "\n" in s:
+            lines = s.splitlines()
+            while lines:
+                tail = lines[-1].strip()
+                if tail.startswith("/*") and tail.endswith("*/"):
+                    lines.pop()
+                    continue
+                if tail.endswith("!!") and _is_likely_actor_code(tail):
+                    lines.pop()
+                    continue
+                break
+            s = "\n".join(lines).strip()
+        if s.endswith("!!"):
+            s = s[:-2].strip()
+    return s
+
+
 def _split_code_and_complete(raw_text: str) -> Tuple[str, Optional[str]]:
     """Separate executable Actor 4.1 code chunks from any trailing `COMPLETE:` or conversational summary."""
     text = _unwrap_xml_tool_call((raw_text or "").strip())
@@ -315,32 +329,47 @@ def _split_code_and_complete(raw_text: str) -> Tuple[str, Optional[str]]:
         elif text.endswith("`!!") and "`" not in text[1:-3]:
             text = (text[1:-3].strip().rstrip("!") + "!!")
 
-    m = _CODE_FENCE_RE.search(text)
-    if m:
-        fenced = m.group(1).strip()
-        outside = (text[: m.start()] + "\n" + text[m.end() :]).strip()
-        comp_match = re.search(r"^\s*`?\s*COMPLETE\s*:\s*(.+?)\s*`?\s*$", outside, flags=re.IGNORECASE | re.MULTILINE)
-        if comp_match and _is_likely_actor_code(fenced):
-            code_part = fenced if fenced.endswith("!!") else f"{fenced.rstrip('!')}!!"
-            return code_part, comp_match.group(1).strip()
-        if _is_likely_actor_code(fenced):
-            text = fenced
-
+    # 1. Check leading `COMPLETE:` FIRST so conversational Markdown code blocks (` ```bash `, ` ```python `)
+    # inside human-facing answers are NEVER hijacked and executed as Actor 4.1 VM bytecode!
     lead_comp = re.match(r"^\s*`?\s*COMPLETE\s*:\s*(.+)$", text, flags=re.IGNORECASE | re.DOTALL)
     if lead_comp:
-        summary = lead_comp.group(1).strip()
-        if summary.endswith("`"):
-            summary = summary[:-1].strip()
-        return "", summary.rstrip("!")
+        return "", _clean_complete_summary(lead_comp.group(1))
 
-    # Check if there is a trailing COMPLETE: directive after Actor code (either on a new line or after `!!`)
+    # 2. Check fenced blocks ONLY when tagged as Actor/untagged AND genuinely valid Actor 4.1 code
+    m = _CODE_FENCE_RE.search(text)
+    if m:
+        fence_lang = (m.group(1) or "").strip().lower()
+        fenced = (m.group(2) or "").strip()
+        outside = (text[: m.start()] + "\n" + text[m.end() :]).strip()
+        comp_match = re.search(r"^\s*`?\s*COMPLETE\s*:\s*(.+?)\s*`?\s*$", outside, flags=re.IGNORECASE | re.MULTILINE)
+        is_actor_fence = (
+            fence_lang not in _NON_ACTOR_FENCE_LANGS
+            and _is_likely_actor_code(fenced)
+            and (
+                fence_lang in ("actor", "act", "smalltalk")
+                or "!!" in fenced
+                or "Actor[" in fenced
+                or ":=" in fenced
+                or bool(re.search(r"\b(?:inherit|now|Def|storeScratch|readScratch)\b", fenced))
+            )
+        )
+        if comp_match and is_actor_fence:
+            code_part = fenced if fenced.endswith("!!") else f"{fenced.rstrip('!')}!!"
+            return code_part, _clean_complete_summary(comp_match.group(1))
+        if is_actor_fence and not outside:
+            text = fenced
+        elif fence_lang in _NON_ACTOR_FENCE_LANGS:
+            # Conversational answer containing a bash/python/json tutorial block without leading `COMPLETE:`
+            if comp_match:
+                return "", _clean_complete_summary(text)
+            if "!!" not in outside or not _is_likely_actor_code(outside):
+                return "", text.strip()
+
+    # 3. Check if there is a trailing COMPLETE: directive after Actor code (either on a new line or after `!!`)
     comp_idx = re.search(r"(?:^|!!)\s*`?\s*COMPLETE\s*:\s*(.+)$", text, flags=re.IGNORECASE | re.DOTALL)
     if comp_idx:
         before = _strip_leading_prose_before_code(text[: comp_idx.start()].strip())
-        summary = comp_idx.group(1).strip()
-        if summary.endswith("`"):
-            summary = summary[:-1].strip()
-        summary = summary.rstrip("!")
+        summary = _clean_complete_summary(comp_idx.group(1))
         if before and _is_likely_actor_code(before):
             if not before.endswith("!!"):
                 before = before.rstrip("!") + "!!"
@@ -405,6 +434,173 @@ class LLMBridge:
         s = str(text_or_messages or "")
         return max(1, (len(s) + 3) // 4) if s else 0
 
+    def _build_append_only_messages(
+        self,
+        harness_obj: Agent,
+        sandbox: "VMSandboxBridge",
+    ) -> List[Dict[str, str]]:
+        """Build a strictly append-only multi-message chat array so hybrid Gated-DeltaNet / KV-cache slots hit `f_keep=1.0` across steps."""
+        goal = str(harness_obj._fields.get("goal", "") or "")
+        step_num = int(harness_obj._fields.get("stepCount", 1) or 1)
+        raw_max_steps = harness_obj._fields.get("maxSteps")
+        max_steps = 0 if raw_max_steps is None else int(raw_max_steps)
+        max_steps_lbl = f"{max_steps}" if max_steps > 0 else "(unlimited)"
+        step_log_obj = harness_obj._fields.get("stepLog")
+        chat_hist = sandbox.getChatHistory(harness_obj)
+        turn_key = (id(step_log_obj), goal, len(chat_hist))
+
+        cache: Optional[Dict[str, Any]] = getattr(harness_obj, "_kv_turn_cache", None)
+        if not isinstance(cache, dict) or cache.get("key") != turn_key:
+            # 1. Static system message (100% goal-invariant across ALL turns & steps so KV prefix stays locked!)
+            grammar_obj = getattr(sandbox, "grammar_graph", None)
+            core_grammar = (
+                grammar_obj.compactCoreReference()
+                if grammar_obj is not None and hasattr(grammar_obj, "compactCoreReference")
+                else ""
+            )
+            sys_parts = [
+                harness_obj.buildContextPrompt(),
+                sandbox.defaultInstructions(),
+            ]
+            if core_grammar:
+                sys_parts.append(core_grammar)
+            sys_msg = {"role": "system", "content": "\n\n".join(p for p in sys_parts if p)}
+
+            # 2. Append-Only Epoch History Window:
+            # Instead of a sliding `chat_hist[-6:]` window (which shifts message #1 right after `sys_msg` on EVERY turn
+            # and invalidates cross-turn KV cache), anchor `anchor_idx` and append turns monotonically up to 14 turns
+            # before rolling the epoch forward to `len(chat_hist) - 4`!
+            epoch_turns: List[Any] = []
+            if chat_hist:
+                anchor = getattr(harness_obj, "_kv_history_anchor", None)
+                if (
+                    isinstance(anchor, tuple)
+                    and len(anchor) == 2
+                    and 0 <= anchor[1] < len(chat_hist)
+                    and id(chat_hist[anchor[1]]) == anchor[0]
+                    and (len(chat_hist) - anchor[1]) <= 14
+                ):
+                    anchor_idx = anchor[1]
+                else:
+                    anchor_idx = max(0, len(chat_hist) - 4)
+                    setattr(harness_obj, "_kv_history_anchor", (id(chat_hist[anchor_idx]), anchor_idx))
+                epoch_turns = chat_hist[anchor_idx:]
+
+            prior_msgs: List[Dict[str, str]] = []
+            for t in epoch_turns:
+                if not isinstance(t, dict):
+                    continue
+                u_txt = str(t.get("user") or "").strip()
+                r_txt = str(t.get("reply") or "").strip()
+                if len(r_txt) > 1600:
+                    r_txt = r_txt[:1597] + "..."
+                acts = t.get("actions") or []
+                act_note = ""
+                if acts:
+                    briefs = [summarize_actor_action_brief(str(a), max_len=64) for a in acts[:4]]
+                    extra = f" (+{len(acts) - 4} more)" if len(acts) > 4 else ""
+                    act_note = f"/* Executed {len(acts)} step(s): {'; '.join(briefs)}{extra} */\n"
+                if u_txt:
+                    prior_msgs.append({"role": "user", "content": u_txt})
+                    prior_msgs.append({"role": "assistant", "content": f"{act_note}COMPLETE: {r_txt}"})
+
+            # 3. Initial user message for this turn (built ONCE at Step 1 and NEVER mutated on Steps 2..N!)
+            mem_obj = getattr(sandbox, "memory_graph", None)
+            hydrated = mem_obj.hydrateContext(goal) if mem_obj is not None else ""
+            task_grammar = (
+                grammar_obj.queryTaskSpecificConstructs(goal)
+                if grammar_obj is not None and hasattr(grammar_obj, "queryTaskSpecificConstructs")
+                else ""
+            )
+            policy_txt = ""
+            try:
+                p_val = self.vm.eval_chunk("policyNote(Actor[#Harness])!!")
+                policy_txt = str(p_val or "").strip()
+            except Exception:
+                policy_txt = ""
+
+            init_lines: List[str] = []
+            if policy_txt:
+                init_lines.append(f"[HARNESS RUNTIME POLICY OVERRIDE]:\n{policy_txt}")
+            if hydrated:
+                init_lines.append(hydrated)
+            if task_grammar:
+                init_lines.append(task_grammar)
+            init_lines.append(f"LIVE POOL SUMMARY: {sandbox.poolSummary()}")
+            init_lines.append(f"SCRATCHPAD (`Actor[#Harness].scratchpad`): {sandbox.formatScratchpad(harness_obj)}")
+            init_lines.append(f"GOAL: {goal}")
+            init_lines.append(
+                f"STEP: 1 of {max_steps_lbl}\n"
+                "Output ONLY a single raw 1993 Actor 4.1 code chunk ending in `!!` or `COMPLETE: <your answer>`."
+            )
+            turn_user_msg = {"role": "user", "content": "\n\n".join(init_lines)}
+
+            cache = {
+                "key": turn_key,
+                "base_messages": [sys_msg, *prior_msgs, turn_user_msg],
+                "step_pairs": [],  # List[Tuple[int, Dict[str, str], Dict[str, str]]]
+            }
+            setattr(harness_obj, "_kv_turn_cache", cache)
+
+        messages: List[Dict[str, str]] = list(cache["base_messages"])
+        step_entries = list(step_log_obj) if isinstance(step_log_obj, (ActorOrderedCollection, list)) else []
+        cached_pairs: List[Tuple[int, Dict[str, str], Dict[str, str]]] = cache["step_pairs"]
+
+        # Append any newly executed steps without ever mutating earlier cached step pairs!
+        start_idx = len(cached_pairs)
+        for idx in range(start_idx, len(step_entries)):
+            entry = step_entries[idx]
+            if not isinstance(entry, dict):
+                continue
+            st_n = int(entry.get("step", idx + 1) or (idx + 1))
+            st_status = str(entry.get("status", "ok"))
+            raw_act = str(entry.get("action") or "").strip()
+            if "__HALLUCINATED_XML_TOOL_CALL__" in raw_act:
+                asst_act = "<invalid XML tool call>"
+            elif len(raw_act) <= 12000:
+                asst_act = raw_act
+            else:
+                asst_act = sandbox._compact_step_action_for_history(raw_act)
+            asst_msg = {"role": "assistant", "content": asst_act or "nil!!"}
+
+            cur_scratch = sandbox.formatScratchpad(harness_obj)
+            next_st = st_n + 1
+            if st_status == "error":
+                err_txt = str(entry.get("error") or "")
+                diag_txt = sandbox.formatErrorDiagnostic(harness_obj) if idx == len(step_entries) - 1 else f"Error: {err_txt}"
+                obs_body = (
+                    f"[Step {st_n} ROLLED BACK]\n{diag_txt}\n"
+                    f"SCRATCHPAD (`Actor[#Harness].scratchpad`): {cur_scratch}\n"
+                    f"STEP: {next_st} of {max_steps_lbl}\n"
+                    "Self-correct with valid 1993 Actor 4.1 code ending in `!!` or reply `COMPLETE: <clear explanation>`."
+                )
+            else:
+                res_repr = repr(entry.get("result"))
+                if len(res_repr) > 3500:
+                    res_repr = res_repr[:3500] + "...'"
+                unhandled_hint = entry.get("unhandled_selector")
+                hint_line = (
+                    f"\n[Warning: `{unhandled_hint}` is not a defined method on that receiver — call `methodsOf(Actor[#VM], #ClassName)!!` to inspect real selectors!]"
+                    if unhandled_hint
+                    else ""
+                )
+                nudge_line = sandbox._step_loop_nudge(step_entries[: idx + 1])
+                obs_body = (
+                    f"[Step {st_n} OK | gas={entry.get('gas_used', 0)} ops]\n"
+                    f"LAST RESULT: {res_repr}{hint_line}{nudge_line}\n"
+                    f"SCRATCHPAD (`Actor[#Harness].scratchpad`): {cur_scratch}\n"
+                    f"STEP: {next_st} of {max_steps_lbl}\n"
+                    "Execute the next 1993 Actor 4.1 expression ending in `!!`, or if you have enough information to answer the user, reply `COMPLETE: <detailed answer>`."
+                )
+            obs_msg = {"role": "user", "content": obs_body}
+            cached_pairs.append((st_n, asst_msg, obs_msg))
+
+        for _, a_m, u_m in cached_pairs[-20:]:
+            messages.append(a_m)
+            messages.append(u_m)
+
+        return messages
+
     @actor_query
     def complete(self, prompt_or_messages: Any, options_or_harness: Any = None) -> str:
         """Invoke the active LLM directly from Actor bytecode (`complete(Actor[#LLM], promptText, self)`)."""
@@ -437,42 +633,112 @@ class LLMBridge:
             prompt_str = str(prompt_or_messages or "")
 
         if isinstance(harness_obj, Agent):
-            saved_hist = list(harness_obj._history) if hasattr(harness_obj, "_history") else []
-            harness_obj.clearHistory()
-            try:
-                raw_reply = harness_obj.ask(prompt_str)
-                cleaned_check = _strip_leading_prose_before_code(
-                    _unwrap_xml_tool_call(str(raw_reply or "").strip())
-                )
+            custom_prov = getattr(harness_obj, "custom_provider", None) or getattr(self.vm, "ai_provider", None)
+            sandbox_ref = self.vm.global_vars.get("Actor", {}).get("Sandbox")
+            sandbox_py = getattr(sandbox_ref, "_target", sandbox_ref)
+            use_append_only_http = (
+                custom_prov is None
+                and isinstance(options_or_harness, Agent)
+                and getattr(harness_obj, "class_name", "") == "AgentHarness"
+                and isinstance(sandbox_py, VMSandboxBridge)
+                and "GOAL: " in prompt_str
+            )
+
+            if use_append_only_http:
                 step_num = int(harness_obj._fields.get("stepCount", 1) or 1)
-                is_incomplete_thought = (
-                    bool(cleaned_check)
-                    and len(cleaned_check) < 350
-                    and not str(raw_reply).startswith(f"[{harness_obj.name} ({harness_obj.class_name})] Processed:")
-                    and not re.search(r"\bCOMPLETE\s*:", cleaned_check, flags=re.IGNORECASE)
-                    and not _is_likely_actor_code(cleaned_check)
-                    and bool(
-                        re.search(
-                            r"\b(?:let me|let's|i will|i'll|i need to)\b",
-                            cleaned_check,
-                            flags=re.IGNORECASE,
+                turn_id = str(getattr(harness_obj, "_active_turn_id", "") or "live-turn")
+                messages = self._build_append_only_messages(harness_obj, sandbox_py)
+                client = ValkyrieLLMClient(
+                    endpoint=harness_obj.endpoint,
+                    model=harness_obj.model,
+                )
+                try:
+                    raw_reply = client.complete_messages(messages, temperature=0.2)
+                    cleaned_check = _strip_leading_prose_before_code(
+                        _unwrap_xml_tool_call(str(raw_reply or "").strip())
+                    )
+                    is_incomplete_thought = (
+                        bool(cleaned_check)
+                        and len(cleaned_check) < 350
+                        and not re.search(r"\bCOMPLETE\s*:", cleaned_check, flags=re.IGNORECASE)
+                        and not _is_likely_actor_code(cleaned_check)
+                        and bool(
+                            re.search(
+                                r"\b(?:let me|let's|i will|i'll|i need to)\b",
+                                cleaned_check,
+                                flags=re.IGNORECASE,
+                            )
                         )
                     )
-                )
-                if is_incomplete_thought:
-                    harness_obj.clearHistory()
-                    followup_prompt = (
-                        f"{prompt_str}\n\n"
-                        f"[Your Reasoning]: {str(raw_reply).strip()}\n\n"
-                        "Now output ONLY the single executable 1993 Actor 4.1 expression ending in `!!` "
-                        "(e.g. `readFile(Actor[#Host], \"/workspace/...\", 1, 100)!!` or `editFile(...)!!`) "
-                        "or `COMPLETE: <final summary>` if the task is already finished. Do NOT output prose:"
+                    if is_incomplete_thought:
+                        cont_msgs = [
+                            *messages,
+                            {"role": "assistant", "content": str(raw_reply).strip()},
+                            {
+                                "role": "user",
+                                "content": (
+                                    "Now output ONLY the single executable 1993 Actor 4.1 expression ending in `!!` "
+                                    "or `COMPLETE: <final summary>` if the task is already finished. Do NOT output prose:"
+                                ),
+                            },
+                        ]
+                        raw_reply = client.complete_messages(cont_msgs, temperature=0.2)
+                    stats = client.last_call_stats or {}
+                    GLOBAL_TELEMETRY.log_llm_call(
+                        turn_id=turn_id,
+                        step=step_num,
+                        endpoint=str(stats.get("endpoint") or client.endpoint),
+                        model=str(harness_obj.model),
+                        message_count=int(stats.get("message_count") or len(messages)),
+                        prompt_tokens=int(stats.get("prompt_tokens") or 0),
+                        completion_tokens=int(stats.get("completion_tokens") or 0),
+                        latency_ms=float(stats.get("latency_ms") or 0.0),
+                        raw_reply=str(raw_reply or ""),
+                        extracted_action=extract_actor_action(str(raw_reply or "")),
                     )
-                    raw_reply = harness_obj.ask(followup_prompt)
-            finally:
-                if hasattr(harness_obj, "_history") and isinstance(harness_obj._history, (ActorOrderedCollection, list)):
-                    harness_obj._history.clear()
-                    harness_obj._history.extend(saved_hist)
+                except Exception as exc:
+                    mem_keys = sorted(str(k).lstrip("#") for k in harness_obj.memory()._entries.keys())
+                    raw_reply = (
+                        f"[{harness_obj.name} ({harness_obj.class_name})] Processed: {prompt_str} "
+                        f"(memory_keys={mem_keys}, error={exc})"
+                    )
+                harness_obj.last_response = str(raw_reply)
+            else:
+                saved_hist = list(harness_obj._history) if hasattr(harness_obj, "_history") else []
+                harness_obj.clearHistory()
+                try:
+                    raw_reply = harness_obj.ask(prompt_str)
+                    cleaned_check = _strip_leading_prose_before_code(
+                        _unwrap_xml_tool_call(str(raw_reply or "").strip())
+                    )
+                    is_incomplete_thought = (
+                        bool(cleaned_check)
+                        and len(cleaned_check) < 350
+                        and not str(raw_reply).startswith(f"[{harness_obj.name} ({harness_obj.class_name})] Processed:")
+                        and not re.search(r"\bCOMPLETE\s*:", cleaned_check, flags=re.IGNORECASE)
+                        and not _is_likely_actor_code(cleaned_check)
+                        and bool(
+                            re.search(
+                                r"\b(?:let me|let's|i will|i'll|i need to)\b",
+                                cleaned_check,
+                                flags=re.IGNORECASE,
+                            )
+                        )
+                    )
+                    if is_incomplete_thought:
+                        harness_obj.clearHistory()
+                        followup_prompt = (
+                            f"{prompt_str}\n\n"
+                            f"[Your Reasoning]: {str(raw_reply).strip()}\n\n"
+                            "Now output ONLY the single executable 1993 Actor 4.1 expression ending in `!!` "
+                            "(e.g. `readFile(Actor[#Host], \"/workspace/...\", 1, 100)!!` or `editFile(...)!!`) "
+                            "or `COMPLETE: <final summary>` if the task is already finished. Do NOT output prose:"
+                        )
+                        raw_reply = harness_obj.ask(followup_prompt)
+                finally:
+                    if hasattr(harness_obj, "_history") and isinstance(harness_obj._history, (ActorOrderedCollection, list)):
+                        harness_obj._history.clear()
+                        harness_obj._history.extend(saved_hist)
 
             if raw_reply.startswith(f"[{harness_obj.name} ({harness_obj.class_name})] Processed:"):
                 goal = str(harness_obj._fields.get("goal", "") or "")
@@ -537,6 +803,7 @@ class VMSandboxBridge:
             "System",
             "Valkyrie",
             "Harness",
+            "Bilby",
             "PDF",
             "Net",
             "Web",
@@ -567,7 +834,9 @@ class VMSandboxBridge:
                     if norm_k in builtin_singletons:
                         bridges.append(f"#{norm_k}")
                     else:
-                        objs.append(f"Actor[#{norm_k}]: {cls_name} = {repr(v)[:80]}")
+                        passive_fn = getattr(v, "_passive_summary", None)
+                        val_str = passive_fn() if callable(passive_fn) else repr(v)
+                        objs.append(f"Actor[#{norm_k}]: {cls_name} = {val_str[:96]}")
         summary_parts = []
         if bridges:
             summary_parts.append("Bridges: " + ", ".join(sorted(bridges)))
@@ -996,11 +1265,11 @@ class VMSandboxBridge:
         target = harness_obj or self.vm.global_vars.get("Actor", {}).get("Harness")
         last_result = getattr(target, "_fields", {}).get("lastResult") if target is not None else None
         s = repr(last_result)
-        return (s[:6500] + "...'") if len(s) > 6500 else s
+        return (s[:3500] + "...'") if len(s) > 3500 else s
 
     @actor_query
     def formatRecentTurns(self, harness_obj: Any = None) -> str:
-        """Format recent multi-turn conversation history for `AgentHarness>>buildStepPrompt`."""
+        """Format recent multi-turn conversation history compactly so multi-line scripts never bloat prompts."""
         target = harness_obj or self.vm.global_vars.get("Actor", {}).get("Harness")
         recent_turns = self.getChatHistory(target)[-6:]
         if not recent_turns:
@@ -1009,9 +1278,20 @@ class VMSandboxBridge:
         for t in recent_turns:
             if isinstance(t, dict):
                 acts = t.get("actions") or []
-                act_str = f" | Executed: `{' ; '.join(acts)}`" if acts else ""
+                compact_acts: List[str] = []
+                for a in acts[:4]:
+                    a_s = " ".join(str(a).splitlines()).strip()
+                    if len(a_s) > 220:
+                        a_s = a_s[:190] + "... !!"
+                    compact_acts.append(a_s)
+                if len(acts) > 4:
+                    compact_acts.append(f"(+{len(acts) - 4} more steps)")
+                act_str = f" | Executed: `{' ; '.join(compact_acts)}`" if compact_acts else ""
+                rep = str(t.get("reply") or "")
+                if len(rep) > 650:
+                    rep = rep[:647] + "..."
                 turn_lines.append(
-                    f"- Turn {t.get('turn')}: User={t.get('user')!r}{act_str} -> Reply={t.get('reply')!r}"
+                    f"- Turn {t.get('turn')}: User={t.get('user')!r}{act_str} -> Reply={rep!r}"
                 )
         return "\n".join(turn_lines)
 
@@ -1020,31 +1300,42 @@ class VMSandboxBridge:
         """Compact multi-KB `writeFile` / `editFile` string literals in step history so old steps don't bloat prompts."""
         if "__HALLUCINATED_XML_TOOL_CALL__" in act:
             return "<invalid XML tool call>"
-        if len(act) > 260 and ("writeFile" in act or "editFile" in act):
+        if len(act) > 260 and ("writeFile" in act or "editFile" in act or "writeAndRun" in act):
             return f"{act[:140]} ... <{len(act)} chars total> ... {act[-35:]}"
         if len(act) > 600:
             return f"{act[:300]} ... <{len(act)} chars total> ... {act[-60:]}"
         return act
 
-    @actor_query
-    def formatStepHistory(self, harness_obj: Any = None, page_old_results: bool = False) -> str:
-        """Format steps executed so far in the current goal turn (append-only uniform truncation for KV-cache reuse)."""
-        target = harness_obj or self.vm.global_vars.get("Actor", {}).get("Harness")
-        step_log = getattr(target, "_fields", {}).get("stepLog") if target is not None else None
-        if not isinstance(step_log, (ActorOrderedCollection, list)) or len(step_log) == 0:
-            return ""
-        cur_step_lines = ["STEPS EXECUTED IN CURRENT TURN SO FAR:"]
-        recent_steps = list(step_log)[-12:]
-        n_recent = len(recent_steps)
+    @staticmethod
+    def _step_loop_nudge(recent_steps: List[Any]) -> str:
+        """Return targeted anti-thrashing guidance if recent steps are stuck in read-only or edge SSH loops."""
+        is_lockdown = is_host_lockdown()
         consec_readonly = 0
         consec_edge_probes = 0
         has_mutated = False
-        for idx_s, s_entry in enumerate(recent_steps):
+        for s_entry in recent_steps[-12:]:
             if isinstance(s_entry, dict):
                 st = s_entry.get("status", "ok")
                 raw_act = str(s_entry.get("action", ""))
-                act = self._compact_step_action_for_history(raw_act)
-                if any(m in raw_act for m in ("editFile", "writeFile", "execShell", "storeScratch", "Def ", "inherit(", "learnProduct", "ingestManual")):
+                if any(
+                    m in raw_act
+                    for m in (
+                        "editFile",
+                        "writeFile",
+                        "execShell",
+                        "storeScratch",
+                        "Def ",
+                        "inherit(",
+                        "learnProduct",
+                        "ingestManual",
+                        "writeAndRun",
+                        "pullFile",
+                        "fetchFile",
+                        "sendPhoto",
+                        "sendDocument",
+                        "sendFile",
+                    )
+                ):
                     has_mutated = True
                     consec_readonly = 0
                     consec_edge_probes = 0
@@ -1056,31 +1347,59 @@ class VMSandboxBridge:
                     is_probe = any(p in raw_act for p in ("ls ", "find ", "which ", "grep ", "cat ", "dpkg ", "apt-cache"))
                     if failed_ssh or is_probe:
                         consec_edge_probes += 1
+        out: List[str] = []
+        if consec_readonly >= 4 and not has_mutated and not is_lockdown:
+            out.append(
+                f"\n[ACTION REQUIRED — {consec_readonly} CONSECUTIVE READ-ONLY STEPS WITHOUT EDITING]: "
+                "Stop searching/reading! Apply your fix NOW using `editFile(Actor[#Host], \"/workspace/...\", \"\"\"old\"\"\", \"\"\"new\"\"\")!!` "
+                "(or `writeFile` / `execShell`), then verify it with `execShell`."
+            )
+        if consec_edge_probes >= 3:
+            out.append(
+                f"\n[READ THE MANUAL BEFORE GUESSING — {consec_edge_probes} CONSECUTIVE EDGE PROBES/FAILURES]: "
+                "Stop blind trial-and-error shell probing! Call `recallProduct(Actor[#ProductLearner], \"NVIDIA Jetson TX1\", \"<topic>\")!!` "
+                "or `learnProduct(Actor[#ProductLearner], \"NVIDIA Jetson TX1 L4T R32.7.6\", \"<subsystem/driver>\")!!` to research and store the official manual in Neo4j first, or reply `COMPLETE: <findings>` if you already have the answer!"
+            )
+        return "".join(out)
+
+    @actor_query
+    def formatStepHistory(self, harness_obj: Any = None, page_old_results: bool = False) -> str:
+        """Format steps executed so far in the current goal turn (append-only uniform truncation for KV-cache reuse)."""
+        target = harness_obj or self.vm.global_vars.get("Actor", {}).get("Harness")
+        step_log = getattr(target, "_fields", {}).get("stepLog") if target is not None else None
+        if not isinstance(step_log, (ActorOrderedCollection, list)) or len(step_log) == 0:
+            return ""
+        cur_step_lines = ["STEPS EXECUTED IN CURRENT TURN SO FAR:"]
+        recent_steps = list(step_log)[-12:]
+        n_recent = len(recent_steps)
+        for idx_s, s_entry in enumerate(recent_steps):
+            if isinstance(s_entry, dict):
+                st = s_entry.get("status", "ok")
+                raw_act = str(s_entry.get("action", ""))
+                act = self._compact_step_action_for_history(raw_act)
                 if st == "error":
                     cur_step_lines.append(
                         f"- Step {s_entry.get('step')} [ERROR]: `{act}` -> {s_entry.get('error')}"
                     )
                 else:
                     res_repr = repr(s_entry.get("result"))
+                    max_cap = 2500 if idx_s == n_recent - 1 else 1200
                     if page_old_results and idx_s < n_recent - 2 and len(res_repr) > 200:
                         res_repr = res_repr[:200] + "... [paged out]'"
-                    elif len(res_repr) > 6500:
-                        res_repr = res_repr[:6500] + "...'"
-                    cur_step_lines.append(
-                        f"- Step {s_entry.get('step')} [OK | gas={s_entry.get('gas_used', 0)}]: `{act}` -> {res_repr}"
+                    elif len(res_repr) > max_cap:
+                        res_repr = res_repr[:max_cap] + "...'"
+                    unhandled = s_entry.get("unhandled_selector")
+                    uh_note = (
+                        f" [UnknownSelectorWarning: `{unhandled}` is not defined — check `methodsOf(Actor[#VM], #ClassName)!!`]"
+                        if unhandled
+                        else ""
                     )
-        if consec_readonly >= 4 and not has_mutated:
-            cur_step_lines.append(
-                f"\n[ACTION REQUIRED — {consec_readonly} CONSECUTIVE READ-ONLY STEPS WITHOUT EDITING]: "
-                "Stop searching/reading! Apply your fix NOW using `editFile(Actor[#Host], \"/workspace/...\", \"\"\"old\"\"\", \"\"\"new\"\"\")!!` "
-                "(or `writeFile` / `execShell`), then verify it with `execShell`."
-            )
-        if consec_edge_probes >= 3:
-            cur_step_lines.append(
-                f"\n[READ THE MANUAL BEFORE GUESSING — {consec_edge_probes} CONSECUTIVE EDGE PROBES/FAILURES]: "
-                "Stop blind trial-and-error shell probing! Call `recallProduct(Actor[#ProductLearner], \"NVIDIA Jetson TX1\", \"<topic>\")!!` "
-                "or `learnProduct(Actor[#ProductLearner], \"NVIDIA Jetson TX1 L4T R32.7.6\", \"<subsystem/driver>\")!!` to research and store the official manual in Neo4j first, or reply `COMPLETE: <findings>` if you already have the answer!"
-            )
+                    cur_step_lines.append(
+                        f"- Step {s_entry.get('step')} [OK | gas={s_entry.get('gas_used', 0)}]: `{act}` -> {res_repr}{uh_note}"
+                    )
+        nudge = self._step_loop_nudge(recent_steps)
+        if nudge:
+            cur_step_lines.append(nudge)
         return "\n".join(cur_step_lines)
 
     @actor_query
@@ -1157,30 +1476,39 @@ class VMSandboxBridge:
 
     @actor_query
     def defaultInstructions(self) -> str:
-        """Return default Actor 4.1 generation instructions for `AgentHarness>>instructionBlock`."""
-        return "\n".join(
+        """Return environment-aware Actor 4.1 generation instructions for `AgentHarness>>instructionBlock`."""
+        lockdown = is_host_lockdown()
+        lines = [
+            "INSTRUCTIONS:",
+            "1. Output ONLY a single raw 1993 Actor 4.1 code chunk ending in `!!` OR `COMPLETE: <answer>`. Never emit `<tool_call>` XML tags, markdown fences around Actor code, or prose before/after Actor code!",
+            "2. For pure conversational greetings/follow-ups requiring NO math, NO file I/O, and NO fresh telemetry (or once `LAST RESULT` already has verified output), reply immediately with:",
+            "   COMPLETE: <clear, well-structured human answer>",
+            "   (Inside `COMPLETE: ...`, clean Markdown and ```bash / ```python blocks for the user are welcome. Never guess arithmetic in prose—compute in Actor bytecode first!)",
+            "3. For live system/sensor/edge checks, run ONE concise expression ending in `!!` (e.g. `summary(Actor[#Valkyrie])!!`, `stackHealth(Actor[#Valkyrie])!!`, `summary(Actor[#Thermometer])!!`, `summary(Actor[#Jetson])!!`, `scoreboard(Actor[#Bench])!!`) and reply `COMPLETE: ...` on the next step.",
+            "4. When writing Actor 4.1 code (`!!`):",
+            "   - Save values via `storeScratch(Actor[#Harness], #key, value)!!` or `Actor[#Key] := value!!` (use `setMaxSteps`/`setMaxFailures` for step limits).",
+        ]
+        if lockdown:
+            lines.extend(
+                [
+                    "   - [HOST LOCKDOWN ACTIVE (`ACTORII_HOST_LOCKDOWN=1`)]: `execShell(Actor[#Host], ...)` and host writes outside `/tmp` are locked, and `/workspace` is NOT mounted. NEVER call `execShell(Actor[#Host], ...)` or search `/workspace`! Use Digital Twins (`Actor[#Valkyrie]`, `Actor[#Jetson]`, `Actor[#Thermometer]`, `Actor[#Pantry]`, `Actor[#Web]`, `Actor[#PDF]`, `Actor[#ProductLearner]`, `Actor[#Memory]`, `Actor[#Bench]`, `Actor[#Threads]`). `Actor[#Threads]` (`spawn`, `spawnChunk`, `parallelAll`, `parallelMap`, `Future`, `Channel`) allows concurrent Actor 4.1 / Ring-1 twin calls while keeping raw host shell locked down.",
+                    "   - For remote commands/scripts/CUDA/files on Jetson (`Actor[#Jetson]`): use `telemetry(Actor[#Jetson])!!`, `exec(Actor[#Jetson], \"cmd\", 20)!!`, `writeFile(Actor[#Jetson], \"/tmp/prog.cu\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(Actor[#Jetson], \"/tmp/prog.cu\", \"\"\"...\"\"\", 45)!!` (natively compiles & runs `.cu` via `nvcc -arch=sm_53 -ccbin /usr/bin/gcc-7`, `.cpp`/`.c`, `.py`, and `.sh` — ALWAYS wrap multi-line code in triple quotes `\"\"\"...\"\"\"` and NEVER generate raw base64 in Actor code!), or `pullFile(Actor[#Jetson], \"/tmp/snap.jpg\", \"snap.jpg\", 30)!!` (stages into `/tmp/actorii_media/`; upload via `sendPhoto(Actor[#Telegram], at(res, #localPath), \"caption\")!!` or `sendDocument(...)!!`).",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "   - To search, read, write, patch, or test files in `/workspace` (`Actor[#Host]`): call `searchFile(Actor[#Host], \"/workspace\", \"pattern\", 15)!!`, `readFile(Actor[#Host], \"/workspace/file.py\", 1, 120)!!`, `editFile(Actor[#Host], \"/workspace/file.py\", \"\"\"old\"\"\", \"\"\"new\"\"\")!!`, `writeFile(Actor[#Host], \"/workspace/file.py\", \"\"\"full text\"\"\")!!`, or `execShell(Actor[#Host], \"python3 -m pytest -q\", 15)!!`.",
+                    "   - When parsing log/CSV/JSON/Parquet files, inspect sample lines/schemas first (`head -n 5`) and match exact bracketed tags (`[ERROR]`, `[WARNING]`) or schema columns.",
+                ]
+            )
+        lines.extend(
             [
-                "INSTRUCTIONS:",
-                "1. Output ONLY a single raw 1993 Actor 4.1 code chunk ending in `!!` or a `COMPLETE:` response directly. Never emit XML tool-call wrappers, markdown fences, or prose explanations before/after your Actor code!",
-                "2. If the user's goal is a pure conversational greeting or follow-up that requires NO math computation, NO file I/O, and NO new code execution (or if `LAST RESULT` / `STEPS EXECUTED IN CURRENT TURN SO FAR` already has the verified output), respond immediately with:",
-                "   COMPLETE: <clear, helpful conversational answer to the user>",
-                "   (NEVER guess math word-problem answers in prose on Step 1 — always compute the arithmetic in Actor 4.1 bytecode and write any requested output files first!)",
-                "3. If you need to inspect Valkyrie system health, check services/VRAM, or run a command, execute ONE concise Actor 4.1 expression ending in `!!` (e.g. `summary(Actor[#Valkyrie])!!`, `stackHealth(Actor[#Valkyrie])!!`, or inside the Docker sandbox `discoverLighting(Actor[#Valkyrie])!!`). As soon as the step outputs give you enough details to answer the user's question, stop running commands and reply with `COMPLETE: <your detailed conversational answer>`.",
-                "4. If the user asks you to build, query a Digital Twin, modify UI, compute, test, or set up something, respond ONLY with valid 1993 Actor 4.1 code ending in `!!`:",
-                "   - Store key results in the harness scratchpad via `storeScratch(Actor[#Harness], #key, value)!!` or in `Actor[#Key] := value!!`.",
-                "   - To search, read, write, patch, or test files in `/workspace` (`Actor[#Host]`): call `searchFile(Actor[#Host], \"/workspace\", \"pattern\", 15)!!` (searches a whole directory or a single file!), `readFile(Actor[#Host], \"/workspace/file.py\", 1, 120)!!`, `editFile(Actor[#Host], \"/workspace/file.py\", \"\"\"old\"\"\", \"\"\"new\"\"\")!!`, `writeFile(Actor[#Host], \"/workspace/file.py\", \"\"\"full multi-line text\"\"\")!!` (use triple-quoted strings `\"\"\"...\"\"\"` for multi-line code!), or `execShell(Actor[#Host], \"python3 -m pytest -q\", 15)!!`. When fixing inheritance/attribute bugs across a repo, use `searchFile` on `/workspace` to inspect the base classes too. When writing deprecation/removal error messages in a Python library, use the library's canonical import alias in backticks if standard (e.g. `` `nx.<func>` `` in NetworkX, or check existing docstrings/tests via `searchFile`).",
-                "   - When parsing or aggregating log, CSV, JSON, or Parquet files, ALWAYS inspect sample lines/schemas first (`execShell(Actor[#Host], \"head -n 5 /workspace/logs/*.log | head -n 20\", 10)!!`) and match exact bracketed severity tags (`[ERROR]`, `[WARNING]`, `[INFO]`) or exact schema columns rather than loose substring checks (`\"ERROR\" in line`).",
-                "   - To read or search local or remote PDF documents (`Actor[#PDF]`): call `fetchUrl(Actor[#PDF], \"https://.../doc.pdf\")!!`, `info(Actor[#PDF], pathOrUrl)!!`, `readPages(Actor[#PDF], pathOrUrl, 1, 5, 6000)!!`, or `searchText(Actor[#PDF], pathOrUrl, \"keyword\", 8, 6000)!!`. Never use `execShell` to `curl` PDFs when `Actor[#PDF]` is available!",
-                "   - To research, learn, and remember technical manuals for ANY hardware/software product (`Actor[#ProductLearner]`): call `learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")!!` (searches web + PDFs, distills specs/drivers/commands/gotchas, and saves Dual-Mode Neo4j `:Product` graph + `:8084` vector `:ProductManualChunk` memory), `ingestManual(Actor[#ProductLearner], \"Product Name\", urlOrPdfOrPath, \"focus topics\")!!`, `recallProduct(Actor[#ProductLearner], \"Product Name\", \"topic\")!!`, or `listProducts(Actor[#ProductLearner])!!`.",
-                "   - To add a button to the ThermoPro UI (`Actor[#ThermoUI]`): call `addButton(Actor[#ThermoUI], \"← Back to Studio\", \"/\")!!`.",
-                "   - To set up or run the built-in benchmark suite in `Actor[#Bench]`: call `setupTask(Actor[#Bench], #bugfix_hotpatch)!!`, `runTask(Actor[#Bench], #alg_primes)!!`, or `runAll(Actor[#Bench])!!`.",
-                "   - To search archived multi-session conversation episodes in Neo4j (`:ActorEpisode` + `:8084` vector hybrid): passive top-K episodes are hydrated automatically above, and you can actively run targeted keyword/semantic searches via `recallEpisodes(Actor[#Memory], \"specific keyword or topic\", 8)!!`.",
-                "   - When defining a class: prefer subclassing `GraphService` (for Neo4j queries/aggregations), `MetricEvaluator` (for polymorphic `evaluateRow(self, row)` scoring), `DomainEntity`, or an existing `:ActorEngram` (`inherit(GraphService, #ClassName, #(#ivar1 #ivar2), 2, nil)!! now(ClassName)!! Def init(self, a, b) { initService(self, \"Domain\"); self.ivar1 := a; self.ivar2 := b; ^self; }!! Def compute(self) { ^(self.ivar1 * self.ivar2); }!!`).",
-                "   - Instantiate user classes with `Actor[#Inst] := init(new(ClassName), arg1, arg2)!!` and call methods with prefix syntax `compute(Actor[#Inst])` (NEVER `inst.compute()`).",
-                "5. Once the goal is achieved and verified in the scratchpad, `LAST RESULT`, or pool (or on a new line immediately after an Actor `!!` chunk that stores the final result in `storeScratch`), respond with:",
-                "   COMPLETE: <concise final answer and summary>",
+                "   - Subclass `GraphService`, `MetricEvaluator`, `DomainEntity`, or an existing `:ActorEngram`; instantiate via `Actor[#Inst] := init(new(ClassName), arg1)!!` with prefix calls `compute(Actor[#Inst])`.",
+                "5. Once verified in `LAST RESULT` or scratchpad, reply: `COMPLETE: <concise final answer>`.",
             ]
         )
+        return "\n".join(lines)
 
     @actor_query
     def extractAction(self, raw_reply: str) -> str:
@@ -1327,6 +1655,31 @@ class VMSandboxBridge:
 
         chunk_src, comp_summary = _split_code_and_complete(raw)
 
+        # 0a. Guard against LLM echoing history summary truncation placeholders (`... <N chars total> ...`) into code:
+        if chunk_src and re.search(r"<\d+\s+chars\s+total>", chunk_src):
+            trunc_msg = (
+                "ActorGuardrailError: TruncatedPlaceholderError: Your code contains a literal history summary placeholder "
+                "(`... <N chars total> ...`). Never copy abbreviated summary markers—always emit complete, compilable source code!"
+            )
+            failures = int(harness_obj._fields.get("failures", 0) or 0) + 1
+            harness_obj._fields["failures"] = failures
+            harness_obj._fields["lastError"] = trunc_msg
+            trunc_entry = {
+                "step": step_num,
+                "action": chunk_src,
+                "status": "error",
+                "tier": "TIER_0_READ_ONLY",
+                "gas_used": 0,
+                "error": trunc_msg,
+                "rolled_back": True,
+                "failures": failures,
+                "timestamp": time.time(),
+            }
+            if isinstance(step_log, ActorOrderedCollection):
+                step_log.add(trunc_entry)
+            self._notify_step(trunc_entry)
+            return f"ERROR: {trunc_msg}"
+
         # 0. Guard against identical recent step repetition (including A-B-A-B ping-pong across warnings):
         # inspect the last 4 steps in `step_log` so a warning step never resets duplicate detection.
         if chunk_src and comp_summary is None and isinstance(step_log, (ActorOrderedCollection, list)) and len(step_log) > 0:
@@ -1341,6 +1694,20 @@ class VMSandboxBridge:
                     matched_prev = cand_entry
                     break
             if matched_prev is not None:
+                prior_dups = sum(
+                    1
+                    for e in list(step_log)
+                    if isinstance(e, dict) and str(e.get("error", "")).startswith("DuplicateStepWarning:")
+                )
+                dup_count = prior_dups + 1
+                failures = int(harness_obj._fields.get("failures", 0) or 0)
+                if dup_count >= 2:
+                    failures += 1
+                    harness_obj._fields["failures"] = failures
+                raw_max_failures = harness_obj._fields.get("maxFailures")
+                max_failures = 5 if raw_max_failures is None else int(raw_max_failures)
+                if dup_count >= 3 or (max_failures > 0 and failures >= max_failures):
+                    harness_obj._fields["status"] = Symbol("blocked")
                 dup_msg = (
                     "DuplicateStepWarning: You just re-emitted the exact same Actor 4.1 code chunk that already "
                     f"executed in Step {matched_prev.get('step')} (result={matched_prev.get('result')!r}, "
@@ -1359,7 +1726,7 @@ class VMSandboxBridge:
                     "gas_used": 0,
                     "error": dup_msg,
                     "rolled_back": True,
-                    "failures": int(harness_obj._fields.get("failures", 0) or 0),
+                    "failures": failures,
                     "timestamp": time.time(),
                 }
                 if isinstance(step_log, ActorOrderedCollection):
@@ -1370,34 +1737,77 @@ class VMSandboxBridge:
         # 1. Pure `COMPLETE:` directive (or direct conversational reply) with no preceding code
         if not chunk_src and comp_summary is not None:
             summary = comp_summary or str(prev_exec_result if prev_exec_result is not None else "Done")
-            # Guard against verbatim reply repetition: if the user gave a new prompt on Step 1 (no code run yet)
-            # and the model emitted the exact same reply string as the immediately preceding turn (> 120 chars),
-            # reject it and instruct the model to actually compute/evaluate or rewrite for the new user prompt!
+            # Guard against verbatim or near-verbatim reply parroting across ALL steps (not only step 1!):
+            # reject stale copy-pasted speeches from the last 3 turns unless already rejected twice in this turn.
             chat_log = harness_obj._fields.get("chatLog")
             current_goal = str(harness_obj._fields.get("goal", "") or "").strip()
+            prior_parrot_warnings = (
+                sum(
+                    1
+                    for e in list(step_log)
+                    if isinstance(e, dict) and str(e.get("error", "")).startswith("DuplicateReplyError:")
+                )
+                if isinstance(step_log, (ActorOrderedCollection, list))
+                else 0
+            )
             if (
-                step_num == 1
+                prior_parrot_warnings < 2
                 and len(summary) > 120
                 and isinstance(chat_log, (ActorOrderedCollection, list))
                 and len(chat_log) > 0
             ):
-                last_turn = list(chat_log)[-1]
-                if (
-                    isinstance(last_turn, dict)
-                    and str(last_turn.get("reply", "")).strip() == summary.strip()
-                    and str(last_turn.get("user", "")).strip() != current_goal
-                ):
+                has_valid_tool_step = any(
+                    isinstance(e, dict)
+                    and e.get("status") == "ok"
+                    and not e.get("unhandled_selector")
+                    and not str(e.get("action", "")).strip().upper().startswith("COMPLETE:")
+                    for e in (list(step_log) if isinstance(step_log, (ActorOrderedCollection, list)) else [])
+                )
+                norm_sum = " ".join(summary.lower().split())
+                nums_sum = re.findall(r"-?\d+(?:\.\d+)?", norm_sum)
+                stop_goal_w = {"what", "whats", "where", "when", "check", "give", "show", "tell", "current", "status", "the", "and", "for", "with", "how", "now"}
+                cur_goal_words = {
+                    w.lower()
+                    for w in re.findall(r"[A-Za-z0-9]+", current_goal)
+                    if len(w) >= 4 and w.lower() not in stop_goal_w
+                }
+                matched_stale_turn = None
+                for prev_turn in reversed(list(chat_log)[-3:]):
+                    if not isinstance(prev_turn, dict):
+                        continue
+                    prev_user = str(prev_turn.get("user", "")).strip()
+                    if prev_user == current_goal:
+                        continue
+                    prev_rep = str(prev_turn.get("reply", "") or "").strip()
+                    if len(prev_rep) <= 100:
+                        continue
+                    norm_prev = " ".join(prev_rep.lower().split())
+                    nums_prev = re.findall(r"-?\d+(?:\.\d+)?", norm_prev)
+                    # Never flag as parroted when numeric measurements/metrics changed!
+                    if nums_sum != nums_prev and (nums_sum or nums_prev):
+                        continue
+                    # When a valid tool step ran in THIS turn, allow template-similar answers or repeated sensor queries
+                    if has_valid_tool_step:
+                        prev_goal_words = {
+                            w.lower()
+                            for w in re.findall(r"[A-Za-z0-9]+", prev_user)
+                            if len(w) >= 4 and w.lower() not in stop_goal_w
+                        }
+                        if norm_prev != norm_sum or bool(cur_goal_words & prev_goal_words):
+                            continue
+                    if norm_prev == norm_sum or SequenceMatcher(None, norm_prev[:1200], norm_sum[:1200]).ratio() >= 0.86:
+                        matched_stale_turn = prev_turn
+                        break
+                if matched_stale_turn is not None:
                     rep_msg = (
-                        "DuplicateReplyError: You just emitted the exact same prose reply as the previous turn "
-                        f"without addressing the user's new instruction ({current_goal!r}) or running your Engram tools! "
-                        "If the user asked for a specific calculation, verification, or modified output, "
-                        "execute an Actor 4.1 expression (e.g. `selector(Actor[#SkillName], args)!!`) "
-                        "to compute the exact values first, then write a fresh response!"
+                        "DuplicateReplyError: You just repeated nearly the exact same prose reply from a previous turn "
+                        f"(Turn {matched_stale_turn.get('turn')}) instead of directly answering the user's current request ({current_goal!r})! "
+                        "Synthesize a fresh, concise response grounded specifically in the steps executed during THIS turn (or execute the needed Actor 4.1 tool call first)."
                     )
                     harness_obj._fields["lastError"] = rep_msg
                     rep_entry = {
                         "step": step_num,
-                        "action": f"COMPLETE: {summary[:80]}...",
+                        "action": f"COMPLETE: {summary}",
                         "status": "error",
                         "tier": "TIER_0_READ_ONLY",
                         "gas_used": 0,
@@ -1473,6 +1883,7 @@ class VMSandboxBridge:
                     goal_description=str(harness_obj._fields.get("goal", "") or ""),
                 )
 
+            unhandled_sel = getattr(self.vm, "_last_unhandled_selector", None)
             entry = {
                 "step": step_num,
                 "action": chunk_src,
@@ -1483,13 +1894,14 @@ class VMSandboxBridge:
                 "auto_engrams": auto_engrams,
                 "timestamp": time.time(),
             }
+            if result is None and unhandled_sel:
+                entry["unhandled_selector"] = str(unhandled_sel)
             step_log = harness_obj._fields.get("stepLog")
             if isinstance(step_log, ActorOrderedCollection):
                 step_log.add(entry)
             self._notify_step(entry)
 
             if comp_summary is not None:
-                harness_obj._fields["status"] = Symbol("complete")
                 harness_obj._fields["status"] = Symbol("complete")
                 harness_obj._fields["lastResult"] = comp_summary
                 comp_entry = {
@@ -1550,7 +1962,20 @@ class VMSandboxBridge:
             harness_obj._fields["lastErrorContext"] = self._build_error_context_dict(
                 err_kind, err_msg, frame_info
             )
-            if max_failures > 0 and failures >= max_failures:
+            step_log = harness_obj._fields.get("stepLog")
+            identical_err_streak = 0
+            if isinstance(step_log, (ActorOrderedCollection, list)):
+                for prev_e in reversed(list(step_log)[-3:]):
+                    if (
+                        isinstance(prev_e, dict)
+                        and prev_e.get("status") == "error"
+                        and str(prev_e.get("action", "")).strip() == chunk_src.strip()
+                        and str(prev_e.get("error", "")) == err_msg
+                    ):
+                        identical_err_streak += 1
+                    else:
+                        break
+            if (max_failures > 0 and failures >= max_failures) or (max_failures <= 0 and identical_err_streak >= 3):
                 harness_obj._fields["status"] = Symbol("blocked")
 
             entry = {
@@ -1564,7 +1989,6 @@ class VMSandboxBridge:
                 "failures": failures,
                 "timestamp": time.time(),
             }
-            step_log = harness_obj._fields.get("stepLog")
             if isinstance(step_log, ActorOrderedCollection):
                 step_log.add(entry)
             self._notify_step(entry)
@@ -1768,6 +2192,14 @@ class VMSandboxBridge:
         return str(out_path)
 
     def _notify_step(self, entry: Dict[str, Any]) -> None:
+        if not getattr(self.vm, "_in_shadow_run", False):
+            try:
+                actor_dict = self.vm.global_vars.get("Actor", {})
+                h_obj = actor_dict.get("Harness") if isinstance(actor_dict, dict) else None
+                turn_id = str(getattr(h_obj, "_active_turn_id", "") or "vm-turn")
+                GLOBAL_TELEMETRY.log_step_exec(turn_id=turn_id, entry=entry)
+            except Exception:
+                pass
         for cb in list(self.step_callbacks):
             try:
                 cb(entry)
@@ -1792,6 +2224,7 @@ def bootstrap_agent_harness(
 ) -> Tuple[ActorVM, Agent, VMSandboxBridge]:
     """Load `agent_harness.act` into `vm` and instantiate `Actor[#Harness]` / `Actor[#Bilby]` and `Actor[#Sandbox]`."""
     model = model or os.environ.get("ACTORII_LLM_MODEL", "qwen3.8:latest").strip() or "qwen3.8:latest"
+    disable_demo = os.environ.get("ACTORII_DISABLE_DEMO_TWINS") == "1"
     active_vm = vm or ActorVM()
     active_vm.lock_system_singletons = False
     if enable_guardrails:
@@ -1834,12 +2267,16 @@ def bootstrap_agent_harness(
     bench_py = ActorBenchSuite(active_vm)
     active_vm.expose_object(bench_py, global_key="#Bench")
 
+    threads_py = ActorThreadPoolTwin(active_vm, max_workers=8)
+    active_vm.expose_object(threads_py, global_key="#Threads")
+
     valkyrie_py = ValkyrieSystemTwin()
     active_vm.expose_object(valkyrie_py, global_key="#Valkyrie")
     active_vm.expose_object(valkyrie_py, global_key="#System")
 
-    hue_py = SmartLightTwin()
-    active_vm.expose_object(hue_py, global_key="#Hue")
+    if not disable_demo:
+        hue_py = SmartLightTwin()
+        active_vm.expose_object(hue_py, global_key="#Hue")
 
     pantry_py = PantryGraphTwin()
     active_vm.expose_object(pantry_py, global_key="#Pantry")
@@ -1863,8 +2300,10 @@ def bootstrap_agent_harness(
     pdf_py = PDFDocumentTwin()
     active_vm.expose_object(pdf_py, global_key="#PDF")
 
+    thermo_mac = os.environ.get("ACTORII_THERMO_MAC", "" if disable_demo else "00:11:22:33:44:55").strip()
+    thermo_label = "TP358S" if disable_demo else "TP358S (Demo)"
     active_vm.eval_chunk(
-        'Actor[#Thermometer] := new(ThermoProTwin, "00:11:22:33:44:55", "TP358S (Demo)")!!\n'
+        f"Actor[#Thermometer] := new(ThermoProTwin, {thermo_mac!r}, {thermo_label!r})!!\n"
         'Actor[#ThermoUI] := new(ThermometerUI, Actor[#Thermometer], "ThermoPro TP358W Digital Twin")!!'
     )
 

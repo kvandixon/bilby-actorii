@@ -10,6 +10,7 @@ bytecode VM, Neo4j Engram memory (`Actor[#Memory]`), and Digital Twins
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import os
 import signal
@@ -20,6 +21,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from actorii.harness import bootstrap_agent_harness
+from actorii.harness.telemetry import (
+    format_last_turn_trace,
+    render_telegram_chunks,
+    resolve_actorii_state_dir,
+    summarize_actor_action_brief,
+)
 from actorii.harness.twins import load_telegram_credentials, telegram_api_request
 from actorii.tui import ActorTUISession
 
@@ -60,8 +67,8 @@ class BilbyTelegramGateway:
         default_thread_id: Optional[int] = None,
         model: str = "qwen3.8:latest",
         endpoint: Optional[str] = None,
-        max_steps: int = 0,
-        max_failures: int = 0,
+        max_steps: int = 25,
+        max_failures: int = 6,
         poll_timeout: int = 20,
         state_path: Optional[Path] = None,
         session: Optional[ActorTUISession] = None,
@@ -81,7 +88,9 @@ class BilbyTelegramGateway:
             default_thread_id if default_thread_id is not None else creds["thread_id"]
         )
         self.poll_timeout = max(1, int(poll_timeout))
-        self.state_path = state_path or DEFAULT_GATEWAY_STATE
+        active_state_dir = resolve_actorii_state_dir()
+        self.state_path = state_path or (active_state_dir / "telegram_gateway_state.json")
+        self.inbox_path = active_state_dir / "supervisor_inbox.jsonl"
         self._api = api_caller or telegram_api_request
 
         # Enforce production host-lockdown by default when running as the standalone daemon
@@ -95,18 +104,41 @@ class BilbyTelegramGateway:
             max_failures=max_failures,
             use_color=False,
         )
+        self.session.surface_name = "telegram"
         self.offset: int = 0
         self.total_turns: int = 0
         self.total_steps: int = 0
         self.total_gas: int = 0
+        self._verbose_output: bool = False
         self._consecutive_poll_errors: int = 0
         self._frozen: bool = False
         self._cancel_requested: bool = False
         self._async_goals: bool = False
         self._goal_thread: Optional[threading.Thread] = None
         self._load_state()
+        self._sync_telegram_twin_route(self.default_chat_id, self.default_thread_id)
         self._running = True
         self.bot_username = os.environ.get("TELEGRAM_BOT_USERNAME", "bilby_bot").strip() or "bilby_bot"
+
+    def _get_telegram_twin(self) -> Optional[Any]:
+        """Return the underlying `TelegramBotTwin` bound to `Actor[#Telegram]`, if present."""
+        try:
+            actor_pool = getattr(self.session.vm, "global_vars", {}).get("Actor")
+            tg_bridge = actor_pool.get("Telegram") if isinstance(actor_pool, dict) else None
+            return getattr(tg_bridge, "target", tg_bridge)
+        except Exception:
+            return None
+
+    def _sync_telegram_twin_route(self, chat_id: Any, thread_id: Optional[int]) -> int:
+        """Sync active `(chat_id, thread_id)` onto `Actor[#Telegram]` and return its current `_sent_log` count."""
+        tg_target = self._get_telegram_twin()
+        if tg_target is not None:
+            if hasattr(tg_target, "_set_active_route"):
+                tg_target._set_active_route(chat_id, thread_id)
+            sent_log = getattr(tg_target, "_sent_log", None)
+            if isinstance(sent_log, list):
+                return len(sent_log)
+        return 0
 
     def _load_state(self) -> int:
         try:
@@ -116,6 +148,7 @@ class BilbyTelegramGateway:
                 self.total_turns = int(data.get("total_turns", 0) or 0)
                 self.total_steps = int(data.get("total_steps", 0) or 0)
                 self.total_gas = int(data.get("total_gas", 0) or 0)
+                self._verbose_output = bool(data.get("verbose_output", False))
                 saved_turns = data.get("chat_history")
                 if isinstance(saved_turns, list) and saved_turns:
                     from actorii.classes.collections import ActorOrderedCollection
@@ -182,6 +215,7 @@ class BilbyTelegramGateway:
                         "total_turns": max(self.total_turns, len(turns)),
                         "total_steps": self.total_steps,
                         "total_gas": self.total_gas,
+                        "verbose_output": self._verbose_output,
                         "chat_history": recent_turns,
                         "scratchpad": scratch_dict,
                     },
@@ -200,22 +234,81 @@ class BilbyTelegramGateway:
         thread_id: Optional[int] = None,
         reply_to_message_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Send one or more chunked messages to `chat_id` (preserving forum `message_thread_id`)."""
+        """Send one or more mobile-friendly HTML-rendered chunks to `chat_id`, with automatic plain-text fallback."""
         results: List[Dict[str, Any]] = []
         cid = int(chat_id) if str(chat_id).lstrip("-").isdigit() else chat_id
-        for idx, part in enumerate(_split_telegram_message(text)):
-            payload: Dict[str, Any] = {"chat_id": cid, "text": part}
+        rendered_chunks = render_telegram_chunks(text or "(empty response)")
+        for idx, (html_part, plain_part) in enumerate(rendered_chunks):
+            if not html_part and not plain_part:
+                html_part = plain_part = "(empty response)"
+            payload: Dict[str, Any] = {
+                "chat_id": cid,
+                "text": html_part or plain_part,
+                "parse_mode": "HTML",
+            }
             if thread_id is not None and int(thread_id) > 0:
                 payload["message_thread_id"] = int(thread_id)
             if idx == 0 and reply_to_message_id is not None:
                 payload["reply_to_message_id"] = int(reply_to_message_id)
             res = self._api(self.token, "sendMessage", payload, 15.0)
-            if not res.get("ok") and "message_thread_id" in payload:
-                # Fallback to root chat if topic thread was closed/deleted
-                fallback_payload = {k: v for k, v in payload.items() if k != "message_thread_id"}
-                res = self._api(self.token, "sendMessage", fallback_payload, 15.0)
+            if not res.get("ok"):
+                desc = str(res.get("description", "")).lower()
+                # 1. If HTML entity/parse error occurred, retry immediately as clean plain text
+                if "parse" in desc or "entities" in desc or "tag" in desc or res.get("error_code") == 400:
+                    plain_payload = {k: v for k, v in payload.items() if k != "parse_mode"}
+                    plain_payload["text"] = plain_part or "(empty response)"
+                    res = self._api(self.token, "sendMessage", plain_payload, 15.0)
+                # 2. Fallback to root chat if forum topic thread was closed/deleted
+                if not res.get("ok") and "message_thread_id" in payload:
+                    fallback_payload = {
+                        k: v for k, v in payload.items() if k not in ("message_thread_id", "parse_mode")
+                    }
+                    fallback_payload["text"] = plain_part or "(empty response)"
+                    res = self._api(self.token, "sendMessage", fallback_payload, 15.0)
             results.append(res)
         return results
+
+    def edit_message(
+        self,
+        chat_id: Any,
+        message_id: int,
+        text: str,
+    ) -> Dict[str, Any]:
+        """Edit an existing Telegram message in-place with HTML formatting and plain-text fallback."""
+        cid = int(chat_id) if str(chat_id).lstrip("-").isdigit() else chat_id
+        rendered_chunks = render_telegram_chunks(text or "(empty response)")
+        html_part, plain_part = rendered_chunks[0] if rendered_chunks else ("(empty response)", "(empty response)")
+        payload: Dict[str, Any] = {
+            "chat_id": cid,
+            "message_id": int(message_id),
+            "text": html_part or plain_part or "(empty response)",
+            "parse_mode": "HTML",
+        }
+        res = self._api(self.token, "editMessageText", payload, 15.0)
+        if not res.get("ok"):
+            desc = str(res.get("description", "")).lower()
+            if "message is not modified" in desc:
+                return {"ok": True, "not_modified": True}
+            if "parse" in desc or "entities" in desc or "tag" in desc or res.get("error_code") == 400:
+                plain_payload = {k: v for k, v in payload.items() if k != "parse_mode"}
+                plain_payload["text"] = plain_part or "(empty response)"
+                res = self._api(self.token, "editMessageText", plain_payload, 15.0)
+                if not res.get("ok") and "message is not modified" in str(res.get("description", "")).lower():
+                    return {"ok": True, "not_modified": True}
+        return res
+
+    def delete_message(self, chat_id: Any, message_id: int) -> Dict[str, Any]:
+        """Delete a temporary status message from `chat_id`."""
+        cid = int(chat_id) if str(chat_id).lstrip("-").isdigit() else chat_id
+        try:
+            return self._api(
+                self.token,
+                "deleteMessage",
+                {"chat_id": cid, "message_id": int(message_id)},
+                10.0,
+            )
+        except Exception as exc:
+            return {"ok": False, "description": str(exc)}
 
     def send_typing(self, chat_id: Any, thread_id: Optional[int] = None) -> None:
         cid = int(chat_id) if str(chat_id).lstrip("-").isdigit() else chat_id
@@ -298,6 +391,8 @@ class BilbyTelegramGateway:
             "/lockdown",
             "/security",
             "/status",
+            "/last",
+            "/verbose",
             "/help",
             "/start",
         )
@@ -306,7 +401,7 @@ class BilbyTelegramGateway:
         """Process a Telegram message (`slash` command or natural-language/Actor 4.1 goal) via Bilby."""
         clean = (text or "").strip()
         if not clean:
-            return "Send a message, Actor 4.1 chunk (`!!`), or `/stop`, `/status`, `/controls`, `/freeze`, `/twins`, `/engrams`, `/clear`."
+            return "Send a message, Actor 4.1 chunk (`!!`), or `/last`, `/verbose`, `/stop`, `/status`, `/controls`, `/twins`, `/clear`."
 
         # Strip @BotUsername suffix from slash commands (e.g. /status@bilby_bot)
         if clean.startswith("/"):
@@ -342,26 +437,44 @@ class BilbyTelegramGateway:
             if cmd_lower in ("/controls", "/lockdown", "/security"):
                 return self.format_security_controls()
 
+            if cmd_lower == "/last":
+                turns = self.session.sandbox.getChatHistory(self.session.harness)
+                last_turn = turns[-1] if (turns and isinstance(turns[-1], dict)) else None
+                raw_steps = list(self.session.harness._fields.get("stepLog") or [])
+                return format_last_turn_trace(last_turn, raw_steps)
+
+            if cmd_lower == "/verbose":
+                mode = arg_str.lower()
+                if mode in ("on", "1", "true"):
+                    self._verbose_output = True
+                elif mode in ("off", "0", "false"):
+                    self._verbose_output = False
+                elif not mode:
+                    self._verbose_output = not self._verbose_output
+                self._save_offset(self.offset)
+                if self._verbose_output:
+                    return "🔊 **Verbose mode ON** — replies will include executed Actor 4.1 code blocks inline."
+                return "✨ **Verbose mode OFF** — replies are clean human prose (use `/last` anytime to inspect Actor 4.1 code & VM results)."
+
             if self._frozen:
                 return "❄️ Bilby is currently FROZEN by kill-switch (`/freeze`). Send `/unlock` or `/controls`."
 
             if cmd_lower in ("/start", "/help"):
                 return (
-                    "🦘 Bilby (ActorII v4.2.0 Metacircular Agent Harness — Hardened Lockdown)\n"
-                    "Resident System AI on valkyrie (Actor-inspired Linux VM).\n\n"
-                    "Commands:\n"
-                    "• Plain English or Actor 4.1 code (`!!`) — Runs Bilby's guarded ReAct loop (unlimited retries)\n"
-                    "• /stop (or /cancel) — Break Bilby out of an active ReAct loop immediately\n"
-                    "• /proxy [status|links|lan|tailscale|local|pause|auth on|auth off|rotate|logs] — Manage WLAN & Tailscale `:8090` Reverse Proxy\n"
-                    "• /controls — Inspect active security & containment locks\n"
-                    "• /freeze | /unlock — Emergency kill-switch to freeze/unfreeze Bilby\n"
-                    "• /eval <code!!> — Direct Actor 4.1 bytecode evaluation (Ring 0/1 & Host-Lockdown enforced)\n"
-                    "• /status — VM, GPU VRAM, and Harness status\n"
-                    "• /twins — Live Digital Twins & Skills (Valkyrie, Jetson, ProductLearner, Proxy, ReverseEngineer, Thermometer, Pantry, Telegram)\n"
-                    "• /engrams — List crystallized Neo4j ActorEngrams\n"
-                    "• /scratch — Inspect `Actor[#Bilby]` scratchpad\n"
-                    "• /history — Recent multi-turn conversation history\n"
-                    "• /clear — Clear conversation history & reset circuit breaker"
+                    "🦘 **Bilby** (ActorII v4.2.0 Metacircular Agent Harness — Hardened Lockdown)\n"
+                    "Resident System AI on `valkyrie`.\n\n"
+                    "**Commands:**\n"
+                    "• Plain English or Actor 4.1 code (`!!`) — Guarded ReAct loop (clean human output)\n"
+                    "• `/last` — Inspect the Actor 4.1 code & VM results from the last turn\n"
+                    "• `/verbose [on|off]` — Toggle inline Actor 4.1 code blocks in replies\n"
+                    "• `/stop` (or `/cancel`) — Break Bilby out of an active loop immediately\n"
+                    "• `/status` — VM, GPU VRAM, and Harness status\n"
+                    "• `/twins` — Live Digital Twins (`Valkyrie`, `Jetson`, `ProductLearner`, `Proxy`, `ReverseEngineer`, `Thermometer`, `Pantry`, `Telegram`)\n"
+                    "• `/proxy [status|links|lan|tailscale|local|pause]` — Manage `:8090` Reverse Proxy\n"
+                    "• `/controls` — Inspect active security & containment locks\n"
+                    "• `/freeze` | `/unlock` — Emergency kill-switch\n"
+                    "• `/eval <code!!>` — Direct Actor 4.1 bytecode evaluation\n"
+                    "• `/engrams` | `/scratch` | `/history` | `/clear`"
                 )
 
             if cmd_lower == "/eval" and arg_str:
@@ -371,7 +484,7 @@ class BilbyTelegramGateway:
                 out = "\n".join(self.session.transcript[before:]).strip()
                 return out or "Evaluated."
 
-            if cmd_lower in ("/status", "/proxy", "/twins", "/engrams", "/scratch", "/history", "/clear", "/classes", "/schema", "/capabilities", "/caps", "/config"):
+            if cmd_lower in ("/status", "/proxy", "/twins", "/engrams", "/scratch", "/history", "/clear", "/classes", "/schema", "/capabilities", "/caps", "/config", "/bench"):
                 before = len(self.session.transcript)
                 self.session.handle_input(f"{cmd_lower} {arg_str}".strip())
                 out = "\n".join(self.session.transcript[before:]).strip()
@@ -382,11 +495,11 @@ class BilbyTelegramGateway:
 
         # Execute via Bilby's multi-turn conversational + Actor 4.1 bytecode ReAct loop
         before_turns = len(self.session.sandbox.getChatHistory(self.session.harness))
-        before = len(self.session.transcript)
+        t0 = time.time()
         self.session.handle_input(f"/chat {clean}")
-        new_lines = self.session.transcript[before:]
+        elapsed = time.time() - t0
 
-        # Extract final answer + any compiled Actor 4.1 bytecode steps executed in this turn
+        # Extract final human answer (Option A: clean prose + subtle 1-line badge when tools ran; code in logs & `/last`)
         turns = self.session.sandbox.getChatHistory(self.session.harness)
         h_status = str(self.session.harness._fields.get("status", "")).lstrip("#")
         if len(turns) > before_turns and isinstance(turns[-1], dict):
@@ -399,27 +512,32 @@ class BilbyTelegramGateway:
             self.total_steps += steps
             self.total_gas += gas
             self._save_offset(self.offset)
+            if self._verbose_output and actions:
+                act_block = "\n".join(str(a) for a in actions)
+                return f"{reply}\n\n```actor\n{act_block}\n```\n_⚡ {steps} step(s) · {elapsed:.1f}s · {gas} ops_"
             if actions:
-                act_block = "\n".join(f"  {a}" for a in actions)
-                return f"{reply}\n\n⚡ [Actor 4.1 · {steps} step(s) · {gas} ops]\n{act_block}"
+                step_word = "step" if steps == 1 else "steps"
+                return f"{reply}\n\n_⚡ {steps} {step_word} · {elapsed:.1f}s_"
             if reply:
                 return reply
 
-        # If the goal was stopped by user or halted without a COMPLETE turn, format a clear diagnostic
+        # If the goal was stopped by user or halted without a COMPLETE turn, format a clean human diagnostic (never dump raw transcript!)
         self._save_offset(self.offset)
         last_err = str(self.session.harness._fields.get("lastError") or "").strip()
         steps_used = int(self.session.harness._fields.get("stepCount", 0) or 0)
         if self._cancel_requested and h_status in ("halted", "blocked"):
             self._cancel_requested = False
-            return f"⏹ Goal stopped by user (`status=#{h_status}`, steps={steps_used})."
+            return f"⏹ Stopped at step {steps_used} ({elapsed:.1f}s). Send `/last` to inspect the execution trace."
         self._cancel_requested = False
         if h_status in ("blocked", "halted") or last_err:
+            err_first = last_err.splitlines()[0][:200] if last_err else ""
+            detail = f"\nReason: `{err_first}`" if err_first else ""
             return (
-                f"⚠️ Goal halted (`status=#{h_status}`, steps={steps_used}).\n"
-                + (f"Last error: `{last_err}`" if last_err else "")
-            ).strip()
-        fallback = "\n".join(new_lines).strip()
-        return fallback or str(self.session.harness._fields.get("lastResult") or "Completed.")
+                f"⚠️ I paused after **{steps_used} step(s)** ({elapsed:.1f}s) before reaching a verified answer.{detail}\n\n"
+                "Send `/last` to view the trace, or reply with a more specific target."
+            )
+        last_res = self.session.harness._fields.get("lastResult")
+        return str(last_res) if last_res not in (None, "") else "Completed."
 
     def _run_update_sync(
         self,
@@ -430,15 +548,101 @@ class BilbyTelegramGateway:
         text: str,
         *,
         keep_typing: bool = False,
+        live_progress: Optional[bool] = None,
     ) -> str:
         stop_typing = threading.Event()
+        cid = int(chat_id) if str(chat_id).lstrip("-").isdigit() else chat_id
+        clean_in = (text or "").strip()
+        use_progress = (
+            bool(keep_typing) if live_progress is None else bool(live_progress)
+        ) and not clean_in.startswith("/")
+
+        progress_lock = threading.Lock()
+        progress_state: Dict[str, Any] = {
+            "msg_id": None,
+            "last_edit": 0.0,
+            "last_html": "",
+            "finished": False,
+        }
+
+        def _upsert_progress(status_html: str, *, force: bool = False) -> None:
+            if not use_progress:
+                return
+            with progress_lock:
+                if progress_state["finished"] or status_html == progress_state["last_html"]:
+                    return
+                now_m = time.monotonic()
+                cur_mid = progress_state["msg_id"]
+                if cur_mid is not None and not force and (now_m - progress_state["last_edit"]) < 1.2:
+                    return
+                if cur_mid is None:
+                    p_load: Dict[str, Any] = {
+                        "chat_id": cid,
+                        "text": status_html,
+                        "parse_mode": "HTML",
+                    }
+                    if thread_id is not None and int(thread_id) > 0:
+                        p_load["message_thread_id"] = int(thread_id)
+                    if msg_id is not None:
+                        p_load["reply_to_message_id"] = int(msg_id)
+                    try:
+                        res_p = self._api(self.token, "sendMessage", p_load, 10.0)
+                        if res_p.get("ok") and isinstance(res_p.get("result"), dict):
+                            m_val = res_p["result"].get("message_id")
+                            if m_val is not None:
+                                progress_state["msg_id"] = int(m_val)
+                                progress_state["last_edit"] = now_m
+                                progress_state["last_html"] = status_html
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        res_e = self._api(
+                            self.token,
+                            "editMessageText",
+                            {
+                                "chat_id": cid,
+                                "message_id": int(cur_mid),
+                                "text": status_html,
+                                "parse_mode": "HTML",
+                            },
+                            10.0,
+                        )
+                        if res_e.get("ok") or "not modified" in str(res_e.get("description", "")).lower():
+                            progress_state["last_edit"] = now_m
+                            progress_state["last_html"] = status_html
+                    except Exception:
+                        pass
+
+        def _on_live_step(entry: Dict[str, Any]) -> None:
+            if not use_progress or not isinstance(entry, dict):
+                return
+            st = str(entry.get("status", "ok"))
+            if st == "complete":
+                return
+            st_n = int(entry.get("step", 1) or 1)
+            if st == "error":
+                _upsert_progress(f"↻ <i>Step {st_n}: refining approach...</i>")
+                return
+            brief = html.escape(summarize_actor_action_brief(str(entry.get("action", "")), max_len=52))
+            _upsert_progress(
+                f"⚡ <i>Step {st_n}:</i> <code>{brief}</code>",
+                force=(progress_state["msg_id"] is None),
+            )
 
         def _typing_loop() -> None:
+            if not stop_typing.wait(2.5):
+                if use_progress and progress_state["msg_id"] is None:
+                    _upsert_progress("⏳ <i>Thinking...</i>", force=True)
+                self.send_typing(chat_id, thread_id=thread_id)
             while not stop_typing.wait(4.5):
                 self.send_typing(chat_id, thread_id=thread_id)
 
         typing_thread: Optional[threading.Thread] = None
+        sent_before = self._sync_telegram_twin_route(chat_id, thread_id)
         self.send_typing(chat_id, thread_id=thread_id)
+        if use_progress:
+            self.session.sandbox.step_callbacks.append(_on_live_step)
         if keep_typing:
             typing_thread = threading.Thread(target=_typing_loop, daemon=True)
             typing_thread.start()
@@ -449,17 +653,42 @@ class BilbyTelegramGateway:
         except Exception as exc:
             reply_text = f"⚠️ Bilby harness error: {type(exc).__name__}: {exc}"
         finally:
+            with progress_lock:
+                progress_state["finished"] = True
+                status_mid = progress_state["msg_id"]
             stop_typing.set()
+            if use_progress:
+                try:
+                    self.session.sandbox.step_callbacks.remove(_on_live_step)
+                except ValueError:
+                    pass
         elapsed = time.time() - t0
 
-        self.send_message(
-            chat_id,
-            reply_text,
-            thread_id=thread_id,
-            reply_to_message_id=msg_id,
-        )
+        tg_target = self._get_telegram_twin()
+        sent_after = len(getattr(tg_target, "_sent_log", []) or []) if tg_target is not None else sent_before
+        twin_sent_media = sent_after > sent_before
+
+        delivered_in_place = False
+        if status_mid is not None:
+            rendered_chunks = render_telegram_chunks(reply_text or "(empty response)")
+            if len(rendered_chunks) == 1 and not twin_sent_media:
+                edit_res = self.edit_message(chat_id, status_mid, reply_text)
+                if edit_res.get("ok"):
+                    delivered_in_place = True
+                else:
+                    self.delete_message(chat_id, status_mid)
+            else:
+                self.delete_message(chat_id, status_mid)
+
+        if not delivered_in_place:
+            self.send_message(
+                chat_id,
+                reply_text,
+                thread_id=thread_id,
+                reply_to_message_id=msg_id,
+            )
         print(
-            f"[bilby-telegram] Replied to update #{upd_id} in {elapsed:.2f}s ({len(reply_text)} chars)",
+            f"[bilby-telegram] Replied to update #{upd_id} in {elapsed:.2f}s ({len(reply_text)} chars, in_place={delivered_in_place})",
             flush=True,
         )
         return reply_text
@@ -594,19 +823,20 @@ class BilbyTelegramGateway:
         """Process any local supervisor tasks/notifications dropped into `~/.actorii/supervisor_inbox.jsonl`."""
         if self._goal_thread is not None and self._goal_thread.is_alive():
             return 0
-        if not DEFAULT_GATEWAY_INBOX.is_file():
+        inbox_file = getattr(self, "inbox_path", DEFAULT_GATEWAY_INBOX)
+        if not inbox_file.is_file():
             return 0
         try:
             raw_lines = [
                 ln.strip()
-                for ln in DEFAULT_GATEWAY_INBOX.read_text(encoding="utf-8").splitlines()
+                for ln in inbox_file.read_text(encoding="utf-8").splitlines()
                 if ln.strip()
             ]
-            DEFAULT_GATEWAY_INBOX.unlink(missing_ok=True)
+            inbox_file.unlink(missing_ok=True)
         except Exception:
             return 0
         count = 0
-        for ln in raw_lines:
+        for idx, ln in enumerate(raw_lines):
             try:
                 item = json.loads(ln) if ln.startswith("{") else {"text": ln}
                 text = str(item.get("text") or item.get("task") or item.get("prompt") or "").strip()
@@ -614,13 +844,30 @@ class BilbyTelegramGateway:
                     continue
                 chat_id = item.get("chat_id") or self.default_chat_id
                 thread_id = item.get("thread_id") if "thread_id" in item else self.default_thread_id
+                notify = bool(item.get("notify_telegram", True))
+                self._sync_telegram_twin_route(chat_id, thread_id)
                 print(f"[bilby-telegram] Supervisor inbox directive: {text!r}", flush=True)
+                if self._async_goals and chat_id and notify:
+                    leftover = raw_lines[idx + 1 :]
+                    if leftover:
+                        inbox_file.write_text("\n".join(leftover) + "\n", encoding="utf-8")
+                    self._cancel_requested = False
+                    worker = threading.Thread(
+                        target=self._run_update_sync,
+                        args=(0, chat_id, thread_id, None, text),
+                        kwargs={"keep_typing": True},
+                        daemon=True,
+                    )
+                    self._goal_thread = worker
+                    worker.start()
+                    count += 1
+                    break
                 if chat_id:
                     self.send_typing(chat_id, thread_id=thread_id)
                 t0 = time.time()
                 reply_text = self.handle_text_command_or_goal(text)
                 elapsed = time.time() - t0
-                if chat_id and item.get("notify_telegram", True):
+                if chat_id and notify:
                     self.send_message(chat_id, reply_text, thread_id=thread_id)
                 print(
                     f"[bilby-telegram] Completed supervisor directive in {elapsed:.2f}s ({len(reply_text)} chars)",
@@ -640,7 +887,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--model", default=os.environ.get("ACTORII_MODEL", "qwen3.8:latest"))
     parser.add_argument("--endpoint", default=os.environ.get("ACTORII_LLM_ENDPOINT"))
-    parser.add_argument("--max-steps", type=int, default=0, help="Max steps per turn (0 = unlimited)")
+    parser.add_argument("--max-steps", type=int, default=25, help="Max steps per turn (0 = unlimited, default: 25)")
+    parser.add_argument("--max-failures", type=int, default=6, help="Max consecutive rollback strikes (0 = unlimited, default: 6)")
     parser.add_argument("--poll-timeout", type=int, default=20)
     parser.add_argument("--startup-ping", action="store_true", help="Send a startup notification to home channel")
     args = parser.parse_args(argv)
@@ -649,6 +897,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         model=args.model,
         endpoint=args.endpoint,
         max_steps=args.max_steps,
+        max_failures=args.max_failures,
         poll_timeout=args.poll_timeout,
     )
 

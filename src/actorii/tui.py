@@ -31,6 +31,12 @@ from actorii.classes.dictionary import Dictionary
 from actorii.core import ActorClass, ActorObject, Symbol
 from actorii.guardrails.linter import PROTECTED_SYSTEM_CLASSES
 from actorii.harness import BENCHMARK_TASKS, VMSandboxBridge, bootstrap_agent_harness
+from actorii.harness.telemetry import (
+    GLOBAL_TELEMETRY,
+    format_last_turn_trace,
+    resolve_actorii_state_dir,
+    summarize_actor_action_brief,
+)
 from actorii.vm import ActorVM, CompiledMethod
 
 DEFAULT_STATE_DIR = Path.home() / ".actorii"
@@ -56,6 +62,8 @@ BG_DARK = "\033[48;5;235m"
 SLASH_COMMANDS: Dict[str, str] = {
     "/chat": "/chat <message>            Conversational & action turn with multi-turn episodic memory",
     "/goal": "/goal <objective>          Run autonomous multi-step AgentHarness loop in Actor bytecode",
+    "/last": "/last                      Show full Actor 4.1 code & VM results from the last turn",
+    "/verbose": "/verbose [on|off]          Toggle verbose inline Actor 4.1 step/result output",
     "/history": "/history                   Display multi-turn conversation history (`chatHistory(Actor[#Harness])!!`)",
     "/clear": "/clear                     Clear multi-turn conversation history & reset circuit breaker",
     "/bench": "/bench [list|run|humaneval|gsm8k] Run 5-task in-image bench or official OpenAI HumanEval / GSM8K",
@@ -134,10 +142,15 @@ class ActorTUISession:
         max_failures: int = 0,
         gas_limit: int = 100000,
         use_color: bool = True,
+        verbose: bool = False,
         remote_studio_url: Optional[str] = None,
     ) -> None:
         self.use_color = use_color and sys.stdout.isatty()
+        self.verbose = bool(verbose or os.environ.get("ACTORII_VERBOSE") == "1")
         self.remote_studio_url = remote_studio_url.rstrip("/") if remote_studio_url else None
+        self.state_dir = resolve_actorii_state_dir()
+        self.session_img_path = self.state_dir / "last_session.img"
+        self.audit_jsonl_path = self.state_dir / "session_audit.jsonl"
         resolved_model = model or os.environ.get("ACTORII_LLM_MODEL", "qwen3.8:latest").strip() or "qwen3.8:latest"
         self.vm, self.harness, self.sandbox = bootstrap_agent_harness(
             vm,
@@ -149,31 +162,33 @@ class ActorTUISession:
             gas_limit=gas_limit,
             enable_guardrails=True,
         )
-        # Load Sam benchmark object so historical benchmarks work out-of-the-box too
+        # Load Sam benchmark object unless demo twins are explicitly disabled
         self._seed_convenience_objects()
         self.transcript: List[str] = []
         self.sandbox.step_callbacks.append(self._on_harness_step)
-        DEFAULT_STATE_DIR.mkdir(parents=True, exist_ok=True)
+        self.state_dir.mkdir(parents=True, exist_ok=True)
 
     def _record_audit_event(self, event_type: str, payload: Dict[str, Any]) -> None:
         try:
-            DEFAULT_STATE_DIR.mkdir(parents=True, exist_ok=True)
+            self.state_dir.mkdir(parents=True, exist_ok=True)
             rec = {"timestamp": time.time(), "event": event_type, **payload}
-            with DEFAULT_AUDIT_JSONL.open("a", encoding="utf-8") as fh:
+            with self.audit_jsonl_path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(rec, default=str) + "\n")
         except Exception:
             pass
 
     def auto_save_session(self, path: Optional[Path] = None) -> Optional[str]:
-        target = path or DEFAULT_SESSION_IMG
+        target = path or self.session_img_path
         try:
-            DEFAULT_STATE_DIR.mkdir(parents=True, exist_ok=True)
+            self.state_dir.mkdir(parents=True, exist_ok=True)
             out = self.sandbox.checkpointImage(str(target))
             return out
         except Exception:
             return None
 
     def _seed_convenience_objects(self) -> None:
+        if os.environ.get("ACTORII_DISABLE_DEMO_TWINS") == "1":
+            return
         clean_sieve = Path(__file__).resolve().parents[2] / "examples" / "cleanroom" / "sieve.act"
         hist_sieve = Path(__file__).resolve().parents[2] / "historical_actor_41_source" / "actact" / "SIEVE.ACT"
         target_path = clean_sieve if clean_sieve.is_file() else hist_sieve
@@ -203,28 +218,45 @@ class ActorTUISession:
         gas_badge = self._c(CYAN, f"[gas={gas} ops]")
 
         if status == "complete":
-            self._emit(
-                f"  {self._c(GREEN + BOLD, f'✔ [Step {step} COMPLETE]')} {gas_badge} "
-                f"{self._c(BOLD, str(entry.get('result', '')))}"
-            )
+            if self.verbose:
+                self._emit(
+                    f"  {self._c(GREEN + BOLD, f'✔ [Step {step} COMPLETE]')} {gas_badge} "
+                    f"{self._c(BOLD, str(entry.get('result', '')))}"
+                )
         elif status == "error":
-            self._emit(
-                f"  {self._c(RED + BOLD, f'✖ [Step {step} ROLLED BACK]')} {badge} {gas_badge}\n"
-                f"    {self._c(GRAY, 'Action:')} {action}\n"
-                f"    {self._c(RED, 'Error :')} {entry.get('error')} (strikes={entry.get('failures')})"
-            )
+            if self.verbose:
+                self._emit(
+                    f"  {self._c(RED + BOLD, f'✖ [Step {step} ROLLED BACK]')} {badge} {gas_badge}\n"
+                    f"    {self._c(GRAY, 'Action:')} {action}\n"
+                    f"    {self._c(RED, 'Error :')} {entry.get('error')} (strikes={entry.get('failures')})"
+                )
+            else:
+                err_short = " ".join(str(entry.get("error") or "error").split())[:110]
+                strikes_val = entry.get("failures", 0)
+                self._emit(
+                    f"  {self._c(YELLOW, f'↻ Step {step} self-correcting')} "
+                    f"{self._c(GRAY, f'· {err_short} (strikes={strikes_val})')}"
+                )
         else:
             auto_eng = entry.get("auto_engrams") or []
-            eng_note = (
-                f"\n    {self._c(MAGENTA + BOLD, 'Auto-Crystallized Engram(s) in Neo4j:')} {auto_eng}"
-                if auto_eng
-                else ""
-            )
-            self._emit(
-                f"  {self._c(BLUE + BOLD, f'⚡ [Step {step}]')} {badge} {gas_badge}\n"
-                f"    {self._c(GRAY, 'Action:')} {action}\n"
-                f"    {self._c(GREEN, 'Result:')} {entry.get('result')!r}{eng_note}"
-            )
+            if self.verbose:
+                eng_note = (
+                    f"\n    {self._c(MAGENTA + BOLD, 'Auto-Crystallized Engram(s) in Neo4j:')} {auto_eng}"
+                    if auto_eng
+                    else ""
+                )
+                self._emit(
+                    f"  {self._c(BLUE + BOLD, f'⚡ [Step {step}]')} {badge} {gas_badge}\n"
+                    f"    {self._c(GRAY, 'Action:')} {action}\n"
+                    f"    {self._c(GREEN, 'Result:')} {entry.get('result')!r}{eng_note}"
+                )
+            else:
+                brief = summarize_actor_action_brief(str(action), max_len=78)
+                eng_short = f" · engram={auto_eng}" if auto_eng else ""
+                self._emit(
+                    f"  {self._c(BLUE, f'⚡ Step {step}')} "
+                    f"{self._c(GRAY, f'· {brief} ({gas} ops{eng_short})')}"
+                )
         self.flush_usage_file()
 
     def flush_usage_file(self) -> None:
@@ -370,12 +402,13 @@ class ActorTUISession:
         raw_ms = self.harness._fields.get("maxSteps")
         max_steps = 0 if raw_ms is None else int(raw_ms)
         ms_disp = "unlimited" if max_steps <= 0 else str(max_steps)
+        t0 = time.time()
         if self.remote_studio_url:
             import urllib.parse
 
             self._emit(
-                f"\n{self._c(MAGENTA + BOLD, f'▶ Remote Studio AgentHarness ({self.remote_studio_url})')}\n"
-                f"  {self._c(GRAY, 'Prompt:')} {objective} (maxSteps={ms_disp})"
+                f"\n{self._c(MAGENTA + BOLD, f'▶ Remote Studio ({self.remote_studio_url})')} "
+                f"{self._c(GRAY, objective)}"
             )
             q_enc = urllib.parse.quote(objective)
             try:
@@ -388,19 +421,44 @@ class ActorTUISession:
                     if isinstance(entry, dict):
                         self._on_harness_step(entry)
                 final_res = data.get("final_summary") or data.get("result")
-                self._emit(f"  {self._c(GREEN + BOLD, f'💬 {self.harness.name}:')} {final_res}")
-                self._emit(
-                    f"{self._c(CYAN + BOLD, '■ Remote Harness Finished:')} status={data.get('harness_status')} │ "
-                    f"steps={data.get('steps_count', data.get('steps'))} │ totalGas={data.get('gas_used')} │ result={final_res!r}\n"
-                )
+                elapsed = time.time() - t0
+                self._emit(f"\n{self._c(GREEN + BOLD, f'💬 {self.harness.name}:')}\n{final_res}")
+                if self.verbose:
+                    self._emit(
+                        f"{self._c(CYAN + BOLD, '■ Remote Harness Finished:')} status={data.get('harness_status')} │ "
+                        f"steps={data.get('steps_count', data.get('steps'))} │ totalGas={data.get('gas_used')} │ {elapsed:.1f}s\n"
+                    )
+                else:
+                    r_steps = int(data.get("steps_count", data.get("steps", 1)) or 1)
+                    r_gas = int(data.get("gas_used", 0) or 0)
+                    if r_steps > 1 or r_gas > 0:
+                        self._emit(
+                            f"  {self._c(GRAY, f'└─ {r_steps} step(s) · {r_gas} ops · {elapsed:.1f}s')}\n"
+                        )
+                    else:
+                        self._emit("")
                 return final_res
             except Exception as exc:
                 self._emit(self._c(RED + BOLD, f"✖ Remote Studio `/api/goal` failed ({exc}); falling back to local VM."))
 
-        self._emit(
-            f"\n{self._c(MAGENTA + BOLD, '▶ AgentHarness (`runGoal`)')}\n"
-            f"  {self._c(GRAY, 'Prompt:')} {objective} (maxSteps={ms_disp}, gasLimit={self.harness._fields.get('gasLimit')})"
+        turn_id = GLOBAL_TELEMETRY.new_turn_id()
+        self.harness._active_turn_id = turn_id
+        surface = getattr(self, "surface_name", "tui")
+        GLOBAL_TELEMETRY.log_turn_start(
+            turn_id=turn_id,
+            surface=surface,
+            goal=objective,
+            model=str(getattr(self.harness, "model", "qwen3.8:latest")),
+            max_steps=max_steps,
         )
+        gas_before = int(self.harness._fields.get("totalGasUsed", 0) or 0)
+        if self.verbose:
+            self._emit(
+                f"\n{self._c(MAGENTA + BOLD, '▶ AgentHarness (`runGoal`)')}\n"
+                f"  {self._c(GRAY, 'Prompt:')} {objective} (maxSteps={ms_disp}, gasLimit={self.harness._fields.get('gasLimit')})"
+            )
+        else:
+            self._emit(f"\n{self._c(MAGENTA + BOLD, '▶')} {self._c(GRAY, objective)}")
         escaped = objective.replace("\\", "\\\\").replace('"', '\\"')
         try:
             final_res = self.vm.eval_chunk(f'runGoal(Actor[#Harness], "{escaped}", {max_steps})!!')
@@ -408,14 +466,47 @@ class ActorTUISession:
             self.harness._fields["status"] = Symbol("halted")
             self._emit(self._c(YELLOW + BOLD, "\n⏹ Goal interrupted by user (Ctrl+C)."))
             final_res = self.harness._fields.get("lastResult")
+
+        elapsed = time.time() - t0
         status = self.harness._fields.get("status")
-        total_gas = self.harness._fields.get("totalGasUsed", 0)
-        turns_cnt = len(self.get_chat_history(local_only=True))
-        self._emit(f"  {self._c(GREEN + BOLD, f'💬 {self.harness.name}:')} {final_res}")
-        self._emit(
-            f"{self._c(CYAN + BOLD, f'■ Harness Finished:')} status=#{status} │ "
-            f"steps={self.harness._fields.get('stepCount')} │ turns={turns_cnt} │ totalGas={total_gas} │ result={final_res!r}\n"
+        status_str = str(status).lstrip("#")
+        total_gas = int(self.harness._fields.get("totalGasUsed", 0) or 0)
+        turn_gas = max(0, total_gas - gas_before)
+        steps_used = int(self.harness._fields.get("stepCount", 0) or 0)
+        turns = self.get_chat_history(local_only=True)
+        turns_cnt = len(turns)
+        last_actions = list(turns[-1].get("actions") or []) if (turns and isinstance(turns[-1], dict) and status_str == "complete") else []
+        GLOBAL_TELEMETRY.log_turn_end(
+            turn_id=turn_id,
+            surface=surface,
+            status=status_str,
+            steps=steps_used,
+            gas_used=turn_gas,
+            elapsed_s=elapsed,
+            reply=str(final_res if final_res is not None else ""),
+            actions=last_actions,
         )
+
+        if status_str in ("halted", "blocked") and status_str != "complete":
+            last_err = str(self.harness._fields.get("lastError") or "").strip()
+            reason = last_err[:220] if last_err else f"stopped after {steps_used} step(s)"
+            self._emit(
+                f"  {self._c(YELLOW + BOLD, f'⚠️ {self.harness.name} ({status_str}):')} {reason}\n"
+                f"  {self._c(GRAY, f'└─ {steps_used} step(s) · {turn_gas} ops · {elapsed:.1f}s  (type /last for full Actor trace)')}\n"
+            )
+        else:
+            self._emit(f"\n{self._c(GREEN + BOLD, f'💬 {self.harness.name}:')}\n{final_res}")
+            if self.verbose:
+                self._emit(
+                    f"{self._c(CYAN + BOLD, '■ Harness Finished:')} status=#{status_str} │ "
+                    f"steps={steps_used} │ turns={turns_cnt} │ turnGas={turn_gas} │ {elapsed:.1f}s\n"
+                )
+            elif steps_used > 1 or turn_gas > 0:
+                self._emit(
+                    f"  {self._c(GRAY, f'└─ {steps_used} step(s) · {turn_gas} ops · {elapsed:.1f}s  (type /last for trace)')}\n"
+                )
+            else:
+                self._emit("")
         self.auto_save_session()
         return final_res
 
@@ -593,6 +684,26 @@ class ActorTUISession:
             self._run_harness_goal(arg)
             return True
 
+        if cmd == "/last":
+            turns = self.get_chat_history(local_only=True)
+            last_turn = turns[-1] if (turns and isinstance(turns[-1], dict)) else None
+            raw_steps = list(self.harness._fields.get("stepLog") or [])
+            trace_txt = format_last_turn_trace(last_turn, raw_steps)
+            self._emit(f"\n{trace_txt}\n")
+            return True
+
+        if cmd == "/verbose":
+            mode = arg.strip().lower()
+            if mode in ("on", "1", "true"):
+                self.verbose = True
+            elif mode in ("off", "0", "false"):
+                self.verbose = False
+            elif not mode:
+                self.verbose = not self.verbose
+            state_lbl = "ON (inline Actor 4.1 code & VM results)" if self.verbose else "OFF (clean human output; full trace in logs & `/last`)"
+            self._emit(self._c(CYAN + BOLD, f"✔ Verbose mode: {state_lbl}"))
+            return True
+
         if cmd in ("/history", "/turns"):
             turns = self.get_chat_history()
             self._emit(f"\n{self._c(CYAN + BOLD, f'=== Multi-Turn Conversation History ({len(turns)} turns) ===')}")
@@ -746,7 +857,8 @@ class ActorTUISession:
             web_twin = self.vm.eval_chunk("summary(Actor[#Web])!!")
             pdf_twin = self.vm.eval_chunk("summary(Actor[#PDF])!!")
             learner_twin = self.vm.eval_chunk("summary(Actor[#ProductLearner])!!")
-            hue = self.vm.eval_chunk("listLights(Actor[#Hue])!!")
+            has_hue = "Hue" in self.vm.global_vars.get("Actor", {})
+            hue = self.vm.eval_chunk("listLights(Actor[#Hue])!!") if has_hue else None
             pantry_cnt = self.vm.eval_chunk("recipeCount(Actor[#Pantry])!!")
             pantry_list = self.vm.eval_chunk("listRecipes(Actor[#Pantry], 5)!!")
             self._emit(f"  • {self._c(GREEN + BOLD, 'Actor[#Valkyrie]')}        : {valk}")
@@ -757,7 +869,8 @@ class ActorTUISession:
             self._emit(f"  • {self._c(BLUE + BOLD, 'Actor[#Telegram]')}        : {tg_twin}")
             self._emit(f"  • {self._c(GREEN + BOLD, 'Actor[#Web]')}             : {web_twin}")
             self._emit(f"  • {self._c(CYAN + BOLD, 'Actor[#PDF]')}             : {pdf_twin}")
-            self._emit(f"  • {self._c(YELLOW + BOLD, 'Actor[#Hue]')}             : {hue}")
+            if hue is not None:
+                self._emit(f"  • {self._c(YELLOW + BOLD, 'Actor[#Hue]')}             : {hue}")
             self._emit(f"  • {self._c(MAGENTA + BOLD, 'Actor[#Pantry]')}          : {pantry_cnt} recipes ({pantry_list})")
             try:
                 th_sum = self.vm.eval_chunk("summary(Actor[#Thermometer])!!")
@@ -831,8 +944,9 @@ class ActorTUISession:
                 res = self.vm.eval_chunk(f'setupTask(Actor[#Bench], "{tid}")!!')
                 self._emit(f"{self._c(GREEN + BOLD, f'✔ Benchmark task seeded in pool: {res}')}")
                 return True
-            if action == "report":
-                rep = self.vm.eval_chunk("scoreReport(Actor[#Bench])!!")
+            if action in ("report", "scoreboard", "results", "official"):
+                fn = "scoreboard" if action in ("scoreboard", "results", "official") else "scoreReport"
+                rep = self.vm.eval_chunk(f"{fn}(Actor[#Bench])!!")
                 self._emit(f"\n{self._c(CYAN + BOLD, str(rep))}\n")
                 return True
             if action == "run":
@@ -859,7 +973,7 @@ class ActorTUISession:
             return True
 
         if cmd == "/resume":
-            target_path = Path(arg) if arg else DEFAULT_SESSION_IMG
+            target_path = Path(arg) if arg else self.session_img_path
             return self._handle_slash_command(f"/load {target_path}")
 
         if cmd == "/step":
@@ -1280,8 +1394,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--max-steps",
         type=int,
-        default=0,
-        help="Default max steps per `/goal` execution (0 = unlimited, default: 0).",
+        default=25,
+        help="Default max steps per `/goal` execution (0 = unlimited, default: 25).",
+    )
+    parser.add_argument(
+        "--max-failures",
+        type=int,
+        default=6,
+        help="Consecutive rollback strike circuit breaker (0 = unlimited, default: 6).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Display raw Actor 4.1 actions and VM results inline on every step.",
     )
     parser.add_argument(
         "--gas-limit",
@@ -1315,15 +1440,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         model=args.model,
         endpoint=args.endpoint,
         max_steps=args.max_steps,
+        max_failures=args.max_failures,
         gas_limit=args.gas_limit,
+        verbose=args.verbose,
         remote_studio_url=args.connect,
     )
     session.usage_file = args.usage_file
 
     if args.load_image:
         session.handle_input(f"/load {args.load_image}")
-    elif args.resume and DEFAULT_SESSION_IMG.is_file():
-        session.handle_input(f"/load {DEFAULT_SESSION_IMG}")
+    elif args.resume and session.session_img_path.is_file():
+        session.handle_input(f"/load {session.session_img_path}")
 
     if args.command:
         for cmd in args.command:

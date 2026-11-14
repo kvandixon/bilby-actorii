@@ -16,9 +16,12 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 import inspect
 import math
+import threading
+from typing import Iterator
 from typing import Any, Optional, Callable, Dict, Iterable, List, Tuple, Union
 
 from actorii.core import (
@@ -384,16 +387,165 @@ from actorii.classes import (
     ThermometerUI,
 )
 
+# Execution Fibers (per-thread VM execution state) ############################
+
+_UNSET: Any = object()
+
+
+class ExecutionFiber:
+    """Isolated per-thread execution context for one `ActorVM`.
+
+    Holds everything that is *execution-local* (operand stacks, call stack,
+    program counter, gas counter/budget, shadow-run flag, failure diagnostics)
+    while the image itself (`global_vars`, `hierarchy`, class method tables)
+    stays shared across all fibers and is guarded by `ActorVM.shared_lock`.
+
+    The VM always owns one *primary* fiber, used by every thread that has not
+    explicitly entered a fiber -- so legacy single-threaded code observes
+    exactly the same attribute semantics as before. Worker threads (e.g.
+    `actorii.classes.concurrency.TaskPool`) enter a private fiber via
+    `ActorVM.fiber()`, and `eval_chunk` / `dispatch_message` transparently
+    allocate one when the primary fiber is busy on another thread.
+    """
+
+    __slots__ = (
+        "call_stack",
+        "halted",
+        "_in_run_loop",
+        "_last_popped",
+        "_opcodes_executed",
+        "max_opcodes",
+        "_instructions",
+        "_constants",
+        "_string_table",
+        "_pc",
+        "_stack",
+        "_local_vars",
+        "objects",
+        "next_obj_index",
+        "last_eval_opcodes",
+        "_last_failed_frame_info",
+        "_last_unhandled_selector",
+        "_in_shadow_run",
+        "name",
+        "thread_ident",
+    )
+
+    def __init__(
+        self,
+        *,
+        max_opcodes: Optional[int] = 500_000,
+        in_shadow_run: bool = False,
+        name: str = "",
+    ) -> None:
+        self.call_stack: List[Any] = []
+        self.halted: bool = False
+        self._in_run_loop: bool = False
+        self._last_popped: Any = None
+        self._opcodes_executed: int = 0
+        self.max_opcodes: Optional[int] = max_opcodes
+        self._instructions: List[Any] = []
+        self._constants: List[Any] = []
+        self._string_table: List[str] = []
+        self._pc: int = 0
+        self._stack: List[Any] = []
+        self._local_vars: List[Any] = []
+        self.objects: List[Any] = []
+        self.next_obj_index: int = 0
+        self.last_eval_opcodes: int = 0
+        self._last_failed_frame_info: Optional[Dict[str, Any]] = None
+        self._last_unhandled_selector: Optional[str] = None
+        self._in_shadow_run: bool = bool(in_shadow_run)
+        self.name: str = name
+        self.thread_ident: Optional[int] = threading.get_ident()
+
+    def __repr__(self) -> str:
+        return (
+            f"<ExecutionFiber {self.name or 'anon'} thread={self.thread_ident} "
+            f"depth={len(self.call_stack)} gas={self._opcodes_executed}/{self.max_opcodes}>"
+        )
+
+
+class _FiberSlot:
+    """Data descriptor routing an `ActorVM` attribute to the calling thread's fiber."""
+
+    __slots__ = ("name",)
+
+    def __init__(self, name: str = "") -> None:
+        self.name = name
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.name = name
+
+    def __get__(self, vm: Any, owner: Optional[type] = None) -> Any:
+        if vm is None:
+            return self
+        if vm._fiber_count:
+            f = getattr(vm._tls, "fiber", None)
+            if f is not None:
+                return getattr(f, self.name)
+        return getattr(vm._primary_fiber, self.name)
+
+    def __set__(self, vm: Any, value: Any) -> None:
+        if vm._fiber_count:
+            f = getattr(vm._tls, "fiber", None)
+            if f is not None:
+                setattr(f, self.name, value)
+                return
+        setattr(vm._primary_fiber, self.name, value)
+
+
 # VM Core #####################################################################
 
 
 class ActorVM:
-    """Stack-based virtual machine for 1993 actor language bytecodes with multi-frame call stack."""
+    """Stack-based virtual machine for 1993 actor language bytecodes with multi-frame call stack.
+
+    Thread model (opt-in, NOT thread-per-object): execution state lives in
+    `ExecutionFiber` contexts (one per executing thread); the object image
+    (`global_vars`, `hierarchy`, method tables) is shared and mutated under the
+    re-entrant `shared_lock`.
+    """
 
     _active_vm: Optional["ActorVM"] = None
 
+    # Execution-local attributes, transparently routed to the current fiber.
+    call_stack = _FiberSlot()
+    halted = _FiberSlot()
+    _in_run_loop = _FiberSlot()
+    _last_popped = _FiberSlot()
+    _opcodes_executed = _FiberSlot()
+    max_opcodes = _FiberSlot()
+    _instructions = _FiberSlot()
+    _constants = _FiberSlot()
+    _string_table = _FiberSlot()
+    _pc = _FiberSlot()
+    _stack = _FiberSlot()
+    _local_vars = _FiberSlot()
+    objects = _FiberSlot()
+    next_obj_index = _FiberSlot()
+    last_eval_opcodes = _FiberSlot()
+    _last_failed_frame_info = _FiberSlot()
+    _last_unhandled_selector = _FiberSlot()
+    _in_shadow_run = _FiberSlot()
+
     def __init__(self, hierarchy: Optional[ActorInheritanceHierarchy] = None) -> None:
         ActorVM._active_vm = self
+        # Fiber / concurrency infrastructure (must precede any _FiberSlot access)
+        self._primary_fiber: ExecutionFiber = ExecutionFiber(name="primary")
+        self._primary_fiber.thread_ident = None
+        self._tls = threading.local()
+        self._fiber_count: int = 0
+        self._fiber_count_lock = threading.Lock()
+        self._primary_claim_lock = threading.Lock()
+        self._primary_owner: Optional[int] = None
+        self._primary_depth: int = 0
+        self._shared_lock = threading.RLock()
+        self.concurrency_stats: Dict[str, int] = {
+            "fibers_created": 0,
+            "auto_fibers": 0,
+            "peak_concurrent_fibers": 0,
+        }
         if hierarchy is None:
             hierarchy = ActorInheritanceHierarchy()
         self.hierarchy = hierarchy
@@ -446,84 +598,241 @@ class ActorVM:
         register_classes(self.hierarchy, self.global_vars["Actor"], self.global_vars)
 
     # =========================================================================
+    # Concurrency: Execution Fibers & Shared-Image Locking
+    # =========================================================================
+
+    def _exec_state(self) -> ExecutionFiber:
+        """Return the `ExecutionFiber` the calling thread is executing in."""
+        if self._fiber_count:
+            f = getattr(self._tls, "fiber", None)
+            if f is not None:
+                return f
+        return self._primary_fiber
+
+    @property
+    def shared_lock(self) -> "threading.RLock":
+        """Re-entrant lock guarding the shared image (globals, hierarchy, method tables)."""
+        return self._shared_lock
+
+    @property
+    def current_fiber(self) -> ExecutionFiber:
+        """The execution fiber bound to the calling thread (primary if none entered)."""
+        return self._exec_state()
+
+    @property
+    def primary_fiber(self) -> ExecutionFiber:
+        return self._primary_fiber
+
+    @property
+    def active_fiber_count(self) -> int:
+        """Number of non-primary fibers currently executing (across all threads)."""
+        return self._fiber_count
+
+    def in_fiber(self) -> bool:
+        """True when the calling thread is executing inside a private (non-primary) fiber."""
+        return self._fiber_count > 0 and getattr(self._tls, "fiber", None) is not None
+
+    @contextmanager
+    def fiber(
+        self,
+        *,
+        max_opcodes: Any = _UNSET,
+        name: str = "",
+        shadow: Optional[bool] = None,
+    ) -> Iterator[ExecutionFiber]:
+        """Bind a fresh, isolated `ExecutionFiber` to the calling thread for the block.
+
+        - `max_opcodes`: per-fiber gas budget (defaults to the parent fiber's budget).
+        - `shadow`: transactional shadow-run flag (defaults to the parent fiber's flag,
+          so Tier 2 bridge side-effects stay blocked in tasks spawned from a dry-run).
+        Fibers nest; the previous binding is restored on exit.
+        """
+        parent = self._exec_state()
+        budget = parent.max_opcodes if max_opcodes is _UNSET else max_opcodes
+        in_shadow = parent._in_shadow_run if shadow is None else bool(shadow)
+        fib = ExecutionFiber(
+            max_opcodes=None if budget is None else int(budget),
+            in_shadow_run=in_shadow,
+            name=name or f"fiber-{threading.get_ident()}",
+        )
+        prev = getattr(self._tls, "fiber", None)
+        with self._fiber_count_lock:
+            self._fiber_count += 1
+            self.concurrency_stats["fibers_created"] += 1
+            if self._fiber_count > self.concurrency_stats["peak_concurrent_fibers"]:
+                self.concurrency_stats["peak_concurrent_fibers"] = self._fiber_count
+        self._tls.fiber = fib
+        try:
+            yield fib
+        finally:
+            self._tls.fiber = prev
+            with self._fiber_count_lock:
+                self._fiber_count -= 1
+
+    @contextmanager
+    def _execution_scope(self) -> Iterator[ExecutionFiber]:
+        """Claim the primary fiber for this thread, or fall back to a private auto-fiber.
+
+        Sequential use from any thread (including hand-offs between threads) keeps the
+        legacy shared-state semantics; only genuinely *concurrent* entries from a second
+        thread get isolated stacks, so concurrent callers can never corrupt each other.
+        """
+        if self._fiber_count and getattr(self._tls, "fiber", None) is not None:
+            yield self._tls.fiber
+            return
+        tid = threading.get_ident()
+        with self._primary_claim_lock:
+            owner = self._primary_owner
+            use_primary = owner is None or owner == tid
+            if use_primary:
+                self._primary_owner = tid
+                self._primary_depth += 1
+        if use_primary:
+            try:
+                yield self._primary_fiber
+            finally:
+                with self._primary_claim_lock:
+                    self._primary_depth -= 1
+                    if self._primary_depth <= 0:
+                        self._primary_depth = 0
+                        self._primary_owner = None
+        else:
+            with self._fiber_count_lock:
+                self.concurrency_stats["auto_fibers"] += 1
+            with self.fiber(name=f"auto-{tid}") as fib:
+                yield fib
+
+    def eval_isolated(
+        self, source: str, *, max_opcodes: Any = _UNSET, shadow: Optional[bool] = None
+    ) -> Any:
+        """Evaluate `source` in a fresh private fiber on the calling thread (isolated stack + gas)."""
+        with self.fiber(max_opcodes=max_opcodes, shadow=shadow, name="isolated-eval"):
+            return self.eval_chunk(source)
+
+    def send_isolated(
+        self,
+        receiver: Any,
+        selector: str,
+        args: Optional[List[Any]] = None,
+        *,
+        max_opcodes: Any = _UNSET,
+        shadow: Optional[bool] = None,
+    ) -> Any:
+        """Send `selector` to `receiver` inside a fresh private fiber on the calling thread."""
+        with self.fiber(max_opcodes=max_opcodes, shadow=shadow, name="isolated-send"):
+            return self.dispatch_message(receiver, selector, args)
+
+    def send_message(
+        self, receiver: Any, selector: str, args: Optional[List[Any]] = None
+    ) -> Any:
+        """Alias for `dispatch_message` (thread-safe entry point)."""
+        return self.dispatch_message(receiver, selector, args)
+
+    # =========================================================================
     # Transparent Frame Accessors (Backward Compatibility with existing tests)
     # =========================================================================
 
     @property
     def current_frame(self) -> Optional[StackFrame]:
-        return self.call_stack[-1] if self.call_stack else None
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        cs = st.call_stack
+        return cs[-1] if cs else None
 
     @property
-    def stack(self) -> List[Any]:
-        if self.call_stack:
-            return self.call_stack[-1].stack
-        return self._stack
+    def stack(self) -> Any:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        cs = st.call_stack
+        if cs:
+            return cs[-1].stack
+        return st._stack
 
     @stack.setter
-    def stack(self, val: List[Any]) -> None:
-        self._stack = val
-        if self.call_stack:
-            self.call_stack[-1].stack = val
+    def stack(self, val: Any) -> None:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        st._stack = val
+        cs = st.call_stack
+        if cs:
+            cs[-1].stack = val
 
     @property
-    def local_vars(self) -> List[Any]:
-        if self.call_stack:
-            return self.call_stack[-1].local_vars
-        return self._local_vars
+    def local_vars(self) -> Any:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        cs = st.call_stack
+        if cs:
+            return cs[-1].local_vars
+        return st._local_vars
 
     @local_vars.setter
-    def local_vars(self, val: List[Any]) -> None:
-        self._local_vars = val
-        if self.call_stack:
-            self.call_stack[-1].local_vars = val
+    def local_vars(self, val: Any) -> None:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        st._local_vars = val
+        cs = st.call_stack
+        if cs:
+            cs[-1].local_vars = val
 
     @property
-    def pc(self) -> int:
-        if self.call_stack:
-            return self.call_stack[-1].pc
-        return self._pc
+    def pc(self) -> Any:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        cs = st.call_stack
+        if cs:
+            return cs[-1].pc
+        return st._pc
 
     @pc.setter
-    def pc(self, val: int) -> None:
-        self._pc = val
-        if self.call_stack:
-            self.call_stack[-1].pc = val
+    def pc(self, val: Any) -> None:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        st._pc = val
+        cs = st.call_stack
+        if cs:
+            cs[-1].pc = val
 
     @property
-    def instructions(self) -> List[Instruction]:
-        if self.call_stack:
-            return self.call_stack[-1].instructions
-        return self._instructions
+    def instructions(self) -> Any:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        cs = st.call_stack
+        if cs:
+            return cs[-1].instructions
+        return st._instructions
 
     @instructions.setter
-    def instructions(self, val: List[Instruction]) -> None:
-        self._instructions = val
-        if self.call_stack:
-            self.call_stack[-1].instructions = val
+    def instructions(self, val: Any) -> None:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        st._instructions = val
+        cs = st.call_stack
+        if cs:
+            cs[-1].instructions = val
 
     @property
-    def constants(self) -> List[Any]:
-        if self.call_stack:
-            return self.call_stack[-1].constants
-        return self._constants
+    def constants(self) -> Any:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        cs = st.call_stack
+        if cs:
+            return cs[-1].constants
+        return st._constants
 
     @constants.setter
-    def constants(self, val: List[Any]) -> None:
-        self._constants = val
-        if self.call_stack:
-            self.call_stack[-1].constants = val
+    def constants(self, val: Any) -> None:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        st._constants = val
+        cs = st.call_stack
+        if cs:
+            cs[-1].constants = val
 
     @property
-    def string_table(self) -> List[str]:
-        if self.call_stack:
-            return self.call_stack[-1].strings
-        return self._string_table
+    def string_table(self) -> Any:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        cs = st.call_stack
+        if cs:
+            return cs[-1].strings
+        return st._string_table
 
     @string_table.setter
-    def string_table(self, val: List[str]) -> None:
-        self._string_table = val
-        if self.call_stack:
-            self.call_stack[-1].strings = val
+    def string_table(self, val: Any) -> None:
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        st._string_table = val
+        cs = st.call_stack
+        if cs:
+            cs[-1].strings = val
 
     # =========================================================================
     # VM Lifecycle: Load & Run
@@ -573,19 +882,23 @@ class ActorVM:
             self.load(self._instructions, self._constants, self._string_table)
 
         initial_depth = len(self.call_stack)
+        st = self._exec_state()
 
         try:
-            while self.call_stack and not self.halted:
+            while st.call_stack and not st.halted:
                 try:
-                    while self.call_stack and not self.halted:
-                        frame = self.call_stack[-1]
+                    while st.call_stack and not st.halted:
+                        frame = st.call_stack[-1]
                         if frame.is_exhausted:
-                            ret = (
-                                frame.receiver
-                                if (frame.receiver is not None and not frame.is_block)
-                                else None
-                            )
-                            self._pop_frame(ret)
+                            if len(st.call_stack) == 1 and frame.method_name == "<module>":
+                                self._pop_frame(_UNSET)
+                            else:
+                                ret = (
+                                    frame.receiver
+                                    if (frame.receiver is not None and not frame.is_block)
+                                    else None
+                                )
+                                self._pop_frame(ret)
                             continue
 
                         opcode, operand = frame.instructions[frame.pc]
@@ -640,8 +953,13 @@ class ActorVM:
             raise RuntimeError("StackOverflowError: Call stack depth exceeded limit")
         self.call_stack.append(frame)
 
-    def _pop_frame(self, return_val: Any = None) -> Optional[StackFrame]:
-        """Pop the active frame and restore caller frame context."""
+    def _pop_frame(self, return_val: Any = _UNSET) -> Optional[StackFrame]:
+        """Pop the active frame and restore caller frame context.
+
+        Uses `_UNSET` (not `None`) as the no-return-value sentinel so explicit
+        `nil` (`None`) returns from Actor methods/blocks are pushed onto the
+        caller's operand stack instead of being silently dropped.
+        """
         if not self.call_stack:
             self.halted = True
             return None
@@ -651,7 +969,7 @@ class ActorVM:
 
         if self.call_stack:
             caller = self.call_stack[-1]
-            if return_val is not None:
+            if return_val is not _UNSET:
                 caller.stack.append(return_val)
             return caller
         else:
@@ -662,7 +980,7 @@ class ActorVM:
             self._pc = finished.pc
             self._local_vars = finished.local_vars
             self._stack = finished.stack
-            if return_val is not None:
+            if return_val is not _UNSET:
                 self._stack.append(return_val)
             return None
 
@@ -724,13 +1042,14 @@ class ActorVM:
         }
 
     def _execute_opcode(self, opcode: Opcode, operand: Operand) -> None:
-        """Dispatch to the opcode handler."""
-        self._opcodes_executed += 1
-        if self.max_opcodes is not None and self._opcodes_executed > self.max_opcodes:
+        """Dispatch to the opcode handler (gas is metered per execution fiber)."""
+        st = (getattr(self._tls, "fiber", None) or self._primary_fiber) if self._fiber_count else self._primary_fiber
+        st._opcodes_executed += 1
+        if st.max_opcodes is not None and st._opcodes_executed > st.max_opcodes:
             from actorii.guardrails.linter import OpcodeBudgetExceededError
 
             raise OpcodeBudgetExceededError(
-                f"OpcodeBudgetExceededError: Execution exceeded max_opcodes budget ({self.max_opcodes})"
+                f"OpcodeBudgetExceededError: Execution exceeded max_opcodes budget ({st.max_opcodes})"
             )
         handler = self.handlers.get(opcode)
         if handler is None:
@@ -814,11 +1133,12 @@ class ActorVM:
                     raise ProtectedClassError(
                         f"ProtectedSingletonError: Cannot overwrite locked system singleton 'Actor[#{norm}]'"
                     )
-            self.global_vars[name] = val
-            if "Actor" in self.global_vars and isinstance(
-                self.global_vars["Actor"], dict
-            ):
-                self.global_vars["Actor"][name] = val
+            with self._shared_lock:
+                self.global_vars[name] = val
+                if "Actor" in self.global_vars and isinstance(
+                    self.global_vars["Actor"], dict
+                ):
+                    self.global_vars["Actor"][name] = val
 
     def _handle_store_name(self, name_idx: Operand) -> None:
         if not self.stack:
@@ -844,11 +1164,12 @@ class ActorVM:
                     raise ProtectedClassError(
                         f"ProtectedSingletonError: Cannot overwrite locked system singleton 'Actor[#{norm}]'"
                     )
-            self.global_vars[name] = val
-            if "Actor" in self.global_vars and isinstance(
-                self.global_vars["Actor"], dict
-            ):
-                self.global_vars["Actor"][name] = val
+            with self._shared_lock:
+                self.global_vars[name] = val
+                if "Actor" in self.global_vars and isinstance(
+                    self.global_vars["Actor"], dict
+                ):
+                    self.global_vars["Actor"][name] = val
 
     def _handle_load_name(self, name_idx: Operand) -> None:
         if name_idx < len(self.constants):
@@ -2322,6 +2643,10 @@ class ActorVM:
                     "doesNotUnderstand"
                 ) or receiver.get_method("fail")
             if dnu_method is not None:
+                rcv_cls_name = class_name or getattr(receiver, "class_name", type(receiver).__name__)
+                if callable(rcv_cls_name):
+                    rcv_cls_name = rcv_cls_name()
+                self._last_unhandled_selector = f"{rcv_cls_name}>>{method_name}"
                 method = dnu_method
                 dnu_params = getattr(dnu_method, "params", [])
                 if len(dnu_params) == 1:
@@ -2425,6 +2750,11 @@ class ActorVM:
         else:
             if receiver is not None and hasattr(receiver, "message_not_understood"):
                 res = receiver.message_not_understood(method_name, *args)
+                if res is None:
+                    rcv_cls = getattr(receiver, "class_name", type(receiver).__name__)
+                    if callable(rcv_cls):
+                        rcv_cls = rcv_cls()
+                    self._last_unhandled_selector = f"{rcv_cls}>>{method_name}"
                 self.stack.append(res)
             elif method_name in ("atPut", "put") and isinstance(receiver, (int, float, str, bool)):
                 raise TypeError(
@@ -2433,6 +2763,11 @@ class ActorVM:
                     "Do NOT chain `d := atPut(d, ...)` — initialize `d := new(Dictionary, 8)!!` first, then call `atPut(d, #k1, v1)!! atPut(d, #k2, v2)!!`."
                 )
             else:
+                if receiver is not None:
+                    rcv_cls = getattr(receiver, "class_name", type(receiver).__name__)
+                    if callable(rcv_cls):
+                        rcv_cls = rcv_cls()
+                    self._last_unhandled_selector = f"{rcv_cls}>>{method_name}"
                 self.stack.append(None)
 
     def _dispatch_int_point3d(self, x: int, yv: Any, zv: Any) -> None:
@@ -2747,7 +3082,16 @@ class ActorVM:
         return chunks
 
     def eval_chunk(self, source: str) -> Any:
-        """Evaluate a source string containing one or more chunks ending in !!"""
+        """Evaluate a source string containing one or more chunks ending in !!
+
+        Thread-safe: concurrent callers on different threads execute in isolated
+        execution fibers (see `ExecutionFiber`) against the shared image.
+        """
+        with self._execution_scope():
+            return self._eval_chunk_impl(source)
+
+    def _eval_chunk_impl(self, source: str) -> Any:
+        """Evaluate chunks in the calling thread's current execution fiber."""
         from actorii.parser import (
             parse_actor,
             compile_to_bytecode,
@@ -2786,50 +3130,60 @@ class ActorVM:
                     continue
 
                 stmt_nodes = []
-                for node in nodes:
-                    if isinstance(node, ClassDefNode):
-                        super_name = node.super_name or "Object"
-                        cls = self.hierarchy.get(node.name)
-                        if cls is None:
-                            cls = ActorClass(node.name, bases=(super_name,))
-                            self.hierarchy.register(cls)
-                            self.global_vars[node.name] = cls
-                            self.global_vars["Actor"][node.name] = cls
-                        cls.ivars = list(getattr(node, "ivars", []))
-                        for m in getattr(node, "methods", []):
-                            cm = self.compile_method_node(m, class_name=node.name)
+                decl_nodes = [
+                    n for n in nodes
+                    if isinstance(n, (ClassDefNode, NowNode, MethodDefNode))
+                ]
+                if decl_nodes:
+                    self._shared_lock.acquire()
+                try:
+                    for node in nodes:
+                        if isinstance(node, ClassDefNode):
+                            super_name = node.super_name or "Object"
+                            cls = self.hierarchy.get(node.name)
+                            if cls is None:
+                                cls = ActorClass(node.name, bases=(super_name,))
+                                self.hierarchy.register(cls)
+                                self.global_vars[node.name] = cls
+                                self.global_vars["Actor"][node.name] = cls
+                            cls.ivars = list(getattr(node, "ivars", []))
+                            for m in getattr(node, "methods", []):
+                                cm = self.compile_method_node(m, class_name=node.name)
+                                self._validate_and_attach_method(cls, cm)
+                            if self.fileout_dir:
+                                self._file_out_class_if_enabled(node.name)
+                        elif isinstance(node, NowNode):
+                            self._current_compilation_class = node.target_class
+                            if not self.hierarchy.get(node.target_class):
+                                cls = ActorClass(node.target_class)
+                                self.hierarchy.register(cls)
+                                self.global_vars[node.target_class] = cls
+                                self.global_vars["Actor"][node.target_class] = cls
+                        elif isinstance(node, MethodDefNode):
+                            target_cls_name = getattr(node, "class_name", "")
+                            if (
+                                not target_cls_name or target_cls_name == "Object"
+                            ) and self._current_compilation_class:
+                                target_cls_name = self._current_compilation_class
+                            if not target_cls_name:
+                                target_cls_name = "Object"
+                            cls = self.hierarchy.get(target_cls_name)
+                            if cls is None:
+                                cls = ActorClass(target_cls_name)
+                                self.hierarchy.register(cls)
+                                self.global_vars[target_cls_name] = cls
+                                self.global_vars["Actor"][target_cls_name] = cls
+                            cm = self.compile_method_node(
+                                node, class_name=target_cls_name, raw_chunk=chunk
+                            )
                             self._validate_and_attach_method(cls, cm)
-                        if self.fileout_dir:
-                            self._file_out_class_if_enabled(node.name)
-                    elif isinstance(node, NowNode):
-                        self._current_compilation_class = node.target_class
-                        if not self.hierarchy.get(node.target_class):
-                            cls = ActorClass(node.target_class)
-                            self.hierarchy.register(cls)
-                            self.global_vars[node.target_class] = cls
-                            self.global_vars["Actor"][node.target_class] = cls
-                    elif isinstance(node, MethodDefNode):
-                        target_cls_name = getattr(node, "class_name", "")
-                        if (
-                            not target_cls_name or target_cls_name == "Object"
-                        ) and self._current_compilation_class:
-                            target_cls_name = self._current_compilation_class
-                        if not target_cls_name:
-                            target_cls_name = "Object"
-                        cls = self.hierarchy.get(target_cls_name)
-                        if cls is None:
-                            cls = ActorClass(target_cls_name)
-                            self.hierarchy.register(cls)
-                            self.global_vars[target_cls_name] = cls
-                            self.global_vars["Actor"][target_cls_name] = cls
-                        cm = self.compile_method_node(
-                            node, class_name=target_cls_name, raw_chunk=chunk
-                        )
-                        self._validate_and_attach_method(cls, cm)
-                        if self.fileout_dir:
-                            self._file_out_class_if_enabled(target_cls_name)
-                    else:
-                        stmt_nodes.append(node)
+                            if self.fileout_dir:
+                                self._file_out_class_if_enabled(target_cls_name)
+                        else:
+                            stmt_nodes.append(node)
+                finally:
+                    if decl_nodes:
+                        self._shared_lock.release()
 
                 if stmt_nodes:
                     insts, consts, strings = compile_to_bytecode(stmt_nodes)
@@ -2839,13 +3193,18 @@ class ActorVM:
                         and insts[-1][0] == Opcode.RETURN
                     ):
                         insts = insts[:-2] + [(Opcode.RETURN_VALUE, 0)]
+                    self._last_popped = _UNSET
                     self.load(insts, consts, strings)
                     self.run()
                     total_chunk_opcodes += self._opcodes_executed
                     if self.stack:
                         last_result = self.stack[-1]
-                    elif getattr(self, "_last_popped", None) is not None:
+                    elif self._last_popped is not _UNSET:
                         last_result = self._last_popped
+                    else:
+                        last_result = None
+                    if self._last_popped is _UNSET:
+                        self._last_popped = None
         except Exception:
             if self.call_stack and getattr(self, "_last_failed_frame_info", None) is None:
                 top_f = self.call_stack[-1]
@@ -2893,7 +3252,14 @@ class ActorVM:
     def dispatch_message(
         self, receiver: Any, selector: str, args: Optional[List[Any]] = None
     ) -> Any:
-        """Send a message (method invocation) to an object dynamically."""
+        """Send a message (method invocation) to an object dynamically (thread-safe)."""
+        with self._execution_scope():
+            return self._dispatch_message_impl(receiver, selector, args)
+
+    def _dispatch_message_impl(
+        self, receiver: Any, selector: str, args: Optional[List[Any]] = None
+    ) -> Any:
+        """Send a message in the calling thread's current execution fiber."""
         ActorVM._active_vm = self
         self.halted = False
         if not self._in_run_loop:
@@ -3122,6 +3488,20 @@ class ActorVM:
         If `shadow_only=True`, executes in speculative dry-run mode (blocking Tier 2 bridge
         side-effects and always rolling back state after returning the result).
         """
+        with self._execution_scope():
+            return self._eval_transactional_impl(
+                source, max_opcodes=max_opcodes, shadow_only=shadow_only
+            )
+
+    def _eval_transactional_impl(
+        self,
+        source: str,
+        *,
+        max_opcodes: Optional[int] = None,
+        shadow_only: bool = False,
+    ) -> Any:
+        """Transactional evaluation body (runs in the caller's execution fiber)."""
+        self._last_unhandled_selector = None
         checkpoint = self.snapshot_to_dict()
         # Preserve live Python bridge classes and ActorBridgeObject wrappers across rollback
         saved_bridge_classes = {

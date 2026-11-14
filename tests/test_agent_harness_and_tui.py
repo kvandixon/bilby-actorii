@@ -401,12 +401,24 @@ class TestActorTUIWorkflow:
         )
         assert reply is not None
         assert "Stored 42 in #ans." in reply
-        assert "storeScratch(Actor[#Bilby], #ans, 6 * 7)!!" in reply
+        # Default Option A mode: clean human reply + subtle step badge, NO raw Actor code dump!
+        assert "storeScratch(Actor[#Bilby], #ans, 6 * 7)!!" not in reply
+        assert "⚡ 1 step" in reply
         assert session.get_scratchpad_dict().get("ans") == 42
         assert len(sent_payloads) == 1
         assert sent_payloads[0]["chat_id"] == 100000001
         assert sent_payloads[0]["message_thread_id"] == 42
+        assert sent_payloads[0].get("parse_mode") == "HTML"
         assert gw.offset == 12
+
+        # `/last` surfaces the full Actor 4.1 execution trace on demand
+        trace_reply = gw.handle_text_command_or_goal("/last")
+        assert "storeScratch(Actor[#Bilby], #ans, 6 * 7)!!" in trace_reply
+
+        # `/verbose on` opts in to inline Actor 4.1 code blocks
+        assert "Verbose mode ON" in gw.handle_text_command_or_goal("/verbose on")
+        verbose_reply = gw.handle_text_command_or_goal("Compute 6 * 7 in #ans")
+        assert "storeScratch(Actor[#Bilby], #ans, 6 * 7)!!" in verbose_reply
 
     def test_actor_native_web_scraper_failover_and_caching(self, monkeypatch):
         from actorii.harness.twins import _to_actor_dict

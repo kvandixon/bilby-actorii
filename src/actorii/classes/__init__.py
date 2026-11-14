@@ -57,6 +57,16 @@ from actorii.classes.gui import (
 )
 from actorii.classes.agent import Agent
 from actorii.classes.thermopro import ThermoProTwin, ThermometerUI
+from actorii.classes.concurrency import (
+    ActorFuture,
+    ActorChannel,
+    ActorMutex,
+    AtomicCounter,
+    TaskPool,
+    ActorThreadPoolTwin,
+    CONCURRENCY_BRIDGE_CLASSES,
+    wrap_for_actor,
+)
 
 
 def register_classes(
@@ -93,6 +103,12 @@ def register_classes(
         ("Agent", ("Object",)),
         ("ThermoProTwin", ("Object",)),
         ("ThermometerUI", ("Window",)),
+        # Opt-in multithreaded concurrency primitives (actorii.classes.concurrency)
+        ("Future", ("Object",)),
+        ("Channel", ("Object",)),
+        ("Mutex", ("Object",)),
+        ("AtomicCounter", ("Object",)),
+        ("ThreadPool", ("Object",)),
     ]
 
     for name, bases in specs:
@@ -775,6 +791,58 @@ def register_classes(
         tui_cls.add_method("draw", lambda self: self.draw())
         tui_cls.add_method("render", lambda self: self.render())
 
+    # 15. Concurrency primitives: Future / Channel / Mutex / AtomicCounter / ThreadPool.
+    # Instances are capability-gated ActorBridgeObjects bound to the active VM.
+    _register_concurrency_classes(hierarchy)
+
+
+def _register_concurrency_classes(hierarchy: ActorInheritanceHierarchy) -> None:
+    """Mark concurrency classes as bridge classes and attach `new(...)` constructors."""
+
+    def _active_vm() -> Any:
+        from actorii.vm import ActorVM
+
+        return ActorVM._active_vm
+
+    factories = {
+        "Channel": lambda *args: ActorChannel(*args[:1]),
+        "Mutex": lambda *args: ActorMutex(_active_vm()),
+        "AtomicCounter": lambda *args: AtomicCounter(*args[:1]),
+        "ThreadPool": lambda *args: ActorThreadPoolTwin(
+            _active_vm(), *(args[:1] or (4,))
+        ),
+    }
+    for cname, py_cls in CONCURRENCY_BRIDGE_CLASSES.items():
+        cls = hierarchy.get(cname)
+        if cls is None:
+            continue
+        specs = dict(getattr(py_cls, "__actor_bridge_specs__", {}) or {})
+        cls.is_bridge_class = True
+        cls.bridge_specs = specs
+        cls.ivars = list(specs.keys())
+        # Class-level delegates so bridge selectors win over inherited Object
+        # selectors of the same name (e.g. `error(fut)!!` vs Object>>error).
+        for sel in specs:
+
+            def _delegate(self: Any, *args: Any, _sel: str = sel) -> Any:
+                invoke = getattr(self, "invoke_bridge_member", None)
+                if invoke is None:
+                    raise TypeError(
+                        f"'{_sel}' requires a live concurrency handle, got {self!r}"
+                    )
+                return invoke(_sel, *args)
+
+            cls.add_method(sel, _delegate)
+        factory = factories.get(cname)
+        if factory is None:
+            continue
+
+        def _ctor(*args: Any, _f: Any = factory) -> Any:
+            return wrap_for_actor(_active_vm(), _f(*args))
+
+        cls._default_constructor = _ctor
+        cls.set_method("new", lambda self, *args, _c=_ctor: _c(*args))
+
 
 __all__ = [
     "ActorObject",
@@ -812,5 +880,11 @@ __all__ = [
     "Agent",
     "ThermoProTwin",
     "ThermometerUI",
+    "ActorFuture",
+    "ActorChannel",
+    "ActorMutex",
+    "AtomicCounter",
+    "TaskPool",
+    "ActorThreadPoolTwin",
     "register_classes",
 ]
