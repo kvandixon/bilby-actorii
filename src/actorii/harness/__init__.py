@@ -82,7 +82,7 @@ DEFAULT_HARNESS_SYSTEM_PROMPT = (
     "  * `Actor[#VM]` & `Actor[#Sandbox]`: `classes(Actor[#VM])!!`, `methodsOf(Actor[#VM], #Cls)!!`, `sourceOf(Actor[#VM], #Cls, #sel)!!`, `capabilities(Actor[#Sandbox])!!`\n"
     "  * `Actor[#Host]`: `searchFile`, `readFile`, `writeFile`, `editFile`, `execShell` (locked on host when `ACTORII_HOST_LOCKDOWN=1`; unlocked inside `/workspace` containers).\n"
     "- SECURITY & OUTPUT GUARDRAILS:\n"
-    "  * Ring 0/1 classes, `AgentHarness` kernel methods, and `Actor[...]` singletons (`#Threads`, `#Memory`, `#Harness`, `#Sandbox`, `#Host`, etc.) are locked. Never stop/disable OS/network/DNS/VPN/desktop services, touch `/etc/resolv.conf` or crontabs, or modify `~/bin/` or `ActorII/src/`.\n"
+    "  * Ring 0/1 classes, `AgentHarness` kernel methods, and `Actor[...]` singletons (`#Threads`, `#Memory`, `#Harness`, `#Sandbox`, `#Host`, etc.) are locked (`AgentHarness` cognitive hooks like `policyNote`, `transformAction`, `verifyOutcome`, `buildStepPrompt` ARE safely hot-patchable via `evolve(Actor[#Harness], ...)`). Never stop/disable OS/network/DNS/VPN/desktop services, touch `/etc/resolv.conf` or crontabs, or modify `~/bin/` or `ActorII/src/`.\n"
     "  * MANDATORY SKIPPY PRE-FLIGHT MONITOR: Before spawning detached `Actor[#Threads]` tasks, hot-patching `AgentHarness` hooks (`evolve`), or bulk-mutating `:ActorEpisode`/`:ActorEngram` memory (`DELETE` on core memory labels is hard-blocked—use `SET e.archived = true` and `coalesce(e.salience, 0.5)`), you MUST first call `askSkippy(Actor[#Valkyrie], \"PREFLIGHT MONITOR: <exact code & rollback plan>\")!!` in the current turn.\n"
     "  * Casual questions: reply in 1 step (`COMPLETE: <answer>`). Structured domain facts/formulas: persist to Neo4j (`cypherWrite`) + define an Actor class (auto-crystallized as `:ActorEngram`).\n"
     "  * NEVER emit `<tool_call>` XML wrappers or wrap Actor code in markdown fences—output raw 1993 Actor 4.1 ending in `!!` or `COMPLETE: <answer>`."
@@ -1653,7 +1653,8 @@ class VMSandboxBridge:
         re.IGNORECASE,
     )
     _LIVE_MEMORY_BULK_MUTATION_RE = re.compile(
-        r"\b(?:cypherWrite(?:With)?|writeGraph)\s*\([\s\S]*?:\s*(?:ActorEpisode|ActorEngram)\b[\s\S]*?\b(?:SET|REMOVE|DELETE)\b",
+        r"(?:\b(?:cypherWrite(?:With)?|writeGraph)\s*\([\s\S]*?:\s*(?:ActorEpisode|ActorEngram|ActorEngramVersion|ActorGrammarRule|ActorLearnedFix|Product|ProductManualChunk|Recipe|Ingredient|MealPlan)\b[\s\S]*?\b(?:SET|REMOVE|DELETE|MERGE|CREATE)\b"
+        r"|\b(?:clearEpisodes|clearEngrams|clearProducts|setNamespace)\s*\(\s*Actor\s*\[\s*#(?:Memory|ProductLearner)\s*\])",
         re.IGNORECASE,
     )
 

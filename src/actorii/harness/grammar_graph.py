@@ -17,6 +17,7 @@ Connects the ActorII `AgentHarness` to the local Neo4j graph database on `valkyr
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.request
 from typing import Any, Dict, List, Optional
@@ -638,15 +639,25 @@ class ActorGrammarGraph:
         fixed_code: str,
         model: str = "unknown",
     ) -> str:
-        """Persist a verified self-correction `(Error) -> (Fixed Actor Code)` into Neo4j."""
+        """Persist a verified self-correction `(Error) -> (Fixed Actor Code)` into Neo4j (auto-creating a novel `:ActorErrorPattern` when needed)."""
         err_str = str(error_text or "").strip()
         if err_str.startswith("ERROR:"):
             err_str = err_str[6:].strip()
         err_str = err_str[:240]
         bad_str = str(bad_code or "")[:400]
         fix_str = str(fixed_code or "")[:400]
+        # Extract a concise reusable signature (`[LINT_...]`, `TypeError: ...`, or prefix before specific symbol names)
+        first_line = err_str.splitlines()[0].strip() if err_str else ""
+        bracket_m = re.search(r"(\[[A-Z0-9_]+\])", first_line)
+        if bracket_m:
+            novel_pat = bracket_m.group(1)
+        elif ":" in first_line:
+            parts_colon = [p.strip() for p in first_line.split(":", 2)]
+            novel_pat = f"{parts_colon[0]}: {parts_colon[1]}"[:64] if len(parts_colon) >= 2 else first_line[:64]
+        else:
+            novel_pat = first_line[:64]
         try:
-            self._run_cypher(
+            rows = self._run_cypher(
                 """
                 MERGE (lf:ActorLearnedFix {
                     error_summary: $err,
@@ -657,12 +668,41 @@ class ActorGrammarGraph:
                     lf.model = $model,
                     lf.created_at = timestamp()
                 WITH lf
-                MATCH (ep:ActorErrorPattern)
+                OPTIONAL MATCH (ep:ActorErrorPattern)
                 WHERE $err CONTAINS ep.pattern OR toLower($err) CONTAINS toLower(ep.pattern)
-                MERGE (ep)-[:HAS_LEARNED_FIX]->(lf)
+                WITH lf, collect(ep) AS matched_eps
+                FOREACH (existing_ep IN matched_eps |
+                    MERGE (existing_ep)-[:HAS_LEARNED_FIX]->(lf)
+                )
+                RETURN size(matched_eps) AS match_count
                 """,
-                {"err": err_str, "bad": bad_str, "fix": fix_str, "model": str(model)},
+                {
+                    "err": err_str,
+                    "bad": bad_str,
+                    "fix": fix_str,
+                    "model": str(model),
+                },
             )
+            matched_cnt = int(rows[0].get("match_count", 0)) if rows else 0
+            if matched_cnt == 0 and novel_pat:
+                self._run_cypher(
+                    """
+                    MERGE (auto_ep:ActorErrorPattern {pattern: $novel_pat})
+                    ON CREATE SET
+                        auto_ep.hint = 'Bilby self-discovered runtime/compile error remediation (' + $novel_pat + ').',
+                        auto_ep.auto_learned = true,
+                        auto_ep.created_at = timestamp()
+                    WITH auto_ep
+                    MATCH (lf:ActorLearnedFix {error_summary: $err, fixed_code: $fix})
+                    MERGE (auto_ep)-[:HAS_LEARNED_FIX]->(lf)
+                    WITH auto_ep
+                    OPTIONAL MATCH (sc:ActorSyntaxConstruct {id: 'method_def'})
+                    FOREACH (s IN CASE WHEN sc IS NOT NULL THEN [sc] ELSE [] END |
+                        MERGE (auto_ep)-[:REMEDIATED_BY]->(s)
+                    )
+                    """,
+                    {"novel_pat": novel_pat, "err": err_str, "fix": fix_str},
+                )
             return "RECORDED_IN_NEO4J"
         except Exception as exc:
             return f"NEO4J_RECORD_SKIPPED: {exc}"
