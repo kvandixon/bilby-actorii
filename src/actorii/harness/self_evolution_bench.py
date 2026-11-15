@@ -514,6 +514,8 @@ class SelfEvolutionRunner:
             "ACTORII_STATE_DIR": str(self.work_dir / "state"),
             "ACTORII_MEMORY_NAMESPACE": self._ns,
             "ACTORII_DISABLE_DEMO_TWINS": "1",
+            "ACTORII_DISABLE_PERSONA_OVERLAY": "1",
+            "ACTORII_BENCH_STRICT": "1",
         }
         env["ACTORII_HOST_LOCKDOWN"] = "1" if self.host_lockdown else "0"
         return env

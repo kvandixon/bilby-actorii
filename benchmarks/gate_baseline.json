@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "updated_at": "2026-11-14",
+  "updated_at": "2026-11-15",
   "major_change_rules": {
     "core_paths": [
       "src/actorii/vm.py",
@@ -23,8 +23,8 @@
     ],
     "frontier": {
       "dag_task_scheduler": {
-        "best_holdout_pass_rate": 0.3077,
-        "best_visible_pass_rate": 0.25,
+        "best_holdout_pass_rate": 0.5385,
+        "best_visible_pass_rate": 0.5,
         "last_status": "failed"
       }
     },

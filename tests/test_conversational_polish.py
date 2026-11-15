@@ -816,3 +816,97 @@ def test_ask_skippy_cheapest_model_cascade_and_active_route_env(
     assert captured_env.get("ASK_SKIPPY_CHAT_ID") == "8492834492"
     assert captured_env.get("ASK_SKIPPY_THREAD_ID") == "15996"
     tg._set_active_route(None, None)
+
+
+def test_cross_turn_memory_tail_failures_and_halted_turn_persistence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify multi-step turns retain tail actions + failed SSH signals across turns and halted turns aren't silently dropped."""
+    from actorii.classes.dictionary import Dictionary
+    from actorii.core import Symbol
+
+    monkeypatch.setenv("ACTORII_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("ACTORII_DISABLE_DEMO_TWINS", "1")
+    session = ActorTUISession(max_steps=12, max_failures=6, use_color=False)
+
+    # Inject a fake Jetson exec mock that simulates `pkill -f` rc=255 and ABI mismatch rc=1
+    from actorii.bridge import actor_bridge, actor_command
+
+    @actor_bridge(name="MockJetsonContinuity")
+    class MockJetsonContinuity:
+        @actor_command
+        def exec(self, cmd: str, timeout: int = 10) -> Dictionary:
+            d = Dictionary(8)
+            if "pkill -f julia" in cmd:
+                d.atPut(Symbol("ok"), False)
+                d.atPut("ok", False)
+                d.atPut(Symbol("exitCode"), 255)
+                d.atPut("exitCode", 255)
+                d.atPut(Symbol("stdout"), "")
+                d.atPut("stdout", "")
+                d.atPut(Symbol("stderr"), "")
+                d.atPut("stderr", "")
+                return d
+            if "test_abi" in cmd:
+                d.atPut(Symbol("ok"), False)
+                d.atPut("ok", False)
+                d.atPut(Symbol("exitCode"), 1)
+                d.atPut("exitCode", 1)
+                d.atPut(Symbol("stdout"), "JPEG parameter struct mismatch: 584 vs 728")
+                d.atPut("stdout", "JPEG parameter struct mismatch: 584 vs 728")
+                d.atPut(Symbol("stderr"), "")
+                d.atPut("stderr", "")
+                return d
+            d.atPut(Symbol("ok"), True)
+            d.atPut("ok", True)
+            d.atPut(Symbol("exitCode"), 0)
+            d.atPut("exitCode", 0)
+            d.atPut(Symbol("stdout"), f"ok:{cmd}")
+            d.atPut("stdout", f"ok:{cmd}")
+            d.atPut(Symbol("stderr"), "")
+            d.atPut("stderr", "")
+            return d
+
+    session.vm.expose_object(MockJetsonContinuity(), global_key="#Jetson")
+
+    captured_prompts: list[str] = []
+    call_idx = {"n": 0}
+
+    def continuity_brain(prompt: str) -> str:
+        captured_prompts.append(prompt)
+        call_idx["n"] += 1
+        n = call_idx["n"]
+        # Turn 1 (12 steps max -> halts without COMPLETE after hitting pkill rc=255 + test_abi rc=1 on steps 10-12!)
+        if n <= 9:
+            return f'exec(Actor[#Jetson], "probe_{n}", 5)!!'
+        if n == 10:
+            return 'exec(Actor[#Jetson], "pkill -f julia_stream", 5)!!'
+        if n == 11:
+            return 'exec(Actor[#Jetson], "test_abi_step11", 5)!!'
+        if n == 12:
+            return 'exec(Actor[#Jetson], "tail_step12_marker", 5)!!'
+        # Turn 2 ("Proceed") -> Step 1 should see Turn 1's halted state, tail_step12_marker, and JPEG mismatch failure!
+        return "COMPLETE: Resumed cleanly without repeating Turn 1 probes."
+
+    session.harness.custom_provider = continuity_brain
+
+    # Turn 1 hits maxSteps=12 and halts without COMPLETE
+    session.handle_input("/chat Build Julia stream")
+    assert str(session.harness._fields.get("status")).lstrip("#") == "halted"
+    # Step 11 prompt (`n == 11`, step 11 of 12) saw `pkill -f` SSH self-kill diagnostic AND step budget checkpoint (`>= max_st - 2`)
+    step11_prompt = captured_prompts[10]
+    assert "SSH SELF-KILL DIAGNOSTIC" in step11_prompt
+    assert "STEP BUDGET CHECKPOINT" in step11_prompt
+
+    # Halted turn was persisted into chatLog automatically by `AgentHarness>>runGoal`
+    hist = session.get_chat_history(local_only=True)
+    assert len(hist) == 1
+    assert hist[0].get("halted_incomplete") is True
+
+    # Turn 2 ("Proceed") wakes up with full visibility of Turn 1's tail step (`tail_step12_marker`) and ABI failure!
+    session.handle_input("/chat Proceed")
+    turn2_prompt = captured_prompts[12]
+    assert "TURN HALTED INCOMPLETE after 12 steps" in turn2_prompt
+    assert "tail_step12_marker" in turn2_prompt
+    assert "JPEG parameter struct mismatch: 584 vs 728" in turn2_prompt
+

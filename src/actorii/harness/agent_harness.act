@@ -309,6 +309,12 @@ Def runGoal(self, goalText, maxSteps) {
             step(self);
         endif;
     endLoop;
+    if self.status == #halted then
+        recordHaltedTurn(self.sandbox, self, self.lastError);
+    endif;
+    if self.status == #blocked then
+        recordHaltedTurn(self.sandbox, self, self.lastError);
+    endif;
     ^self.lastResult;
 }!!
 

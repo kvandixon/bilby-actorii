@@ -17,6 +17,7 @@ Connects the ActorII `AgentHarness` to the local Neo4j graph database on `valkyr
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 import urllib.request
@@ -109,9 +110,9 @@ SEED_CONSTRUCTS: List[Dict[str, Any]] = [
         "rule": (
             "1993 Actor uses PREFIX function-call syntax for all messages: `selector(receiver, arg1)` "
             "(NEVER dot syntax `receiver.selector(arg1)`). "
-            "Length of an Array or String `x` is `size(x)`. Array and String indexing `x[i]` is 0-based (`0` to `size(x) - 1`). "
-            "Array literals are written `#(10, 20, -5)`. To dynamically build and return a list/array, use `OrderedCollection`: "
-            "`res := new(OrderedCollection); add(res, val); ^res;`. To convert an integer/number `n` to a String (or inspect digits), call `s := asString(n)` and index characters `s[j] == \"7\"` or use modulo/floor division (`d := num % 10; num := (num - d) / 10`). String concatenation is `s1 + s2`, absolute value is `abs(x)`, and null is `nil`."
+            "Length of an Array, OrderedCollection, or String `x` is `size(x)`. Array/OrderedCollection/String indexing `x[i]` (or `at(x, i)` / `atPut(x, i, val)`) is 0-based (`0` to `size(x) - 1`). "
+            "Fixed-size arrays: `arr := new(Array, n)` (or literal `#(10, 20, -5)`). Dynamic lists/queues: `oc := new(OrderedCollection); add(oc, val); removeFirst(oc); removeLast(oc); first(oc); last(oc)`. "
+            "To convert an integer/number `n` to a String (or inspect digits), call `s := asString(n)` and index characters `s[j] == \"7\"` or use modulo/floor division (`d := num % 10; num := (num - d) / 10`). String concatenation is `s1 + s2`, absolute value is `abs(x)`, and null is `nil`."
         ),
         "canonical_example": (
             "Def max_element(self, l | i, n, best) {\n"
@@ -201,9 +202,12 @@ SEED_CONSTRUCTS: List[Dict[str, Any]] = [
 ]
 
 SEED_PRIMITIVES: List[Dict[str, str]] = [
-    {"cls": "Collection", "selector": "size", "syntax": "size(colOrStr)", "desc": "Return number of elements in Array or characters in String"},
-    {"cls": "Array", "selector": "[]", "syntax": "arr[i]", "desc": "0-based element lookup at index i"},
+    {"cls": "Collection", "selector": "size", "syntax": "size(colOrStr)", "desc": "Return number of elements in Array/OrderedCollection or characters in String"},
+    {"cls": "Array", "selector": "new", "syntax": "new(Array, size)", "desc": "Allocate a fixed-size 0-based Array of length size initialized to nil"},
+    {"cls": "Array", "selector": "[]", "syntax": "arr[i]", "desc": "0-based element lookup/assign (`arr[i]` / `arr[i] := val` or `at(col, i)` / `atPut(col, i, val)`)"},
     {"cls": "OrderedCollection", "selector": "add", "syntax": "add(col, item)", "desc": "Append item to OrderedCollection"},
+    {"cls": "OrderedCollection", "selector": "removeFirst", "syntax": "removeFirst(col)", "desc": "Remove and return oldest/first element at index 0 from OrderedCollection"},
+    {"cls": "OrderedCollection", "selector": "removeLast", "syntax": "removeLast(col)", "desc": "Remove and return last element from OrderedCollection"},
     {"cls": "Dictionary", "selector": "at", "syntax": "at(dict, #key)", "desc": "Lookup value by symbol/string key"},
     {"cls": "Dictionary", "selector": "atPut", "syntax": "atPut(dict, #key, val)", "desc": "Store key-value pair in Dictionary"},
     {"cls": "Number", "selector": "/", "syntax": "(a / 2.0)", "desc": "Float division when either operand is float; integer floor division if both are int"},
@@ -291,9 +295,9 @@ SEED_ERROR_PATTERNS: List[Dict[str, str]] = [
         "hint": "Ensure all temporary/local variables (like `t` or `r` in GCD/loops) are declared after the pipe `|` in `Def method(self, a, b | t, r)` so they are not `nil`, and in Euclidean GCD `loop while (b != 0) begin r := (a % b); a := b; b := r; endLoop; ^a;` compute `a % b` (NEVER `b % a`).",
     },
     {
-        "pattern": ".5",
+        "pattern": "== ",
         "construct_id": "operators_and_math",
-        "hint": "Float test failed because `/` on two integers in Actor performs floor division (`15 / 2 == 7`). Divide by float `2.0` (`(a * h) / 2.0`) to produce a float!",
+        "hint": "If a float equality test failed (e.g. `== 7.5`), remember `/` on two integers in Actor performs floor division (`15 / 2 == 7`). Divide by float `2.0` (`(a * h) / 2.0`) to produce a float!",
     },
     {
         "pattern": "Expected ')' closing argument list",
@@ -602,6 +606,7 @@ class ActorGrammarGraph:
                 MATCH (ep:ActorErrorPattern)-[:REMEDIATED_BY]->(sc:ActorSyntaxConstruct)
                 WHERE $err CONTAINS ep.pattern OR toLower($err) CONTAINS toLower(ep.pattern)
                 OPTIONAL MATCH (ep)-[:HAS_LEARNED_FIX]->(lf:ActorLearnedFix)
+                WITH ep, sc, lf ORDER BY lf.created_at DESC
                 RETURN ep.pattern AS pattern, ep.hint AS hint,
                        sc.title AS construct_title, sc.rule AS rule,
                        sc.canonical_example AS example,
@@ -644,8 +649,25 @@ class ActorGrammarGraph:
         if err_str.startswith("ERROR:"):
             err_str = err_str[6:].strip()
         err_str = err_str[:240]
-        bad_str = str(bad_code or "")[:400]
-        fix_str = str(fixed_code or "")[:400]
+        bad_str = str(bad_code or "").strip()[:400]
+        fix_str = str(fixed_code or "").strip()[:400]
+        # Skip recording during automated unit tests or strict benchmarks so benchmark fixtures never leak across specs
+        if (
+            os.environ.get("ACTORII_BENCH_STRICT") == "1"
+            or "PYTEST_CURRENT_TEST" in os.environ
+        ):
+            return "SKIPPED_BENCH_OR_TEST"
+        # Skip recording non-reusable meta-warnings or invalid non-Actor prose/comments/fences as `fixed_code`
+        if not err_str or not fix_str:
+            return "SKIPPED_EMPTY"
+        if err_str.startswith(("DuplicateStepWarning:", "DuplicateReplyError:", "[SKIPPY_PREFLIGHT_REQUIRED]")):
+            return "SKIPPED_META_WARNING"
+        if (
+            fix_str.startswith(("/* Executed ", "```", "Let ", "I "))
+            or "```" in fix_str
+            or not fix_str.endswith("!!")
+        ):
+            return "SKIPPED_NON_CANONICAL_FIX"
         # Extract a concise reusable signature (`[LINT_...]`, `TypeError: ...`, or prefix before specific symbol names)
         first_line = err_str.splitlines()[0].strip() if err_str else ""
         bracket_m = re.search(r"(\[[A-Z0-9_]+\])", first_line)
@@ -653,7 +675,14 @@ class ActorGrammarGraph:
             novel_pat = bracket_m.group(1)
         elif ":" in first_line:
             parts_colon = [p.strip() for p in first_line.split(":", 2)]
-            novel_pat = f"{parts_colon[0]}: {parts_colon[1]}"[:64] if len(parts_colon) >= 2 else first_line[:64]
+            if (
+                len(parts_colon) >= 3
+                and parts_colon[0] == "ActorGuardrailError"
+                and parts_colon[1] == "ParseError"
+            ):
+                novel_pat = f"ParseError: {parts_colon[2]}"[:64]
+            else:
+                novel_pat = f"{parts_colon[0]}: {parts_colon[1]}"[:64] if len(parts_colon) >= 2 else first_line[:64]
         else:
             novel_pat = first_line[:64]
         try:
