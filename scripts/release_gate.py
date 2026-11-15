@@ -296,6 +296,8 @@ def run_fast_tier(repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     env["ACTORII_STATE_DIR"] = str(tmp_state)
     env["ACTORII_MEMORY_NAMESPACE"] = ns
     env["PYTHONPATH"] = str(repo_root / "src")
+    env["ACTORII_ENABLE_THINKING"] = "0"
+    env["ACTORII_THINKING_MODE"] = "off"
 
     try:
         p_res = subprocess.run(

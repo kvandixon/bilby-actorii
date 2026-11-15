@@ -149,6 +149,14 @@ class BilbyTelegramGateway:
                 self.total_steps = int(data.get("total_steps", 0) or 0)
                 self.total_gas = int(data.get("total_gas", 0) or 0)
                 self._verbose_output = bool(data.get("verbose_output", False))
+                saved_think = data.get("thinking_mode")
+                if isinstance(saved_think, str) and saved_think.strip():
+                    from actorii.ai import set_thinking_mode
+
+                    try:
+                        set_thinking_mode(saved_think)
+                    except ValueError:
+                        pass
                 saved_turns = data.get("chat_history")
                 if isinstance(saved_turns, list) and saved_turns:
                     from actorii.classes.collections import ActorOrderedCollection
@@ -216,6 +224,7 @@ class BilbyTelegramGateway:
                         "total_steps": self.total_steps,
                         "total_gas": self.total_gas,
                         "verbose_output": self._verbose_output,
+                        "thinking_mode": __import__("actorii.ai", fromlist=["get_thinking_mode"]).get_thinking_mode(),
                         "chat_history": recent_turns,
                         "scratchpad": scratch_dict,
                     },
@@ -340,9 +349,13 @@ class BilbyTelegramGateway:
         ms_txt = "∞ (unlimited)" if (raw_ms is not None and int(raw_ms) <= 0) else str(raw_ms)
         mf_txt = "∞ (disabled)" if (raw_mf is not None and int(raw_mf) <= 0) else f"{raw_mf} strikes"
         preflight_on = os.environ.get("ACTORII_ENFORCE_SKIPPY_PREFLIGHT", "1" if lockdown else "0") == "1"
+        from actorii.ai import get_thinking_mode
+
+        think_mode = get_thinking_mode()
         return (
             "🛡️ Bilby Containment & Security Controls Report\n"
             f"• Execution State: {'❄️ FROZEN (Kill-Switch Active)' if self._frozen else '🟢 ACTIVE (Guarded)'}\n"
+            f"• System-2 Thinking Mode (`/think`): 🧠 `{think_mode}`\n"
             f"• Host Lockdown (`ACTORII_HOST_LOCKDOWN`): {'🔒 LOCKED (1)' if lockdown else '⚠️ UNLOCKED (0)'}\n"
             f"• Skippy Pre-Flight Monitor (`askSkippy` before detached threads / `evolve` / bulk memory writes): {'🔒 ENFORCED' if preflight_on else '⚠️ OFF'}\n"
             "• Core Memory Self-Preservation (`DELETE` on `:ActorEpisode` / `:ActorEngram`): 🔒 HARD-BLOCKED (Soft-Archive Only)\n"
@@ -397,6 +410,8 @@ class BilbyTelegramGateway:
             "/status",
             "/last",
             "/verbose",
+            "/think",
+            "/thinking",
             "/help",
             "/start",
         )
@@ -460,6 +475,33 @@ class BilbyTelegramGateway:
                     return "🔊 **Verbose mode ON** — replies will include executed Actor 4.1 code blocks inline."
                 return "✨ **Verbose mode OFF** — replies are clean human prose (use `/last` anytime to inspect Actor 4.1 code & VM results)."
 
+            if cmd_lower in ("/think", "/thinking"):
+                from actorii.ai import get_thinking_mode, set_thinking_mode
+
+                req_mode = arg_str.strip().lower()
+                if not req_mode or req_mode == "status":
+                    cur = get_thinking_mode()
+                    desc = {
+                        "off": "`off` (fast direct Actor actions; zero chain-of-thought)",
+                        "auto": "`auto` (selective System-2 thinking on planning steps 2–3, errors/mismatches, and loop checkpoints)",
+                        "high": "`high` (System-2 thinking enabled on every step)",
+                    }.get(cur, f"`{cur}`")
+                    return (
+                        f"🧠 **Thinking mode:** {desc}\n"
+                        "Switch anytime with `/think off`, `/think auto`, or `/think high`."
+                    )
+                try:
+                    new_mode = set_thinking_mode(req_mode)
+                except ValueError:
+                    return "Usage: `/think [off | auto | high]`"
+                self._save_offset(self.offset)
+                labels = {
+                    "off": "⚡ **Thinking mode set to `off`** — fast direct Actor actions (`force_no_think`).",
+                    "auto": "🧠 **Thinking mode set to `auto`** — selective System-2 reasoning on planning steps (2–3), errors/mismatches, and loop checkpoints.",
+                    "high": "🔬 **Thinking mode set to `high`** — bounded System-2 reasoning active on every step.",
+                }
+                return labels[new_mode]
+
             if self._frozen:
                 return "❄️ Bilby is currently FROZEN by kill-switch (`/freeze`). Send `/unlock` or `/controls`."
 
@@ -470,6 +512,7 @@ class BilbyTelegramGateway:
                     "**Commands:**\n"
                     "• Plain English or Actor 4.1 code (`!!`) — Guarded ReAct loop (clean human output)\n"
                     "• `/last` — Inspect the Actor 4.1 code & VM results from the last turn\n"
+                    "• `/think [off|auto|high]` — Inspect or tune Bilby's System-2 thinking level\n"
                     "• `/verbose [on|off]` — Toggle inline Actor 4.1 code blocks in replies\n"
                     "• `/stop` (or `/cancel`) — Break Bilby out of an active loop immediately\n"
                     "• `/status` — VM, GPU VRAM, and Harness status\n"

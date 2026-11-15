@@ -910,3 +910,73 @@ def test_cross_turn_memory_tail_failures_and_halted_turn_persistence(
     assert "tail_step12_marker" in turn2_prompt
     assert "JPEG parameter struct mismatch: 584 vs 728" in turn2_prompt
 
+
+def test_thinking_mode_tuning_across_ai_telegram_and_tui(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Verify `get_thinking_mode`/`set_thinking_mode` and `/think [off|auto|high]` across Telegram and TUI."""
+    import os
+    from actorii.ai import get_thinking_mode, set_thinking_mode
+    from actorii.telegram_gateway import BilbyTelegramGateway
+
+    monkeypatch.delenv("ACTORII_THINKING_MODE", raising=False)
+    monkeypatch.setenv("ACTORII_ENABLE_THINKING", "0")
+    assert get_thinking_mode() == "off"
+
+    monkeypatch.setenv("ACTORII_ENABLE_THINKING", "1")
+    assert get_thinking_mode() == "auto"
+
+    assert set_thinking_mode("high") == "high"
+    assert get_thinking_mode() == "high"
+    assert os.environ.get("ACTORII_ENABLE_THINKING") == "1"
+
+    assert set_thinking_mode("off") == "off"
+    assert get_thinking_mode() == "off"
+    assert os.environ.get("ACTORII_ENABLE_THINKING") == "0"
+
+    with pytest.raises(ValueError):
+        set_thinking_mode("invalid_mode")
+
+    # Telegram `/think` command + mid-goal immediate control + state persistence
+    state_file = tmp_path / "tg_state.json"
+    session = ActorTUISession(use_color=False)
+    gw = BilbyTelegramGateway(
+        token="fake:token",
+        allowed_users=[12345],
+        default_chat_id="12345",
+        state_path=state_file,
+        session=session,
+        api_caller=lambda *_a, **_kw: {"ok": True, "result": []},
+    )
+    assert gw._is_immediate_control_command("/think high") is True
+    assert gw._is_immediate_control_command("/thinking") is True
+
+    status_out = gw.handle_text_command_or_goal("/think")
+    assert "off" in status_out
+
+    auto_out = gw.handle_text_command_or_goal("/think auto")
+    assert "auto" in auto_out
+    assert get_thinking_mode() == "auto"
+    saved = json.loads(state_file.read_text(encoding="utf-8"))
+    assert saved.get("thinking_mode") == "auto"
+
+    controls_out = gw.format_security_controls()
+    assert "System-2 Thinking Mode (`/think`): 🧠 `auto`" in controls_out
+
+    # TUI `/think` command + `/status` telemetry
+    before = len(session.transcript)
+    session.handle_input("/think high")
+    tui_out = "\n".join(session.transcript[before:])
+    assert "high" in tui_out
+    assert get_thinking_mode() == "high"
+
+    before_st = len(session.transcript)
+    session.handle_input("/status")
+    st_out = "\n".join(session.transcript[before_st:])
+    assert "Thinking Mode" in st_out
+    assert "high" in st_out
+
+    # Reset back to off for subsequent tests
+    set_thinking_mode("off")
+
+
