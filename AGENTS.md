@@ -27,3 +27,11 @@ Never push core changes or restart live `bilby-actor-telegram.service` without p
 
 - For codebase questions, first run `graphify query "<question>"` when `graphify-out/graph.json` exists (`graphify path "<A>" "<B>"`, `graphify explain "<concept>"`).
 - After modifying code, run `graphify update .` to keep the AST knowledge graph current.
+
+## 3. Bilby-First Self-Correction & Memory Crystallization Policy
+
+1. **Default to Bilby Fixing It**: Before patching prompts, seeding static error hints, or writing capability logic in Python, let Bilby (`~/bin/ask-actorii` or live `AgentHarness`) encounter the failure, troubleshoot it, and self-correct as much as he can.
+2. **Compile-Time Mechanisms Over Prompt Hand-Holding**: When Ring-0 Python changes are warranted, prefer general compile-time/bytecode guardrail checks (`src/actorii/guardrails/linter.py`, structured `ErrorContext`) or self-learning graph mechanisms (`recordLearnedFix` -> `:ActorErrorPattern`) over hard-coded prompt prose or benchmark-specific hints.
+3. **Turn Troubleshooting into Structure & Memory**: Every non-trivial fix Bilby performs should crystallize into persistent Neo4j artifacts—versioned `:ActorEngram` classes (with `Def selfTest(self)`), `:ActorLearnedFix` remediation edges, or Ring-1 `evolve(Actor[#Harness], ...)` cognitive hooks—rather than disposable one-off scripts.
+4. **Ring-0 Intervention Boundary**: Reserve direct Cloud Skippy edits to `src/actorii/` for Ring-0 VM/parser bugs, hard security/containment guardrails, and infrastructure/gate plumbing that Bilby is intentionally locked out of modifying.
+

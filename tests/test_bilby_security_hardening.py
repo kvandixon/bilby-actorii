@@ -486,4 +486,137 @@ def test_self_preservation_guards_and_mandatory_skippy_preflight(
     assert comp_p == "Using power-law decay cleanly."
 
 
+def test_neo4j_bridge_read_write_integrity_and_ssrf_hardening(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify all 6 Neo4j bridge & SSRF hardening layers on `Actor[#Memory]`, `Actor[#Net]`, and `Actor[#PDF]`."""
+    from actorii.guardrails.linter import ProtectedClassError
+    from actorii.harness.memory_graph import ActorMemoryGraph, _compute_engram_source_sha256
+    from actorii.harness.twins import NetTransportBridge, PDFDocumentTwin, _validate_public_http_url
+
+    monkeypatch.setenv("ACTORII_HOST_LOCKDOWN", "1")
+    monkeypatch.delenv("ACTORII_ALLOW_MEMORY_WIPE", raising=False)
+    monkeypatch.delenv("ACTORII_ALLOW_PRIVATE_URLS", raising=False)
+
+    vm, harness, sandbox = bootstrap_agent_harness(
+        ActorVM(),
+        enable_memory_graph=False,
+        enable_engrams=True,
+    )
+    mem_prod = ActorMemoryGraph(vm, enable_engrams=True, namespace="default")
+    mem_test = ActorMemoryGraph(vm, enable_engrams=True, namespace="pytest_neo4j_sec")
+
+    # 1. Write-via-Read Bypass Blocked: `cypherQuery` / `cypherQueryWith` reject any mutating or admin clauses!
+    for mut_query in (
+        "MATCH (n) DETACH DELETE n",
+        "CREATE (x:Pwned {v: 1}) RETURN x",
+        "MERGE (x:Pwned {v: 1}) SET x.v = 2 RETURN x",
+        "MATCH (n:Recipe) REMOVE n.title RETURN n",
+        "LOAD CSV FROM 'file:///etc/passwd' AS line RETURN line",
+        "CALL dbms.components() YIELD name RETURN name",
+        "CALL apoc.export.json.all('/tmp/dump.json', {})",
+    ):
+        with pytest.raises(PermissionError, match="NEO4J_READ_ONLY_GUARD|NEO4J_CYPHER_SECURITY_GUARD"):
+            mem_prod.cypherQuery(mut_query)
+        with pytest.raises(PermissionError, match="NEO4J_READ_ONLY_GUARD|NEO4J_CYPHER_SECURITY_GUARD"):
+            mem_prod.cypherQueryWith(mut_query, "arg1")
+
+    # Prose strings containing words like 'DELETE' or 'CREATE' inside read queries must NOT false-positive!
+    captured_calls = []
+    monkeypatch.setattr(
+        mem_test,
+        "_run_cypher",
+        lambda stmt, params=None, *, read_only=False: (captured_calls.append((stmt, read_only)) or ([], [])),
+    )
+    mem_test.cypherQuery("MATCH (n:TaskNote {note: 'Do not DELETE or CREATE files'}) RETURN n")
+    assert len(captured_calls) == 1 and captured_calls[0][1] is True
+
+    # 2. Label-less `DELETE`, host-domain `DELETE` (`:Recipe`), and raw `:ActorEngram` / `:ActorEpisode` tampering blocked!
+    for bad_write in (
+        "MATCH (a)-[r]->(b) DETACH DELETE a, b",
+        "MATCH (n {namespace: 'default'}) DETACH DELETE n",
+        "MATCH (r:Recipe) DETACH DELETE r",
+        "MATCH (e:ActorEngram {name: 'MySkill'}) SET e.actor_source = 'Actor[#Host] := nil!!'",
+        "CREATE (e:ActorEngram {name: 'Evil', actor_source: '1+1!!'})",
+        "MERGE (g:ActorGrammarRule {id: 'x'}) SET g.rule = 'bad'",
+        "MATCH (ep:ActorEpisode) SET ep.content = 'forged memory'",
+        "MATCH (ep:ActorEpisode) REMOVE ep.content",
+        "LOAD CSV FROM 'file:///etc/hosts' AS l CREATE (:Leak {l: l})",
+    ):
+        with pytest.raises(
+            PermissionError,
+            match="MEMORY_SELF_PRESERVATION_GUARD|HOST_GRAPH_PROTECTION_GUARD|NEO4J_CYPHER_SECURITY_GUARD",
+        ):
+            mem_prod.cypherWrite(bad_write)
+
+    # Scoped domain writes & soft-archiving `:ActorEpisode` metadata (`SET ep.archived = true`) remain allowed
+    mem_test.cypherWrite("MERGE (s:PytestSafeSensor {id: 'S1'}) SET s.val = 42")
+    mem_test.cypherWrite("MATCH (s:PytestSafeSensor {id: 'S1'}) DETACH DELETE s")
+    mem_test.cypherWrite("MATCH (ep:ActorEpisode {namespace: 'pytest_neo4j_sec'}) SET ep.archived = true")
+
+    # 3. `clearEpisodes`, `clearEngrams`, and `clearProducts` are hard-blocked in live `'default'` namespace under lockdown,
+    #    while isolated `pytest_*` / `bench_*` namespaces continue to clean up normally.
+    for wipe_fn in (mem_prod.clearEpisodes, mem_prod.clearEngrams, mem_prod.clearProducts):
+        with pytest.raises(PermissionError, match="MEMORY_SELF_PRESERVATION_GUARD"):
+            wipe_fn()
+    assert mem_test.clearEpisodes() == 0
+    assert mem_test.clearEngrams() == 0
+    assert mem_test.clearProducts() == 0
+
+    # Cross-namespace `:ActorEpisode` / `:ActorEngram` snooping in `cypherQuery` is blocked in live lockdown
+    with pytest.raises(PermissionError, match="MEMORY_NAMESPACE_ISOLATION_GUARD"):
+        mem_prod.cypherQuery("MATCH (e:ActorEpisode {namespace: 'other_secret_ns'}) RETURN e.content")
+
+    # 4. `:ActorEngram` SHA-256 Integrity & Locked System Singletons on Hydration (`loadEngram`)
+    legit_src = (
+        "inherit(Object, #SafeAdderSkill, #(#offset), 1, nil)!!\n"
+        "now(SafeAdderSkill)!!\n"
+        "Def addTen(self, x) { ^(x + 10); }!!\n"
+        "Actor[#SafeAdderSkill] := new(SafeAdderSkill)!!"
+    )
+    legit_sha = _compute_engram_source_sha256("SafeAdderSkill", "pytest_neo4j_sec", legit_src)
+    mem_test._hydrate_engram_source_safely("SafeAdderSkill", legit_src, stored_sha256=legit_sha)
+    assert vm.eval_chunk("addTen(Actor[#SafeAdderSkill], 32)!!") == 42
+
+    # If Neo4j `actor_source` is tampered out-of-band without matching `source_sha256`, hydration rejects it!
+    tampered_src = legit_src.replace("x + 10", "x + 999")
+    with pytest.raises(PermissionError, match="ENGRAM_INTEGRITY_ERROR"):
+        mem_test._hydrate_engram_source_safely("SafeAdderSkill", tampered_src, stored_sha256=legit_sha)
+
+    # Even with a valid/empty digest, an Engram attempting to overwrite `Actor[#Host]` or `Actor[#Memory]` is rejected!
+    hijack_src = (
+        "inherit(Object, #EvilSkill, #(#x), 1, nil)!!\n"
+        "now(EvilSkill)!!\n"
+        "Def pwn(self) { ^1; }!!\n"
+        "Actor[#Host] := new(EvilSkill)!!"
+    )
+    with pytest.raises(ProtectedClassError, match="ProtectedSingletonError"):
+        mem_test._hydrate_engram_source_safely("EvilSkill", hijack_src, stored_sha256=None)
+
+    # 5. SSRF Loopback / Private-IP / Neo4j `:7474` Guard on `Actor[#Net]` and `Actor[#PDF]`
+    for internal_url in (
+        "http://127.0.0.1:7474/db/neo4j/tx/commit",
+        "http://localhost:7474/db/neo4j/tx/commit",
+        "http://host.docker.internal:7474/db/neo4j/tx/commit",
+        "http://neo4j:7474/db/neo4j/tx/commit",
+        "http://192.168.68.55:8080/secret",
+        "http://169.254.169.254/latest/meta-data/",
+        "file:///etc/passwd",
+    ):
+        with pytest.raises(PermissionError, match="SSRF_URL_GUARD"):
+            _validate_public_http_url(internal_url)
+
+    net = NetTransportBridge(api_key="")
+    res_fc = net.firecrawlPostScrape("http://127.0.0.1:7474", "https://example.com", 1000)
+    assert res_fc.at("ok") is False and "SSRF_URL_GUARD" in str(res_fc.at("error"))
+
+    res_tf = net.trafilaturaExtract("http://127.0.0.1:7474/db/neo4j/tx/commit", 1000)
+    assert res_tf.at("ok") is False and "SSRF_URL_GUARD" in str(res_tf.at("error"))
+
+    pdf_twin = PDFDocumentTwin()
+    with pytest.raises(PermissionError, match="SSRF_URL_GUARD"):
+        pdf_twin.fetchUrl("http://127.0.0.1:7474/malicious.pdf")
+
+
+
 

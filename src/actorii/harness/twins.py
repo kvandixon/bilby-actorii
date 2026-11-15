@@ -1133,6 +1133,75 @@ def _to_actor_dict(mapping: Dict[str, Any]) -> Any:
     return d
 
 
+def _validate_public_http_url(raw_url: str, *, label: str = "URL") -> str:
+    """Block SSRF against loopback, link-local, private RFC1918, Docker host-gateway, and Neo4j/internal ports."""
+    import ipaddress
+    import urllib.parse
+
+    u = str(raw_url or "").strip()
+    if not u:
+        raise ValueError(f"Empty {label}")
+    parsed = urllib.parse.urlparse(u)
+    if parsed.scheme.lower() not in ("http", "https"):
+        raise PermissionError(
+            f"BLOCKED [SSRF_URL_GUARD]: Only `http://` and `https://` schemes are allowed for {label} (got {parsed.scheme!r})."
+        )
+    host = (parsed.hostname or "").strip().lower()
+    if not host:
+        raise ValueError(f"Missing hostname in {label}: {u!r}")
+
+    if os.environ.get("ACTORII_ALLOW_PRIVATE_URLS", "0") == "1":
+        return u
+
+    blocked_hosts = {
+        "localhost",
+        "localhost.localdomain",
+        "host.docker.internal",
+        "gateway.docker.internal",
+        "neo4j",
+        "bilby-neo4j",
+        "valkyrie",
+        "valkyrie.local",
+        "metadata.google.internal",
+    }
+    if host in blocked_hosts or host.endswith((".localhost", ".internal")):
+        raise PermissionError(
+            f"BLOCKED [SSRF_URL_GUARD]: {label} targeting internal/loopback host {host!r} is forbidden."
+        )
+    if parsed.port in (7474, 7687, 8080, 8082, 8084, 8818, 11434):
+        raise PermissionError(
+            f"BLOCKED [SSRF_URL_GUARD]: {label} targeting protected local stack port :{parsed.port} is forbidden."
+        )
+
+    def _check_ip(ip_str: str) -> None:
+        addr = ipaddress.ip_address(ip_str)
+        if (
+            addr.is_loopback
+            or addr.is_private
+            or addr.is_link_local
+            or addr.is_multicast
+            or addr.is_reserved
+            or addr.is_unspecified
+        ):
+            raise PermissionError(
+                f"BLOCKED [SSRF_URL_GUARD]: {label} targeting non-public IP {ip_str} ({host!r}) is forbidden."
+            )
+
+    try:
+        _check_ip(host)
+    except ValueError:
+        # Hostname rather than literal IP: if DNS resolves locally right now, ensure none of its records are loopback/private
+        try:
+            infos = socket.getaddrinfo(host, None)
+            for info in infos:
+                sockaddr = info[4]
+                if sockaddr and sockaddr[0]:
+                    _check_ip(str(sockaddr[0]).split("%", 1)[0])
+        except socket.gaierror:
+            pass
+    return u
+
+
 @actor_bridge(name="NetTransportBridge")
 class NetTransportBridge:
     """Low-level HTTP/HTML/MCP transport driver exposed at `Actor[#Net]` for the 1993 Actor 4.1 `WebScraper` (`Actor[#Web]`)."""
@@ -1168,6 +1237,11 @@ class NetTransportBridge:
 
         api_base = str(base_url or "https://api.firecrawl.dev").rstrip("/")
         url = str(target_url or "").strip()
+        try:
+            _validate_public_http_url(api_base, label="Firecrawl base_url")
+            _validate_public_http_url(url, label="target_url")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "provider": Symbol("firecrawl"), "url": url, "title": "", "content": "", "error": str(exc)})
         limit = max(500, int(max_chars or 8000))
         payload = json.dumps({"url": url, "formats": ["markdown"]}).encode("utf-8")
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
@@ -1205,6 +1279,10 @@ class NetTransportBridge:
 
         api_base = str(base_url or "https://api.firecrawl.dev").rstrip("/")
         q = str(query or "").strip()
+        try:
+            _validate_public_http_url(api_base, label="Firecrawl base_url")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "provider": Symbol("firecrawl"), "query": q, "hits": [], "error": str(exc)})
         lim = max(1, min(15, int(limit or 5)))
         payload = json.dumps({"query": q, "limit": lim}).encode("utf-8")
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
@@ -1244,6 +1322,10 @@ class NetTransportBridge:
         from actorii.core import Symbol
 
         url = str(target_url or "").strip()
+        try:
+            _validate_public_http_url(url, label="target_url")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "provider": Symbol("trafilatura"), "url": url, "title": "", "content": "", "error": str(exc)})
         limit = max(500, int(max_chars or 8000))
         try:
             import trafilatura
@@ -1290,6 +1372,10 @@ class NetTransportBridge:
         from actorii.core import Symbol
 
         url = str(target_url or "").strip()
+        try:
+            _validate_public_http_url(url, label="target_url")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "provider": Symbol("keyless"), "url": url, "title": "", "content": "", "error": str(exc)})
         limit = max(500, int(max_chars or 8000))
 
         # 1. Try Keenable public fetch
@@ -1356,6 +1442,10 @@ class NetTransportBridge:
         from actorii.core import Symbol
 
         url = str(target_url or "").strip()
+        try:
+            _validate_public_http_url(url, label="target_url")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "provider": Symbol("playwright"), "url": url, "title": "", "content": "", "error": str(exc)})
         limit = max(500, int(max_chars or 8000))
         if not os.path.isfile(self._browser_fetch_bin):
             return _to_actor_dict({"ok": False, "provider": Symbol("playwright"), "url": url, "title": "", "content": "", "error": "browser-fetch not installed"})
@@ -1617,6 +1707,7 @@ class PDFDocumentTwin:
             raise ValueError("Empty PDF path or URL")
 
         if raw.lower().startswith(("http://", "https://")):
+            _validate_public_http_url(raw, label="PDF URL")
             if raw in self._url_cache and os.path.isfile(self._url_cache[raw]):
                 return self._url_cache[raw]
             self.cache_dir.mkdir(parents=True, exist_ok=True)
