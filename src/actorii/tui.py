@@ -63,6 +63,7 @@ SLASH_COMMANDS: Dict[str, str] = {
     "/chat": "/chat <message>            Conversational & action turn with multi-turn episodic memory",
     "/goal": "/goal <objective>          Run autonomous multi-step AgentHarness loop in Actor bytecode",
     "/last": "/last                      Show full Actor 4.1 code & VM results from the last turn",
+    "/think": "/think [off|auto|high]     Inspect or tune System-2 thinking level (`off`, `auto`, `high`)",
     "/verbose": "/verbose [on|off]          Toggle verbose inline Actor 4.1 step/result output",
     "/history": "/history                   Display multi-turn conversation history (`chatHistory(Actor[#Harness])!!`)",
     "/clear": "/clear                     Clear multi-turn conversation history & reset circuit breaker",
@@ -583,10 +584,13 @@ class ActorTUISession:
             return True
 
         if cmd == "/status":
+            from actorii.ai import get_thinking_mode
+
             turns = self.get_chat_history()
             self._emit(f"\n{self._c(CYAN + BOLD, '=== ActorII VM & AgentHarness Telemetry ===')}")
             self._emit(f"  {self.status_ribbon_text()}")
             self._emit(f"  Endpoint        : {self.harness.endpoint}")
+            self._emit(f"  Thinking Mode   : {get_thinking_mode()}")
             self._emit(f"  Chat Turns      : {len(turns)} multi-turn exchanges")
             self._emit(f"  Current Goal    : {self.harness._fields.get('goal')!r}")
             self._emit(f"  Last Action     : {self.harness._fields.get('lastAction')!r}")
@@ -690,6 +694,21 @@ class ActorTUISession:
             raw_steps = list(self.harness._fields.get("stepLog") or [])
             trace_txt = format_last_turn_trace(last_turn, raw_steps)
             self._emit(f"\n{trace_txt}\n")
+            return True
+
+        if cmd in ("/think", "/thinking"):
+            from actorii.ai import get_thinking_mode, set_thinking_mode
+
+            req_mode = arg.strip().lower()
+            if not req_mode or req_mode == "status":
+                cur = get_thinking_mode()
+                self._emit(self._c(CYAN + BOLD, f"✔ Thinking mode: {cur} (options: off, auto, high)"))
+                return True
+            try:
+                new_m = set_thinking_mode(req_mode)
+                self._emit(self._c(GREEN + BOLD, f"✔ Thinking mode set to: {new_m}"))
+            except ValueError as exc:
+                self._emit(self._c(RED, str(exc)))
             return True
 
         if cmd == "/verbose":
@@ -1110,6 +1129,10 @@ class ActorTUISession:
                     self.vm.eval_chunk(f'setNamespace(Actor[#Memory], "{v_clean}")!!')
                 elif k_low == "lockdown":
                     os.environ["ACTORII_HOST_LOCKDOWN"] = "1" if v_clean in ("1", "true", "on") else "0"
+                elif k_low in ("thinking", "think"):
+                    from actorii.ai import set_thinking_mode
+
+                    set_thinking_mode(v_clean)
                 elif k_low == "max_steps" and v_clean.lstrip("-").isdigit():
                     self.vm.eval_chunk(f"setMaxSteps(Actor[#Harness], {int(v_clean)})!!")
                 elif k_low == "max_failures" and v_clean.lstrip("-").isdigit():

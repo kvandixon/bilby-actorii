@@ -5,8 +5,8 @@
     "semantic_hash": "26fc285598b870c681fad05b670212f1"
   },
   "pyproject.toml": {
-    "mtime": 1794763824.3811002,
-    "ast_hash": "6d8b5639aac9559b6fac4247b7c67dd9",
+    "mtime": 1794767981.647499,
+    "ast_hash": "6bbe981c68387ee178135feecfe219b5",
     "semantic_hash": ""
   },
   "serve_html5.py": {
@@ -105,8 +105,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794763825.7321615,
-    "ast_hash": "faa9566cc9eaeaa6401631fd0563026d",
+    "mtime": 1794767982.6815484,
+    "ast_hash": "889ca335e494f02e54030d3ed1973af8",
     "semantic_hash": ""
   },
   "browser_client.html": {
@@ -220,8 +220,8 @@
     "semantic_hash": "c236ccfc9e118ecbba50a9eadb45c634"
   },
   "src/actorii/ai.py": {
-    "mtime": 1794665886.2966275,
-    "ast_hash": "94ce5d0681388c0e2c1c5607f386192a",
+    "mtime": 1794768176.4607882,
+    "ast_hash": "ad5daa98df012ac7ef94d5f7b758b958",
     "semantic_hash": ""
   },
   "src/actorii/classes/agent.py": {
@@ -325,7 +325,7 @@
     "semantic_hash": "0e9c86c32fcc21efeb8d34aef3550f01"
   },
   "src/actorii/harness/__init__.py": {
-    "mtime": 1794755843.1061935,
+    "mtime": 1794763859.0656772,
     "ast_hash": "ba1e6edb324dd3f41b492e251d50abca",
     "semantic_hash": ""
   },
@@ -335,7 +335,7 @@
     "semantic_hash": ""
   },
   "src/actorii/harness/grammar_graph.py": {
-    "mtime": 1794762082.1529384,
+    "mtime": 1794763859.0656772,
     "ast_hash": "fdc46f7944d40703d31ab9bc3ca680bc",
     "semantic_hash": ""
   },
@@ -355,8 +355,8 @@
     "semantic_hash": ""
   },
   "src/actorii/tui.py": {
-    "mtime": 1794665886.3026278,
-    "ast_hash": "b953e06bdfaec3b59b0b1a1d1ffb8518",
+    "mtime": 1794767797.6257246,
+    "ast_hash": "e623e3ddbff71f35a92a7af327642ea3",
     "semantic_hash": ""
   },
   "tests/test_agent_harness_and_tui.py": {
@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "src/actorii/telegram_gateway.py": {
-    "mtime": 1794754026.6778674,
-    "ast_hash": "455a0e8c56b0a776e8aca9ce063cb409",
+    "mtime": 1794767984.2276223,
+    "ast_hash": "9ba2afe88a3f50e1a0613155b070dc05",
     "semantic_hash": ""
   },
   "benchmarks/run_longmem_locomo_suite.py": {
@@ -600,7 +600,7 @@
     "semantic_hash": ""
   },
   "benchmarks/BENCHMARK_RESULTS.md": {
-    "mtime": 1794733211.1666858,
+    "mtime": 1794763859.059677,
     "ast_hash": "87d579c7565d9e7a08fc95ecb0fa7d6e",
     "semantic_hash": ""
   },
@@ -715,7 +715,7 @@
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.json": {
-    "mtime": 1794733211.1660109,
+    "mtime": 1794763859.059677,
     "ast_hash": "e094719e7e5ab001299cf1b531b5fd9b",
     "semantic_hash": ""
   },
@@ -730,7 +730,7 @@
     "semantic_hash": ""
   },
   "benchmarks/scoreboard.html": {
-    "mtime": 1794733211.1670585,
+    "mtime": 1794763859.059677,
     "ast_hash": "b88cfe4599d9a66606c2d3bfceada5e7",
     "semantic_hash": ""
   },
@@ -800,8 +800,8 @@
     "semantic_hash": ""
   },
   "tests/test_conversational_polish.py": {
-    "mtime": 1794755846.1163318,
-    "ast_hash": "0cfa3a89cbe00e0c272e93fb7474f6dc",
+    "mtime": 1794768047.1546228,
+    "ast_hash": "bc38a78a0799f1bbc67832354d4381df",
     "semantic_hash": ""
   },
   "scripts/run_self_evolution_benchmark.py": {
@@ -815,8 +815,8 @@
     "semantic_hash": ""
   },
   "src/actorii/harness/self_evolution_bench.py": {
-    "mtime": 1794762107.6840997,
-    "ast_hash": "9afad3a1a0170ad125723a432b4a3290",
+    "mtime": 1794767971.2140017,
+    "ast_hash": "27b4ac25cf9521993332226ea23da379",
     "semantic_hash": ""
   },
   "tests/test_multithreaded_actor.py": {
@@ -850,7 +850,7 @@
     "semantic_hash": ""
   },
   "benchmarks/gate_baseline.json": {
-    "mtime": 1794758485.9693823,
+    "mtime": 1794763859.059677,
     "ast_hash": "6024f22bb7a0394f39795cb1ac3746a4",
     "semantic_hash": ""
   },
@@ -865,8 +865,8 @@
     "semantic_hash": ""
   },
   "scripts/release_gate.py": {
-    "mtime": 1794665886.2966275,
-    "ast_hash": "0e360a16092562d1f82475e27dd41aa5",
+    "mtime": 1794768017.5112092,
+    "ast_hash": "aec53db43354fc14a1b055cf8f6a7a3d",
     "semantic_hash": ""
   },
   "tests/test_release_gate.py": {

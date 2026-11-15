@@ -80,6 +80,45 @@ def resolve_llm_api_key() -> str:
     return ""
 
 
+THINKING_MODES = ("off", "auto", "high")
+
+
+def get_thinking_mode() -> str:
+    """Resolve active thinking mode (`off`, `auto`, or `high`) from `ACTORII_THINKING_MODE` / `ACTORII_ENABLE_THINKING`."""
+    explicit = os.environ.get("ACTORII_THINKING_MODE", "").strip().lower()
+    if explicit in ("high", "always", "full", "deep"):
+        return "high"
+    if explicit in ("auto", "selective", "smart", "on", "1", "true"):
+        return "auto"
+    if explicit in ("off", "0", "false", "none", "low"):
+        return "off"
+    if os.environ.get("ACTORII_ENABLE_THINKING", "").strip().lower() in ("1", "true", "on", "auto"):
+        return "auto"
+    if os.environ.get("ACTORII_ENABLE_THINKING", "").strip().lower() in ("2", "high", "always", "full"):
+        return "high"
+    return "off"
+
+
+def set_thinking_mode(mode: str) -> str:
+    """Update active thinking mode in process environment and return normalized mode (`off`, `auto`, or `high`)."""
+    m = str(mode or "").strip().lower()
+    if m in ("high", "always", "full", "deep", "2"):
+        norm = "high"
+        os.environ["ACTORII_THINKING_MODE"] = "high"
+        os.environ["ACTORII_ENABLE_THINKING"] = "1"
+    elif m in ("auto", "selective", "smart", "on", "1", "true"):
+        norm = "auto"
+        os.environ["ACTORII_THINKING_MODE"] = "auto"
+        os.environ["ACTORII_ENABLE_THINKING"] = "1"
+    elif m in ("off", "0", "false", "none", "low"):
+        norm = "off"
+        os.environ["ACTORII_THINKING_MODE"] = "off"
+        os.environ["ACTORII_ENABLE_THINKING"] = "0"
+    else:
+        raise ValueError(f"Unknown thinking mode {mode!r}; expected one of: off, auto, high")
+    return norm
+
+
 def _is_local_llamacpp_or_vllm(url: str) -> bool:
     """Return True when `url` targets a local llama.cpp or vLLM OpenAI-compatible server that accepts `chat_template_kwargs` / `force_no_think`."""
     prov = os.environ.get("ACTORII_LLM_PROVIDER", "").strip().lower()
@@ -329,20 +368,49 @@ class ValkyrieLLMClient:
             )
             needs_deep_reasoning = (
                 step_num in (2, 3)
-                or "[previous step failed" in last_user_lower
-                or any(k in last_res_tail for k in ("failed", "error", "traceback", "timeoutexpired", "exitcode -> 1", "exitcode -> 2"))
+                or (step_num >= 8 and step_num % 6 == 0)
+                or any(
+                    marker in last_user_lower
+                    for marker in (
+                        "[previous step failed",
+                        "[action required",
+                        "[edge debugging loop detected",
+                        "[ssh self-kill diagnostic",
+                        "[ssh background fd hang diagnostic",
+                        "[step budget checkpoint",
+                    )
+                )
+                or any(
+                    k in last_res_tail
+                    for k in (
+                        "failed",
+                        "error",
+                        "mismatch",
+                        "undefined reference",
+                        "traceback",
+                        "timeoutexpired",
+                        "exitcode -> 1",
+                        "exitcode -> 2",
+                        "'ok': false",
+                    )
+                )
             )
+            think_mode = get_thinking_mode()
             env_thinking = (
-                os.environ.get("ACTORII_ENABLE_THINKING") == "1"
-                and step_num >= 2
-                and needs_deep_reasoning
-                and not already_verified_pass
+                (think_mode == "high" and not is_raw_synthesis and not already_verified_pass)
+                or (
+                    think_mode == "auto"
+                    and step_num >= 2
+                    and needs_deep_reasoning
+                    and not already_verified_pass
+                )
             )
             is_thinking = "cascade" in str(self.model).lower() or env_thinking
+            think_budget = 600 if think_mode == "high" else 350
             payload = {
                 "model": self.model,
                 "messages": messages,
-                "max_tokens": 600 if is_thinking else max_tokens,
+                "max_tokens": think_budget if is_thinking else max_tokens,
                 "temperature": 0.6 if is_thinking else temperature,
                 "stream": False,
             }
@@ -395,8 +463,8 @@ class ValkyrieLLMClient:
                     finish_reason == "length" and not content.endswith("!!") and not content.upper().startswith("COMPLETE:")
                 )
                 cont_instruction = (
-                    "Now emit ONLY the single raw 1993 Actor 4.1 expression ending in `!!` "
-                    "or `COMPLETE: <your answer>` (no chain-of-thought):"
+                    "Based on your draft analysis above, emit ONLY the single executable 1993 Actor 4.1 expression ending in `!!` "
+                    "(or `COMPLETE: ` followed by your concrete final response if the goal is already fully verified — no chain-of-thought):"
                 )
             if needs_continuation and reasoning and "/api/chat" not in url:
                 # Harmony / gpt-oss:20b or bounded Qwen3.8 thinking pass stopped after `reasoning_content`

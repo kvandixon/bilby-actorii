@@ -516,6 +516,8 @@ class SelfEvolutionRunner:
             "ACTORII_DISABLE_DEMO_TWINS": "1",
             "ACTORII_DISABLE_PERSONA_OVERLAY": "1",
             "ACTORII_BENCH_STRICT": "1",
+            "ACTORII_ENABLE_THINKING": "0",
+            "ACTORII_THINKING_MODE": "off",
         }
         env["ACTORII_HOST_LOCKDOWN"] = "1" if self.host_lockdown else "0"
         return env

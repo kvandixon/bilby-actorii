@@ -12,7 +12,11 @@ Environment="PATH=/home/skippy/bin:/home/skippy/.local/bin:/usr/local/sbin:/usr/
 Environment="PYTHONPATH=/home/skippy/projects/ActorII/src"
 Environment="PYTHONUNBUFFERED=1"
 Environment="ACTORII_MODEL=qwen3.8:latest"
+Environment="ACTORII_ENABLE_THINKING=1"
+Environment="ACTORII_THINKING_MODE=auto"
 Environment="ACTORII_HOST_LOCKDOWN=1"
+Environment="ACTORII_ENFORCE_SKIPPY_PREFLIGHT=1"
+Environment="ACTORII_DISABLE_DEMO_TWINS=1"
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadOnlyPaths=/home/skippy/projects/ActorII/src /home/skippy/projects/ActorII/actor_telegram.py /home/skippy/bin /home/skippy/.config/systemd /home/skippy/.hermes
