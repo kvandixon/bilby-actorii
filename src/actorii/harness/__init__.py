@@ -1170,13 +1170,44 @@ class VMSandboxBridge:
         d.atPut("localBindings", locals_dict)
         return d
 
+    @staticmethod
+    def _extract_turn_failures_and_tail(steps_list: List[Any]) -> Tuple[List[str], List[str]]:
+        """Extract compact failed-step / non-zero-exit diagnostics and tail actions from a turn's `stepLog`."""
+        failures_seen: List[str] = []
+        for e in steps_list:
+            if not isinstance(e, dict):
+                continue
+            st = e.get("status", "ok")
+            act = " ".join(str(e.get("action", "")).splitlines()).strip()
+            if act.upper().startswith("COMPLETE:"):
+                continue
+            short_act = (act[:95] + "...") if len(act) > 98 else act
+            if st == "error":
+                err_txt = " ".join(str(e.get("error", "")).splitlines()).strip()
+                if not err_txt.startswith(("DuplicateStepWarning:", "DuplicateReplyError:")):
+                    failures_seen.append(f"Step {e.get('step')} ERR `{short_act}` -> {err_txt[:150]}")
+            else:
+                res_obj = e.get("result")
+                if isinstance(res_obj, Dictionary) and res_obj.at("ok") is False:
+                    ec = res_obj.at("exitCode")
+                    out_s = " ".join(str(res_obj.at("stderr") or res_obj.at("stdout") or "").splitlines()).strip()
+                    failures_seen.append(f"Step {e.get('step')} rc={ec} `{short_act}` -> {out_s[:150]}")
+        # Deduplicate while preserving order, keeping the last 4 failure signals
+        dedup_fails: List[str] = []
+        for f_item in failures_seen:
+            if f_item not in dedup_fails:
+                dedup_fails.append(f_item)
+        return dedup_fails[-4:], []
+
     def _record_completed_turn(
         self,
         harness_obj: Any,
         summary: str,
         last_exec_result: Any = None,
+        *,
+        halted_incomplete: bool = False,
     ) -> Dict[str, Any]:
-        """Record a completed multi-turn exchange into `chatLog` and `Agent._history`."""
+        """Record a completed (or halted/paused) multi-turn exchange into `chatLog` and `Agent._history`."""
         chat_log = harness_obj._fields.get("chatLog")
         if not isinstance(chat_log, ActorOrderedCollection):
             chat_log = ActorOrderedCollection()
@@ -1192,6 +1223,7 @@ class VMSandboxBridge:
             and e.get("status") == "ok"
             and not str(e.get("action", "")).upper().startswith("COMPLETE:")
         ]
+        failed_signals, _ = self._extract_turn_failures_and_tail(steps_list)
         turn_gas = sum(
             int(e.get("gas_used", 0) or 0)
             for e in steps_list
@@ -1202,6 +1234,8 @@ class VMSandboxBridge:
             "user": goal,
             "reply": str(summary),
             "actions": executed_actions,
+            "failed_signals": failed_signals,
+            "halted_incomplete": bool(halted_incomplete),
             "steps": int(harness_obj._fields.get("stepCount", 1) or 1),
             "gas_used": turn_gas,
             "last_result": repr(last_exec_result) if last_exec_result is not None else "",
@@ -1272,9 +1306,36 @@ class VMSandboxBridge:
         s = repr(last_result)
         return (s[:3500] + "...'") if len(s) > 3500 else s
 
+    @actor_command
+    def recordHaltedTurn(self, harness_obj: Any = None, reason: str = "") -> str:
+        """Persist a halted/blocked turn's actions and failure signals into `chatLog` so follow-up turns retain full context."""
+        target = harness_obj or self.vm.global_vars.get("Actor", {}).get("Harness")
+        if target is None or not hasattr(target, "_fields"):
+            return ""
+        step_log = target._fields.get("stepLog")
+        if not isinstance(step_log, (ActorOrderedCollection, list)) or len(step_log) == 0:
+            return ""
+        # Avoid double-recording if `COMPLETE:` already recorded this turn
+        for e in reversed(list(step_log)):
+            if isinstance(e, dict) and e.get("status") == "complete":
+                return ""
+        steps_used = int(target._fields.get("stepCount", len(step_log)) or len(step_log))
+        last_err = str(reason or target._fields.get("lastError") or "").strip()
+        halt_summary = (
+            f"[TURN HALTED INCOMPLETE after {steps_used} steps"
+            + (f" — {last_err[:180]}]" if last_err else " — step budget reached; continue from last state without repeating prior probes]")
+        )
+        self._record_completed_turn(
+            target,
+            halt_summary,
+            last_exec_result=target._fields.get("lastResult"),
+            halted_incomplete=True,
+        )
+        return halt_summary
+
     @actor_query
     def formatRecentTurns(self, harness_obj: Any = None) -> str:
-        """Format recent multi-turn conversation history compactly so multi-line scripts never bloat prompts."""
+        """Format recent multi-turn conversation history with both head+tail actions and failure signals so continuation turns never suffer amnesia."""
         target = harness_obj or self.vm.global_vars.get("Actor", {}).get("Harness")
         recent_turns = self.getChatHistory(target)[-6:]
         if not recent_turns:
@@ -1284,19 +1345,27 @@ class VMSandboxBridge:
             if isinstance(t, dict):
                 acts = t.get("actions") or []
                 compact_acts: List[str] = []
-                for a in acts[:4]:
-                    a_s = " ".join(str(a).splitlines()).strip()
-                    if len(a_s) > 220:
-                        a_s = a_s[:190] + "... !!"
-                    compact_acts.append(a_s)
-                if len(acts) > 4:
-                    compact_acts.append(f"(+{len(acts) - 4} more steps)")
+
+                def _fmt_act(raw_a: Any) -> str:
+                    a_s = " ".join(str(raw_a).splitlines()).strip()
+                    return (a_s[:175] + "... !!") if len(a_s) > 200 else a_s
+
+                if len(acts) <= 6:
+                    compact_acts = [_fmt_act(a) for a in acts]
+                else:
+                    head_acts = [_fmt_act(a) for a in acts[:2]]
+                    tail_acts = [_fmt_act(a) for a in acts[-4:]]
+                    compact_acts = head_acts + [f"... (+{len(acts) - 6} middle steps) ..."] + tail_acts
                 act_str = f" | Executed: `{' ; '.join(compact_acts)}`" if compact_acts else ""
+                fails = t.get("failed_signals") or []
+                fail_str = f" | Unresolved/Failed in Turn: `{' || '.join(str(f) for f in fails[-3:])}`" if fails else ""
+                last_r = str(t.get("last_result") or "").strip()
+                last_r_str = f" | FinalStepResult: {last_r[:220]}" if (last_r and last_r not in ("None", "''", '""') and len(acts) > 4) else ""
                 rep = str(t.get("reply") or "")
                 if len(rep) > 650:
                     rep = rep[:647] + "..."
                 turn_lines.append(
-                    f"- Turn {t.get('turn')}: User={t.get('user')!r}{act_str} -> Reply={rep!r}"
+                    f"- Turn {t.get('turn')}: User={t.get('user')!r}{act_str}{fail_str}{last_r_str} -> Reply={rep!r}"
                 )
         return "\n".join(turn_lines)
 
@@ -1319,10 +1388,19 @@ class VMSandboxBridge:
         consec_readonly = 0
         consec_edge_probes = 0
         has_mutated = False
+        ssh_self_kill_hint = False
+        ssh_bg_hang_hint = False
         for s_entry in recent_steps[-12:]:
             if isinstance(s_entry, dict):
                 st = s_entry.get("status", "ok")
                 raw_act = str(s_entry.get("action", ""))
+                res_obj = s_entry.get("result")
+                if isinstance(res_obj, Dictionary) and not bool(res_obj.at("ok")):
+                    ec = res_obj.at("exitCode")
+                    if ec == 255 and "pkill -f" in raw_act:
+                        ssh_self_kill_hint = True
+                    elif ec == 124 and ("nohup " in raw_act or "&" in raw_act):
+                        ssh_bg_hang_hint = True
                 if any(
                     m in raw_act
                     for m in (
@@ -1348,12 +1426,21 @@ class VMSandboxBridge:
                 elif any(r in raw_act for r in ("searchFile", "readFile")):
                     consec_readonly += 1
                 elif "Actor[#Jetson]" in raw_act and ("exec(" in raw_act or "runCommand(" in raw_act):
-                    res_obj = s_entry.get("result")
                     failed_ssh = (st == "error") or (isinstance(res_obj, Dictionary) and not bool(res_obj.at("ok")))
                     is_probe = any(p in raw_act for p in ("ls ", "find ", "which ", "grep ", "cat ", "dpkg ", "apt-cache"))
                     if failed_ssh or is_probe:
                         consec_edge_probes += 1
         out: List[str] = []
+        if ssh_self_kill_hint:
+            out.append(
+                "\n[SSH SELF-KILL DIAGNOSTIC (`exitCode: 255` with `pkill -f`)]: "
+                "`pkill -f <pattern>` matched and killed your own SSH command shell! Use `pkill -x <exact_binary_name>` or a bracketed character class like `pkill -f '[j]ulia_stream'`."
+            )
+        if ssh_bg_hang_hint:
+            out.append(
+                "\n[SSH BACKGROUND FD HANG DIAGNOSTIC (`exitCode: 124` timeout)]: "
+                "Background processes over SSH keep stdout/stderr/stdin FDs open and hang SSH until timeout unless fully detached: use `setsid nohup ./prog </dev/null >/tmp/prog.log 2>&1 &`."
+            )
         if consec_readonly >= 4 and not has_mutated and not is_lockdown:
             out.append(
                 f"\n[ACTION REQUIRED — {consec_readonly} CONSECUTIVE READ-ONLY STEPS WITHOUT EDITING]: "
@@ -1406,6 +1493,18 @@ class VMSandboxBridge:
         nudge = self._step_loop_nudge(recent_steps)
         if nudge:
             cur_step_lines.append(nudge)
+        if target is not None and hasattr(target, "_fields"):
+            step_cnt = int(target._fields.get("stepCount", 0) or 0)
+            raw_ms = target._fields.get("maxSteps")
+            max_st = 0 if raw_ms is None else int(raw_ms)
+            if max_st >= 12 and step_cnt >= max_st - 2:
+                rem = max(0, max_st - step_cnt)
+                cur_step_lines.append(
+                    f"\n[STEP BUDGET CHECKPOINT — {rem} step(s) left after this step (`{step_cnt}/{max_st}`)]: "
+                    "If the goal is not yet verified end-to-end, do NOT fake victory and do NOT repeat an old plan! "
+                    "Use `storeScratch(Actor[#Harness], #progress, \"<exact failed approaches + exact next command>\")!!` "
+                    "or state honestly what failed in THIS turn and what remains."
+                )
         return "\n".join(cur_step_lines)
 
     @actor_query
@@ -1589,18 +1688,10 @@ class VMSandboxBridge:
         if inst_block:
             prompt_lines.append(f"\n{inst_block}")
 
-        # 1. Include Multi-Turn Conversation History (last 6 turns) so follow-up questions work naturally
-        recent_turns = self.getChatHistory(harness_obj)[-6:]
-        if recent_turns:
-            turn_lines = ["\nCONVERSATION HISTORY (RECENT TURNS):"]
-            for t in recent_turns:
-                if isinstance(t, dict):
-                    acts = t.get("actions") or []
-                    act_str = f" | Executed: `{' ; '.join(acts)}`" if acts else ""
-                    turn_lines.append(
-                        f"- Turn {t.get('turn')}: User={t.get('user')!r}{act_str} -> Reply={t.get('reply')!r}"
-                    )
-            prompt_lines.extend(turn_lines)
+        # 1. Include Multi-Turn Conversation History (last 6 turns, with tail actions & failure signals)
+        turns_txt = self.formatRecentTurns(harness_obj)
+        if turns_txt:
+            prompt_lines.append(f"\n{turns_txt}")
 
         # 2. Include steps executed so far in the current goal turn (append-only for prefix KV-cache reuse)
         steps_txt = self.formatStepHistory(harness_obj)

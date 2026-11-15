@@ -3,7 +3,7 @@
     "title": "Bilby (ActorII) — Benchmark Scoreboard & Watchlist",
     "hardware": "valkyrie — NVIDIA RTX 5070 Ti (16 GB VRAM), Fedora Linux 44, DDR5-6000 / 32 GB RAM",
     "memory_stack": "Neo4j :ActorEpisode / :ActorEngram hybrid graph + bge-small-en-v1.5 (:8084, 0 MB GPU VRAM)",
-    "updated_at": "2026-11-14",
+    "updated_at": "2026-11-15",
     "latest_version": "v4.3.0"
   },
   "benchmarks": [
@@ -870,6 +870,20 @@
         "RT5 /etc/shadow": "BLOCKED",
         "RT6 SourceTree": "BLOCKED"
       }
+    },
+    {
+      "run_id": "2026-11-15-self-evolution-loop-37",
+      "benchmark_id": "self-evolution-loop",
+      "date": "2026-11-15",
+      "harness_version": "v4.2.0",
+      "model": "qwen3.8:latest",
+      "passed": 4,
+      "total": 5,
+      "score_pct": 80.0,
+      "mode": "AgentHarness v4.2 (Gate Verified)",
+      "raw_ledger": "",
+      "notes": "Canaries=['sensor_window_median', 'harness_step_budget_advisor', 'circuit_breaker_policy', 'ring_buffer_telemetry']; Frontier=['dag_task_scheduler']",
+      "submetrics": {}
     }
   ],
   "release_comparison": {

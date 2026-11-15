@@ -67,7 +67,7 @@ class BilbyTelegramGateway:
         default_thread_id: Optional[int] = None,
         model: str = "qwen3.8:latest",
         endpoint: Optional[str] = None,
-        max_steps: int = 25,
+        max_steps: int = 45,
         max_failures: int = 6,
         poll_timeout: int = 20,
         state_path: Optional[Path] = None,
@@ -891,7 +891,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--model", default=os.environ.get("ACTORII_MODEL", "qwen3.8:latest"))
     parser.add_argument("--endpoint", default=os.environ.get("ACTORII_LLM_ENDPOINT"))
-    parser.add_argument("--max-steps", type=int, default=25, help="Max steps per turn (0 = unlimited, default: 25)")
+    parser.add_argument("--max-steps", type=int, default=45, help="Max steps per turn (0 = unlimited, default: 45)")
     parser.add_argument("--max-failures", type=int, default=6, help="Max consecutive rollback strikes (0 = unlimited, default: 6)")
     parser.add_argument("--poll-timeout", type=int, default=20)
     parser.add_argument("--startup-ping", action="store_true", help="Send a startup notification to home channel")
