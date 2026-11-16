@@ -1,0 +1,401 @@
+/* =========================================================================
+ * WEB_PROTOCOLS.ACT
+ * First-Class Web & Streaming Protocol Objects in 1993 Whitewater Actor 4.1
+ * (`Actor[#Protocols]` backed by Ring-0 wire probes on `Actor[#Net]`).
+ *
+ * Hierarchy:
+ *   Object
+ *    +-- DomainEntity
+ *         +-- ProtocolSpec      (#protocolKey, #layer, #mimeType, #wireRules,
+ *         |                      #browserSupport, #antiPatterns, #blueprints, #probeKind)
+ *         |    +-- HttpProtocolSpec
+ *         |    +-- SseProtocolSpec
+ *         |    +-- WebSocketProtocolSpec
+ *         |    +-- MjpegStreamProtocolSpec
+ *         |    +-- HlsStreamProtocolSpec
+ *         |    +-- RtspStreamProtocolSpec   (RTSP Send & Receive)
+ *         +-- ProtocolSuite     (#net, #specs, #verifyCount, #lastVerifiedUrl, #lastStatus)
+ * ========================================================================= */
+
+inherit(DomainEntity, #ProtocolSpec, #(
+    #protocolKey
+    #layer
+    #mimeType
+    #wireRules
+    #browserSupport
+    #antiPatterns
+    #blueprints
+    #probeKind
+), 8, nil)!!
+
+now(ProtocolSpec)!!
+
+Def initProtocol(self, keySym, titleStr, layerStr, mimeStr, probeSym) {
+    initEntity(self, keySym, titleStr);
+    self.protocolKey := keySym;
+    self.layer := layerStr;
+    self.mimeType := mimeStr;
+    self.wireRules := "";
+    self.browserSupport := "";
+    self.antiPatterns := "";
+    self.blueprints := new(Dictionary, 8);
+    self.probeKind := probeSym;
+    ^self;
+}!!
+
+Def protocolKey(self) { ^self.protocolKey; }!!
+Def layer(self) { ^self.layer; }!!
+Def mimeType(self) { ^self.mimeType; }!!
+Def wireContract(self) { ^self.wireRules; }!!
+Def browserCompatibility(self) { ^self.browserSupport; }!!
+Def antiPatterns(self) { ^self.antiPatterns; }!!
+Def probeKind(self) { ^self.probeKind; }!!
+
+Def setBlueprint(self, modeSym, codeStr) {
+    if self.blueprints == nil then
+        self.blueprints := new(Dictionary, 8);
+    endif;
+    atPut(self.blueprints, modeSym, codeStr);
+    ^self;
+}!!
+
+Def referenceBlueprint(self, modeSym | found defBp) {
+    if self.blueprints == nil then
+        ^"No blueprints registered.";
+    endif;
+    found := at(self.blueprints, modeSym);
+    if found <> nil then
+        ^found;
+    endif;
+    defBp := at(self.blueprints, #default);
+    if defBp <> nil then
+        ^defBp;
+    endif;
+    ^"Available blueprint modes: inspect `spec(Actor[#Protocols], #" + asString(self.protocolKey) + ")!!`";
+}!!
+
+Def fullSpec(self) {
+    ^"=== ProtocolSpec(#" + asString(self.protocolKey) + " — " + asString(self.name) + ") ===\n"
+        + "Layer / MIME : " + asString(self.layer) + " | " + asString(self.mimeType) + "\n"
+        + "Wire Contract:\n" + asString(self.wireRules) + "\n"
+        + "Browser & Client Rules:\n" + asString(self.browserSupport) + "\n"
+        + "Anti-Patterns to Avoid:\n" + asString(self.antiPatterns);
+}!!
+
+Def verifyEndpoint(self, netObj, targetUrl) {
+    if self.probeKind == #mjpeg then
+        ^probeMjpeg(netObj, targetUrl, 2, "mjpeg_verify.jpg", 12);
+    endif;
+    if self.probeKind == #rtsp then
+        ^probeRtsp(netObj, targetUrl, "rtsp_verify.jpg", 12);
+    endif;
+    if self.probeKind == #sse then
+        ^probeSse(netObj, targetUrl, 2, 8);
+    endif;
+    if self.probeKind == #ws then
+        ^probeWebSocket(netObj, targetUrl, "ping", 8);
+    endif;
+    if self.probeKind == #hls then
+        ^probeHls(netObj, targetUrl, 10);
+    endif;
+    ^probeHttp(netObj, targetUrl, 8);
+}!!
+
+/* -------------------------------------------------------------------------
+ * Concrete Protocol Subclasses (Polymorphic Specializations)
+ * ------------------------------------------------------------------------- */
+
+inherit(ProtocolSpec, #HttpProtocolSpec, #(), 0, nil)!!
+now(HttpProtocolSpec)!!
+Def buildStandard(self) {
+    initProtocol(self, #http, "HTTP/1.1 Web & REST JSON", "TCP / Application", "text/html | application/json", #http);
+    self.wireRules :=
+        "  1. Every TCP response MUST start with `HTTP/1.1 200 OK\\r\\n` followed by `Content-Type: ...\\r\\n`, `Content-Length: <bytes>\\r\\n` (or `Connection: close\\r\\n`), and blank line `\\r\\n` before body bytes.\n"
+        + "  2. Bind `0.0.0.0` (not `127.0.0.1`) when serving LAN clients (`valkyrie`/phones/browsers), set `SO_REUSEADDR`, and ignore `SIGPIPE` (`signal(SIGPIPE, SIG_IGN)`).\n"
+        + "  3. For REST APIs called from browser JS on another port, include `Access-Control-Allow-Origin: *\\r\\n`.";
+    self.browserSupport :=
+        "  - Native in ALL browsers (`fetch()`, `<a>`, `<iframe>`), `curl -i`, and reverse proxies.\n"
+        + "  - NEVER emit raw struct/length bytes before `HTTP/1.1` — browsers and `curl` reject HTTP/0.9 binary sockets immediately!";
+    self.antiPatterns :=
+        "  - Writing `[4-byte length][payload]` directly onto a TCP socket and calling it a web server.\n"
+        + "  - Exiting the `accept()` loop after the first client disconnects.";
+    setBlueprint(self, #python,
+        "from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\n"
+        + "class Handler(BaseHTTPRequestHandler):\n"
+        + "    def do_GET(self):\n"
+        + "        body = b'<html><body><h1>Live Stream</h1><img src=\"/stream\"/></body></html>'\n"
+        + "        self.send_response(200)\n"
+        + "        self.send_header('Content-Type', 'text/html; charset=utf-8')\n"
+        + "        self.send_header('Content-Length', str(len(body)))\n"
+        + "        self.end_headers()\n"
+        + "        self.wfile.write(body)\n"
+        + "ThreadingHTTPServer(('0.0.0.0', 8090), Handler).serve_forever()");
+    setBlueprint(self, #default, at(self.blueprints, #python));
+    ^self;
+}!!
+
+inherit(ProtocolSpec, #SseProtocolSpec, #(), 0, nil)!!
+now(SseProtocolSpec)!!
+Def buildStandard(self) {
+    initProtocol(self, #sse, "Server-Sent Events (SSE Live Telemetry)", "HTTP/1.1 Streaming", "text/event-stream", #sse);
+    self.wireRules :=
+        "  1. Respond with `HTTP/1.1 200 OK\\r\\nContent-Type: text/event-stream\\r\\nCache-Control: no-cache\\r\\nConnection: keep-alive\\r\\n\\r\\n`.\n"
+        + "  2. Each event MUST be UTF-8 text formatted as `event: update\\ndata: {\"temp\": 42.1}\\n\\n` (terminated by DOUBLE newline `\\n\\n`) and flushed immediately.";
+    self.browserSupport :=
+        "  - Native in browsers via `new EventSource('/events')` with automatic reconnect; simpler than WebSockets for 1-way server->browser telemetry.";
+    self.antiPatterns :=
+        "  - Forgetting the trailing `\\n\\n` blank line or buffering stdout so events never flush.";
+    setBlueprint(self, #default,
+        "# Inside BaseHTTPRequestHandler.do_GET for '/events':\n"
+        + "self.send_response(200)\n"
+        + "self.send_header('Content-Type', 'text/event-stream')\n"
+        + "self.send_header('Cache-Control', 'no-cache')\n"
+        + "self.end_headers()\n"
+        + "while True:\n"
+        + "    self.wfile.write(f'data: {json.dumps(payload)}\\n\\n'.encode('utf-8'))\n"
+        + "    self.wfile.flush(); time.sleep(1.0)");
+    ^self;
+}!!
+
+inherit(ProtocolSpec, #WebSocketProtocolSpec, #(), 0, nil)!!
+now(WebSocketProtocolSpec)!!
+Def buildStandard(self) {
+    initProtocol(self, #ws, "RFC 6455 WebSocket Bidirectional Framing", "TCP / HTTP Upgrade", "websocket", #ws);
+    self.wireRules :=
+        "  1. Client sends `GET /ws HTTP/1.1` with `Upgrade: websocket`, `Connection: Upgrade`, `Sec-WebSocket-Key: <base64>`.\n"
+        + "  2. Server MUST reply `HTTP/1.1 101 Switching Protocols\\r\\nUpgrade: websocket\\r\\nConnection: Upgrade\\r\\nSec-WebSocket-Accept: <base64(SHA1(key + 258EAFA5-E914-47DA-95CA-C5AB0DC85B11))>\\r\\n\\r\\n`.\n"
+        + "  3. Client->Server frames are ALWAYS 4-byte masked (`MASK=1`); Server->Client frames MUST NOT be masked (`MASK=0`, `0x81` text / `0x82` binary).";
+    self.browserSupport :=
+        "  - Native in all browsers (`new WebSocket('ws://host:port/ws')`) for bidirectional control + binary frame push.";
+    self.antiPatterns :=
+        "  - Hand-rolling RFC 6455 bit-framing in C when Python `websockets` or HTTP+SSE/MJPEG suffices.";
+    setBlueprint(self, #default,
+        "import asyncio, websockets\n"
+        + "async def handler(ws):\n"
+        + "    async for msg in ws:\n"
+        + "        await ws.send('ack:' + str(msg))\n"
+        + "asyncio.run(websockets.serve(handler, '0.0.0.0', 8765))");
+    ^self;
+}!!
+
+inherit(ProtocolSpec, #MjpegStreamProtocolSpec, #(), 0, nil)!!
+now(MjpegStreamProtocolSpec)!!
+Def buildStandard(self) {
+    initProtocol(self, #mjpeg, "HTTP Multipart MJPEG Live Browser Video", "HTTP/1.1 Streaming", "multipart/x-mixed-replace; boundary=frame", #mjpeg);
+    self.wireRules :=
+        "  1. Serve HTML viewer at `GET /` (`<img src=\"/stream\" style=\"max-width:100%\">`).\n"
+        + "  2. Serve stream at `GET /stream` starting with:\n"
+        + "     `HTTP/1.1 200 OK\\r\\nContent-Type: multipart/x-mixed-replace; boundary=frame\\r\\nCache-Control: no-store, no-cache\\r\\nPragma: no-cache\\r\\nConnection: close\\r\\n\\r\\n`\n"
+        + "  3. For EVERY frame, write:\n"
+        + "     `--frame\\r\\nContent-Type: image/jpeg\\r\\nContent-Length: <len>\\r\\n\\r\\n` + `<raw JFIF bytes FFD8..FFD9>` + `\\r\\n`.\n"
+        + "  4. Handle `BrokenPipeError` / `SIGPIPE` per-client inside `ThreadingHTTPServer` so disconnecting one browser tab NEVER kills the server!";
+    self.browserSupport :=
+        "  - Plays ZERO-JS natively in Chrome, Firefox, Safari (`<img src=\"http://host:port/stream\">`), VLC, and `ffplay`.\n"
+        + "  - BEST architecture for CUDA/C++ synthetic video on Jetson: keep CUDA focused purely on rendering raw RGB24 frames to `stdout` (zero `libjpeg` ABI headaches, zero C socket bugs!) and pipe into `ffmpeg -f rawvideo -pix_fmt rgb24 -s 640x480 -r 20 -i - -f image2pipe -vcodec mjpeg -q:v 5 -` inside Python `ThreadingHTTPServer`!";
+    self.antiPatterns :=
+        "  - Sending `[4-byte uint32 length][JPEG bytes]` with no HTTP status line (browsers and `curl` fail immediately).\n"
+        + "  - Mixing `-I/usr/src/jetson_multimedia_api/include` (Tegra custom `jpeglib.h`, struct=728) with system `-ljpeg` (struct=584) in C++.";
+    setBlueprint(self, #python,
+        "# Browser-Playable CUDA/Pipe -> HTTP MJPEG Server (`GET /` HTML + `GET /stream` MJPEG):\n"
+        + "import subprocess, threading\n"
+        + "from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\n"
+        + "LATEST_JPG = b''\n"
+        + "# Producer thread reads `FFD8..FFD9` JPEGs from `ffmpeg` piped from your CUDA RGB24 binary:\n"
+        + "# cmd = './cuda_rgb_stdout | ffmpeg -loglevel error -f rawvideo -pix_fmt rgb24 -s 640x480 -r 20 -i - -f image2pipe -vcodec mjpeg -q:v 5 -'\n"
+        + "class MjpegHandler(BaseHTTPRequestHandler):\n"
+        + "    def do_GET(self):\n"
+        + "        if self.path.startswith('/stream'):\n"
+        + "            self.send_response(200)\n"
+        + "            self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame')\n"
+        + "            self.send_header('Cache-Control', 'no-store')\n"
+        + "            self.end_headers()\n"
+        + "            try:\n"
+        + "                while True:\n"
+        + "                    jpg = LATEST_JPG\n"
+        + "                    if jpg:\n"
+        + "                        self.wfile.write(b'--frame\\r\\nContent-Type: image/jpeg\\r\\nContent-Length: ' + str(len(jpg)).encode() + b'\\r\\n\\r\\n' + jpg + b'\\r\\n')\n"
+        + "                        self.wfile.flush()\n"
+        + "                    time.sleep(0.05)\n"
+        + "            except (BrokenPipeError, ConnectionResetError):\n"
+        + "                return\n"
+        + "        else:\n"
+        + "            html = b'<!doctype html><html><body style=\"background:#111;color:#eee\"><h2>Live CUDA Stream</h2><img src=\"/stream\"/></body></html>'\n"
+        + "            self.send_response(200); self.send_header('Content-Type', 'text/html'); self.send_header('Content-Length', str(len(html))); self.end_headers(); self.wfile.write(html)");
+    setBlueprint(self, #cpp,
+        "// Minimal C/C++ HTTP MJPEG client response framing (after reading HTTP request `\\r\\n\\r\\n`):\n"
+        + "const char* hdr = \"HTTP/1.1 200 OK\\r\\nContent-Type: multipart/x-mixed-replace; boundary=frame\\r\\nCache-Control: no-store\\r\\nConnection: close\\r\\n\\r\\n\";\n"
+        + "send(client_fd, hdr, strlen(hdr), MSG_NOSIGNAL);\n"
+        + "// Per JPEG frame (`jpg_buf`, `jpg_len`):\n"
+        + "char part[128]; int n = snprintf(part, sizeof(part), \"--frame\\r\\nContent-Type: image/jpeg\\r\\nContent-Length: %zu\\r\\n\\r\\n\", jpg_len);\n"
+        + "if (send(client_fd, part, n, MSG_NOSIGNAL) <= 0) break;\n"
+        + "if (send(client_fd, jpg_buf, jpg_len, MSG_NOSIGNAL) <= 0) break;\n"
+        + "if (send(client_fd, \"\\r\\n\", 2, MSG_NOSIGNAL) <= 0) break;");
+    setBlueprint(self, #default, at(self.blueprints, #python));
+    ^self;
+}!!
+
+inherit(ProtocolSpec, #HlsStreamProtocolSpec, #(), 0, nil)!!
+now(HlsStreamProtocolSpec)!!
+Def buildStandard(self) {
+    initProtocol(self, #hls, "HTTP Live Streaming (HLS H.264 `.m3u8` + `.ts`)", "HTTP/1.1 Segmented Video", "application/vnd.apple.mpegurl", #hls);
+    self.wireRules :=
+        "  1. Playlist `.m3u8` starts with `#EXTM3U`, `#EXT-X-VERSION:3`, `#EXT-X-TARGETDURATION:2`, and rolling `.ts` segment URIs.\n"
+        + "  2. Serve directory over HTTP with `Access-Control-Allow-Origin: *` and `Cache-Control: no-cache` on `.m3u8`.";
+    self.browserSupport :=
+        "  - Native in Safari/iOS `<video src=\"stream.m3u8\">` and in Chrome/Firefox via `<script src=\"https://cdn.jsdelivr.net/npm/hls.js@latest\"></script>`.";
+    self.antiPatterns :=
+        "  - Serving `.m3u8` before `ffmpeg` has written the first `.ts` segment, or forgetting `-hls_flags delete_segments` (filling `/tmp` disk!).";
+    setBlueprint(self, #default,
+        "# Generate rolling low-latency HLS from RTSP or rawvideo into `/dev/shm/hls`:\n"
+        + "mkdir -p /dev/shm/hls && ffmpeg -rtsp_transport tcp -i rtsp://192.168.68.55:8554/cam -c:v copy -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments /dev/shm/hls/index.m3u8");
+    ^self;
+}!!
+
+inherit(ProtocolSpec, #RtspStreamProtocolSpec, #(), 0, nil)!!
+now(RtspStreamProtocolSpec)!!
+Def buildStandard(self) {
+    initProtocol(self, #rtsp, "RFC 2326 RTSP / RTP Real-Time Video (Send & Receive)", "TCP/RTP Control (:8554 / :554)", "application/sdp (H264/90000)", #rtsp);
+    self.wireRules :=
+        "  1. RTSP/1.0 Wire Handshake:\n"
+        + "     - RECEIVE (`PLAY`): `OPTIONS` -> `DESCRIBE` (`Accept: application/sdp`) -> `SETUP` (`Transport: RTP/AVP/TCP;unicast;interleaved=0-1`) -> `PLAY`.\n"
+        + "     - SEND / PUBLISH (`RECORD` or Server Mount): Either host an RTSP server (`libgstrtspserver-1.0` / `mediamtx`) listening on `:8554`, OR push to a broker via `ANNOUNCE` -> `SETUP` -> `RECORD`.\n"
+        + "  2. CRITICAL JETSON TX1 HARDWARE H.264 RULE: ALWAYS encode with `omxh264enc bitrate=6000000 insert-sps-pps=true iframeinterval=15 ! video/x-h264,profile=baseline ! rtph264pay name=pay0 pt=96` — NEVER use `nvv4l2h264enc` on TX1 (it writes broken `level_idc=0` in SPS headers!).\n"
+        + "  3. ALWAYS pass `-rtsp_transport tcp` (FFmpeg) or `protocols=tcp` (`rtspsrc` in GStreamer) over Wi-Fi/LAN to prevent UDP packet loss and tearing.";
+    self.browserSupport :=
+        "  - Native in VLC, `ffplay`, `mpv`, OpenCV/GStreamer/FFmpeg, and NVR pipelines.\n"
+        + "  - NOT natively playable in web browsers (`Chrome`/`Firefox`/`Safari` reject `rtsp://` URLs)! If the user wants browser viewing of an RTSP feed, bridge RTSP -> HTTP MJPEG or HLS.";
+    self.antiPatterns :=
+        "  - Giving a user an `rtsp://...` link when they asked for a browser webpage (without an HTTP MJPEG/HLS bridge).\n"
+        + "  - Using UDP default transport on Wi-Fi (`ffprobe`/`ffmpeg` hanging or dropping keyframes) instead of `-rtsp_transport tcp`.\n"
+        + "  - Using `nvv4l2h264enc` on Jetson TX1 (`profile-level-id=...00` bug; `probeRtsp` detects this automatically!).";
+    setBlueprint(self, #send,
+        "# === RTSP SEND (1): Hardware-Accelerated Jetson TX1 RTSP Server (`libgstrtspserver-1.0` or CUDA pipe) ===\n"
+        + "# A. Onboard CSI Camera (`jetson-rtsp.service` on :8554): `rtsp://192.168.68.55:8554/cam` (already installed; check `cameraStatus(Actor[#Jetson])!!`).\n"
+        + "# B. Custom CUDA/Synthetic Generator -> GStreamer `test-launch` / `GstRtspServer` on port 8555:\n"
+        + "#    Pipeline: `( shmsrc / fdsrc ! videoparse format=rgb width=640 height=480 framerate=30/1 ! videoconvert ! nvvidconv ! video/x-raw(memory:NVMM),format=I420 ! omxh264enc bitrate=4000000 insert-sps-pps=true iframeinterval=15 ! video/x-h264,profile=baseline ! rtph264pay name=pay0 pt=96 )`\n"
+        + "# C. FFmpeg RTSP Push (`ANNOUNCE`/`RECORD`) to an RTSP broker (`mediamtx` / `rtsp-simple-server`):\n"
+        + "#    `./cuda_rgb_stdout | ffmpeg -re -f rawvideo -pix_fmt rgb24 -s 640x480 -r 30 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/julia`");
+    setBlueprint(self, #receive,
+        "# === RTSP RECEIVE (Ingest, Decode, Frame Grab & Browser Bridge) ===\n"
+        + "# 1. Native ActorII Wire Probe + 1-Frame Decode (into `/tmp/actorii_media/` for `askSkippy` / `sendPhoto`):\n"
+        + "#    `probeRtsp(Actor[#Net], \"rtsp://192.168.68.55:8554/cam\", \"cam_snap.jpg\", 12)!!`\n"
+        + "# 2. CLI Stream Metadata Inspection (TCP interleaved):\n"
+        + "#    `ffprobe -v error -rtsp_transport tcp -show_entries stream=codec_name,width,height,r_frame_rate -of json rtsp://192.168.68.55:8554/cam`\n"
+        + "# 3. GStreamer Low-Latency Hardware/CPU Receive Pipeline:\n"
+        + "#    `gst-launch-1.0 rtspsrc location=rtsp://192.168.68.55:8554/cam protocols=tcp latency=50 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! autovideosink`\n"
+        + "# 4. Bridge RTSP Receive -> Browser HTTP MJPEG:\n"
+        + "#    `ffmpeg -rtsp_transport tcp -i rtsp://192.168.68.55:8554/cam -vf fps=15,scale=640:-1 -f image2pipe -vcodec mjpeg -q:v 5 -` -> serve via `blueprint(Actor[#Protocols], #mjpeg, #python)!!`");
+    setBlueprint(self, #default, at(self.blueprints, #send) + "\n\n" + at(self.blueprints, #receive));
+    ^self;
+}!!
+
+/* -------------------------------------------------------------------------
+ * ProtocolSuite (`Actor[#Protocols]`): Registry, Advisor & Verifier
+ * ------------------------------------------------------------------------- */
+
+inherit(DomainEntity, #ProtocolSuite, #(
+    #net
+    #specs
+    #verifyCount
+    #lastVerifiedUrl
+    #lastStatus
+), 5, nil)!!
+
+now(ProtocolSuite)!!
+
+Def initSuite(self, netObj | httpS sseS wsS mjpegS hlsS rtspS) {
+    initEntity(self, #Protocols, "ActorII Modern Web & Media Streaming Protocol Suite");
+    self.net := netObj;
+    self.specs := new(Dictionary, 16);
+    self.verifyCount := 0;
+    self.lastVerifiedUrl := "";
+    self.lastStatus := #ready;
+
+    httpS := buildStandard(new(HttpProtocolSpec));
+    sseS := buildStandard(new(SseProtocolSpec));
+    wsS := buildStandard(new(WebSocketProtocolSpec));
+    mjpegS := buildStandard(new(MjpegStreamProtocolSpec));
+    hlsS := buildStandard(new(HlsStreamProtocolSpec));
+    rtspS := buildStandard(new(RtspStreamProtocolSpec));
+
+    atPut(self.specs, #http, httpS);
+    atPut(self.specs, #rest, httpS);
+    atPut(self.specs, #sse, sseS);
+    atPut(self.specs, #ws, wsS);
+    atPut(self.specs, #websocket, wsS);
+    atPut(self.specs, #mjpeg, mjpegS);
+    atPut(self.specs, #hls, hlsS);
+    atPut(self.specs, #rtsp, rtspS);
+    ^self;
+}!!
+
+Def summary(self) {
+    ^"ProtocolSuite(protocols=[#http, #sse, #ws, #mjpeg, #hls, #rtsp(send+receive)] | verifyCount="
+        + asString(self.verifyCount) + " | lastStatus=#" + asString(self.lastStatus) + ")";
+}!!
+
+Def listProtocols(self) {
+    ^"Available Protocol Objects in `Actor[#Protocols]`:\n"
+        + "  • `#http` (`#rest`) — HTTP/1.1 Web HTML & REST JSON (`probeHttp`)\n"
+        + "  • `#mjpeg`          — Browser-native `<img src=\"/stream\">` HTTP Multipart MJPEG Video (`probeMjpeg`)\n"
+        + "  • `#rtsp`           — RFC 2326 RTSP/RTP H.264 Send (`#send` server/publish) & Receive (`#receive` ingest/capture, `probeRtsp`)\n"
+        + "  • `#hls`            — Browser/Mobile `<video>` HTTP Live Streaming `.m3u8` + `.ts`/`fMP4` (`probeHls`)\n"
+        + "  • `#sse`            — Server-Sent Events `text/event-stream` live push (`probeSse`)\n"
+        + "  • `#ws`             — RFC 6455 WebSocket bidirectional framing (`probeWebSocket`)\n"
+        + "Usage: `spec(Actor[#Protocols], #rtsp)!!`, `blueprint(Actor[#Protocols], #rtsp, #send)!!`, `blueprint(Actor[#Protocols], #rtsp, #receive)!!`, `verify(Actor[#Protocols], url, #mjpeg)!!`";
+}!!
+
+Def registerProtocol(self, keySym, specObj) {
+    atPut(self.specs, keySym, specObj);
+    ^specObj;
+}!!
+
+Def getSpec(self, protoSym) {
+    ^at(self.specs, protoSym);
+}!!
+
+Def spec(self, protoSym | s) {
+    s := at(self.specs, protoSym);
+    if s == nil then
+        ^"Unknown protocol #" + asString(protoSym) + ". Call `listProtocols(Actor[#Protocols])!!` (#http, #mjpeg, #rtsp, #hls, #sse, #ws).";
+    endif;
+    ^fullSpec(s);
+}!!
+
+Def blueprint(self, protoSym, modeSym | s m) {
+    s := at(self.specs, protoSym);
+    if s == nil then
+        ^"Unknown protocol #" + asString(protoSym) + ". Call `listProtocols(Actor[#Protocols])!!`.";
+    endif;
+    if modeSym == nil then
+        m := #default;
+    else
+        m := modeSym;
+    endif;
+    ^referenceBlueprint(s, m);
+}!!
+
+Def recommendFor(self, goalDescription | g) {
+    g := asString(goalDescription);
+    ^"Protocol Architecture Selection Guide for: " + g + "\n"
+        + "  1. Live video viewable directly in a Web Browser (`<img>`, LAN webpage, CUDA visualization): use `#mjpeg` (`HTTP/1.1 200 OK` + `multipart/x-mixed-replace; boundary=frame`). Pipe raw RGB24 from CUDA/C++ into `ffmpeg` -> Python `ThreadingHTTPServer` (`blueprint(Actor[#Protocols], #mjpeg, #python)!!`) to avoid `libjpeg` ABI mismatches and raw-TCP browser failures!\n"
+        + "  2. Hardware H.264 Camera / NVR / VLC / OpenCV Low-Bitrate Stream (Send or Receive): use `#rtsp` (`blueprint(Actor[#Protocols], #rtsp, #send)!!` with `omxh264enc insert-sps-pps=true` on Jetson TX1, and `blueprint(Actor[#Protocols], #rtsp, #receive)!!` with `-rtsp_transport tcp`). Remember: browsers CANNOT open `rtsp://` directly without an `#mjpeg` or `#hls` HTTP bridge!\n"
+        + "  3. Live 1-way metrics/logs to Browser JS: use `#sse` (`text/event-stream`). Bidirectional interactive control: use `#ws` (RFC 6455 WebSocket).\n"
+        + "  4. Always verify with a real client probe BEFORE reporting COMPLETE: `verify(Actor[#Protocols], url, #mjpeg)!!` or `verify(Actor[#Protocols], rtspUrl, #rtsp)!!`.";
+}!!
+
+Def verify(self, targetUrl, protoSym | s res) {
+    s := at(self.specs, protoSym);
+    if s == nil then
+        ^"ERROR: Unknown protocol #" + asString(protoSym) + " (expected #http, #mjpeg, #rtsp, #hls, #sse, or #ws).";
+    endif;
+    self.verifyCount := self.verifyCount + 1;
+    self.lastVerifiedUrl := asString(targetUrl);
+    res := verifyEndpoint(s, self.net, targetUrl);
+    if at(res, #ok) == true then
+        self.lastStatus := #verified_ok;
+    else
+        self.lastStatus := #verified_failed;
+    endif;
+    ^res;
+}!!

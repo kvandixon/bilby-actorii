@@ -412,6 +412,7 @@ class BilbyTelegramGateway:
             "/verbose",
             "/think",
             "/thinking",
+            "/protocols",
             "/help",
             "/start",
         )
@@ -507,7 +508,7 @@ class BilbyTelegramGateway:
 
             if cmd_lower in ("/start", "/help"):
                 return (
-                    "🦘 **Bilby** (ActorII v4.2.0 Metacircular Agent Harness — Hardened Lockdown)\n"
+                    "🦘 **Bilby** (ActorII v4.4.0 Metacircular Agent Harness — Hardened Lockdown)\n"
                     "Resident System AI on `valkyrie`.\n\n"
                     "**Commands:**\n"
                     "• Plain English or Actor 4.1 code (`!!`) — Guarded ReAct loop (clean human output)\n"
@@ -516,7 +517,8 @@ class BilbyTelegramGateway:
                     "• `/verbose [on|off]` — Toggle inline Actor 4.1 code blocks in replies\n"
                     "• `/stop` (or `/cancel`) — Break Bilby out of an active loop immediately\n"
                     "• `/status` — VM, GPU VRAM, and Harness status\n"
-                    "• `/twins` — Live Digital Twins (`Valkyrie`, `Jetson`, `ProductLearner`, `Proxy`, `ReverseEngineer`, `Thermometer`, `Pantry`, `Telegram`)\n"
+                    "• `/protocols [mjpeg|rtsp|http|sse|ws|hls] [send|receive]` — Web & Streaming Protocol specs & blueprints\n"
+                    "• `/twins` — Live Digital Twins (`Valkyrie`, `Jetson`, `Protocols`, `ProductLearner`, `Proxy`, `ReverseEngineer`, `Thermometer`, `Pantry`, `Telegram`)\n"
                     "• `/proxy [status|links|lan|tailscale|local|pause]` — Manage `:8090` Reverse Proxy\n"
                     "• `/controls` — Inspect active security & containment locks\n"
                     "• `/freeze` | `/unlock` — Emergency kill-switch\n"
@@ -531,7 +533,7 @@ class BilbyTelegramGateway:
                 out = "\n".join(self.session.transcript[before:]).strip()
                 return out or "Evaluated."
 
-            if cmd_lower in ("/status", "/proxy", "/twins", "/engrams", "/scratch", "/history", "/clear", "/classes", "/schema", "/capabilities", "/caps", "/config", "/bench"):
+            if cmd_lower in ("/status", "/protocols", "/proxy", "/twins", "/engrams", "/scratch", "/history", "/clear", "/classes", "/schema", "/capabilities", "/caps", "/config", "/bench"):
                 before = len(self.session.transcript)
                 self.session.handle_input(f"{cmd_lower} {arg_str}".strip())
                 out = "\n".join(self.session.transcript[before:]).strip()

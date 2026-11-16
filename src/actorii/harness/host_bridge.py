@@ -68,6 +68,14 @@ RING_1_CLASSES: Set[str] = {
     "PDFDocumentTwin",
     "WebScraper",
     "ProductLearner",
+    "ProtocolSpec",
+    "HttpProtocolSpec",
+    "SseProtocolSpec",
+    "WebSocketProtocolSpec",
+    "MjpegStreamProtocolSpec",
+    "HlsStreamProtocolSpec",
+    "RtspStreamProtocolSpec",
+    "ProtocolSuite",
 }
 
 

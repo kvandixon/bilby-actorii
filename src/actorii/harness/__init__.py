@@ -56,6 +56,7 @@ from actorii.vm import ActorVM, CompiledMethod, Opcode
 HARNESS_ACT_PATH = Path(__file__).resolve().parent / "agent_harness.act"
 WEB_SCRAPER_ACT_PATH = Path(__file__).resolve().parent / "web_scraper.act"
 PRODUCT_LEARNER_ACT_PATH = Path(__file__).resolve().parent / "product_learner.act"
+WEB_PROTOCOLS_ACT_PATH = Path(__file__).resolve().parent / "web_protocols.act"
 OOP_FOUNDATION_ACT_PATH = Path(__file__).resolve().parent / "oop_foundation.act"
 DEFAULT_PERSONA_PATH = Path.home() / ".actorii" / "persona.md"
 
@@ -70,7 +71,8 @@ DEFAULT_HARNESS_SYSTEM_PROMPT = (
     "- Digital Twins & Bridges:\n"
     "  * `Actor[#Valkyrie]` (`#System`): `summary(Actor[#Valkyrie])!!`, `stackHealth(...)!!`, `gpuStatus(...)!!`, `vramFreeMiB(...)!!`, `serviceStatus(..., 8080)!!`, `askSkippy(..., questionOrImagePath)!!` (multimodal Cloud Skippy consult/vision!) (container-only when `isSandboxed`: `listDirectory`, `readTextFile`, `runShell`)\n"
     "  * `Actor[#Thermometer]`: `summary(Actor[#Thermometer])!!`, `temperatureF(...)!!`, `temperatureC(...)!!`, `humidity(...)!!`, `syncLive(..., 6)!!` | `Actor[#ThermoUI]`: `summary(...)!!`, `addButton(..., label, href)!!`, `draw(...)!!`\n"
-    "  * `Actor[#Jetson]`: `summary(Actor[#Jetson])!!`, `telemetry(...)!!`, `discover(...)!!`, `scanLan(...)!!`, `setHost(..., ip)!!`, `cameraStatus(...)!!`, `exec(..., cmd, 20)!!`, `writeFile(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 45)!!` (supports `.sh`, `.py`, `.cu`, `.cpp`, `.c`!), `pullFile(..., remotePath, localName, 30)!!`\n"
+    "  * `Actor[#Jetson]`: `summary(Actor[#Jetson])!!`, `telemetry(...)!!`, `discover(...)!!`, `scanLan(...)!!`, `setHost(..., ip)!!`, `cameraStatus(...)!!`, `exec(..., cmd, 20)!!`, `writeFile(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 45)!!` (supports `.sh`, `.py`, `.cu`, `.cpp`, `.c`!), `deployService(..., name, workDir, startCmd, port, 25)!!`, `serviceStatus(..., name, 25)!!`, `stopService(..., name)!!`, `pullFile(..., remotePath, localName, 30)!!`\n"
+    "  * `Actor[#Protocols]` & `Actor[#Net]`: `listProtocols(Actor[#Protocols])!!`, `spec(Actor[#Protocols], #mjpeg|#rtsp|#http|#sse|#ws|#hls)!!`, `blueprint(Actor[#Protocols], #rtsp, #send|#receive)!!`, `blueprint(Actor[#Protocols], #mjpeg, #python|#cpp)!!`, `recommendFor(Actor[#Protocols], goalDesc)!!`, `verify(Actor[#Protocols], url, #mjpeg|#rtsp|#http|#sse|#ws|#hls)!!` | Wire probes on `Actor[#Net]`: `probeHttp`, `probeMjpeg` (saves frame + checks disconnect survival), `probeRtsp` (RFC 2326 OPTIONS/DESCRIBE + optional 1-frame TCP capture), `probeSse`, `probeWebSocket`, `probeHls`\n"
     "  * `Actor[#Memory]`: `graphSchema(Actor[#Memory])!!`, `classHierarchyTree(...)!!`, `cypherQuery(..., q)!!`, `cypherQueryWith(..., q, p1)!!`, `cypherWrite(..., q)!!`, `recallEpisodes(..., q, 8)!!`, `persistEngram(..., #Cls, desc)!!`, `rollbackEngram(..., #Cls)!!`\n"
     "  * `Actor[#ProductLearner]`: `learnProduct(Actor[#ProductLearner], name, focus)!!`, `ingestManual(..., name, urlOrPath, focus)!!`, `recallProduct(..., name, topic)!!`, `listProducts(...)!!` (read/learn manuals before guessing unfamiliar drivers/CLI!)\n"
     "  * `Actor[#Web]`: `search(Actor[#Web], query, 5)!!`, `scrape(..., url)!!`, `extract(..., url)!!`, `cleanUrl(..., url)!!`, `renderBrowser(..., url)!!`\n"
@@ -813,6 +815,7 @@ class VMSandboxBridge:
             "Net",
             "Web",
             "ProductLearner",
+            "Protocols",
             "Jetson",
             "Proxy",
             "Telegram",
@@ -2490,6 +2493,10 @@ def bootstrap_agent_harness(
     active_vm.eval_chunk(
         "Actor[#ProductLearner] := initLearner(new(ProductLearner), Actor[#Web], Actor[#PDF], Actor[#Net], at(Actor, #Memory))!!"
     )
+
+    protocols_source = WEB_PROTOCOLS_ACT_PATH.read_text(encoding="utf-8")
+    active_vm.eval_chunk(protocols_source)
+    active_vm.eval_chunk("Actor[#Protocols] := initSuite(new(ProtocolSuite), Actor[#Net])!!")
 
     act_source = HARNESS_ACT_PATH.read_text(encoding="utf-8")
     active_vm.eval_chunk(act_source)

@@ -199,6 +199,42 @@ SEED_CONSTRUCTS: List[Dict[str, Any]] = [
         ),
         "anti_pattern": "cypherQuery(Actor[#Memory], \"MATCH (n {name: \"foo\"}) RETURN n\"); /* ERROR: unescaped double quotes inside Actor string; use 'foo' */",
     },
+    {
+        "id": "web_and_streaming_protocols",
+        "title": "Modern Web & Media Streaming Protocol Objects (`Actor[#Protocols]`, `Actor[#Net]`, `Actor[#Jetson]`)",
+        "keywords": [
+            "stream",
+            "streaming",
+            "video",
+            "mjpeg",
+            "rtsp",
+            "hls",
+            "m3u8",
+            "http",
+            "rest",
+            "sse",
+            "websocket",
+            "browser",
+            "jpeg",
+            "camera",
+            "port",
+        ],
+        "rule": (
+            "Before hand-rolling raw sockets, C++ HTTP headers, or RTSP/MJPEG pipelines, consult `Actor[#Protocols]`: "
+            "(1) `recommendFor(Actor[#Protocols], goalDesc)!!` or `spec(Actor[#Protocols], #mjpeg|#rtsp|#http|#sse|#ws|#hls)!!`; "
+            "(2) `blueprint(Actor[#Protocols], #mjpeg, #python|#cpp)!!` for browser-playable `<img src=\"/stream\">` `multipart/x-mixed-replace` video (pipe CUDA/C++ raw RGB24 into `ffmpeg` -> Python `ThreadingHTTPServer` to avoid `libjpeg` ABI mismatches!); "
+            "(3) `blueprint(Actor[#Protocols], #rtsp, #send)!!` (Jetson TX1 hardware H.264 rule: ALWAYS use `omxh264enc insert-sps-pps=true`, NEVER `nvv4l2h264enc`!) and `blueprint(Actor[#Protocols], #rtsp, #receive)!!` (`-rtsp_transport tcp`); "
+            "(4) Deploy persistent background edge services with `deployService(Actor[#Jetson], \"svc_name\", \"$HOME/services/svc_name\", \"cmd\", port, 25)!!` instead of `/tmp` + `nohup` hacks; "
+            "(5) ALWAYS verify live endpoints with real client conformance probes (`verify(Actor[#Protocols], url, #mjpeg)!!`, `probeHttp(Actor[#Net], url, 8)!!`, or `probeRtsp(Actor[#Net], rtspUrl, \"snap.jpg\", 12)!!`) instead of custom `socket.recv()` scripts!"
+        ),
+        "canonical_example": (
+            "spec(Actor[#Protocols], #mjpeg)!!\n"
+            "blueprint(Actor[#Protocols], #rtsp, #send)!!\n"
+            "deployService(Actor[#Jetson], \"julia_web\", \"$HOME/services/julia_web\", \"python3 server.py\", 8090, 25)!!\n"
+            "verify(Actor[#Protocols], \"http://192.168.68.55:8090/stream\", #mjpeg)!!"
+        ),
+        "anti_pattern": "/* NEVER send raw `[4-byte length][JPEG]` on TCP without `HTTP/1.1 200 OK` when serving web/browser streams, and NEVER open `rtsp://` directly in a browser without an HTTP MJPEG/HLS bridge! */",
+    },
 ]
 
 SEED_PRIMITIVES: List[Dict[str, str]] = [
@@ -240,6 +276,20 @@ SEED_PRIMITIVES: List[Dict[str, str]] = [
     {"cls": "JetsonEdgeTwin", "selector": "writeFile", "syntax": "writeFile(Actor[#Jetson], \"/tmp/kernel.cu\", \"\"\"#include <stdio.h>\n...\"\"\", 20)", "desc": "Write multi-line C/CUDA/Python/shell source cleanly to `/tmp/...` on the Jetson without executing it (use triple quotes `\"\"\"...\"\"\"`)"},
     {"cls": "JetsonEdgeTwin", "selector": "writeAndRun", "syntax": "writeAndRun(Actor[#Jetson], \"/tmp/kernel.cu\", \"\"\"#include <cuda_runtime.h>\n...\"\"\", 45)", "desc": "Write and execute `.sh`, `.py`, `.cu` (CUDA `nvcc -arch=sm_53 -ccbin /usr/bin/gcc-7`), `.cpp`, or `.c` in `/tmp/...` on the Jetson"},
     {"cls": "JetsonEdgeTwin", "selector": "pullFile", "syntax": "pullFile(Actor[#Jetson], \"/tmp/snap.jpg\", \"snap.jpg\", 30)", "desc": "Binary-pull a regular file (<= 50 MiB) from Jetson over SSH into `/tmp/actorii_media/` and return Dictionary (#ok, #localPath, #bytes, #stderr)"},
+    {"cls": "JetsonEdgeTwin", "selector": "deployService", "syntax": "deployService(Actor[#Jetson], \"svc_name\", \"$HOME/services/svc_name\", \"python3 server.py\", 8090, 25)", "desc": "Deploy/restart a persistent background service in `~/services/<name>` on the Jetson, wait for port LISTEN, and return Dictionary (#ok, #pid, #portListening, #logPath)"},
+    {"cls": "JetsonEdgeTwin", "selector": "serviceStatus", "syntax": "serviceStatus(Actor[#Jetson], \"svc_name\", 25)", "desc": "Check PID health and tail recent `service.log` lines for `~/services/<name>` on the Jetson"},
+    {"cls": "JetsonEdgeTwin", "selector": "stopService", "syntax": "stopService(Actor[#Jetson], \"svc_name\")", "desc": "Cleanly stop `~/services/<name>` on the Jetson via its PID file without SSH self-kill"},
+    {"cls": "ProtocolSuite", "selector": "listProtocols", "syntax": "listProtocols(Actor[#Protocols])", "desc": "List built-in web & media streaming protocol objects (`#http`, `#mjpeg`, `#rtsp`, `#hls`, `#sse`, `#ws`)"},
+    {"cls": "ProtocolSuite", "selector": "spec", "syntax": "spec(Actor[#Protocols], #rtsp)", "desc": "Return wire contract, browser compatibility rules, and anti-patterns for `#http`, `#mjpeg`, `#rtsp`, `#hls`, `#sse`, or `#ws`"},
+    {"cls": "ProtocolSuite", "selector": "blueprint", "syntax": "blueprint(Actor[#Protocols], #rtsp, #send)", "desc": "Return copy-ready server/client blueprint (`#rtsp` `#send`|`#receive`, `#mjpeg` `#python`|`#cpp`, `#http`, `#sse`, `#ws`, `#hls`)"},
+    {"cls": "ProtocolSuite", "selector": "recommendFor", "syntax": "recommendFor(Actor[#Protocols], \"browser live video\")", "desc": "Recommend the right web/streaming protocol and architecture for a goal"},
+    {"cls": "ProtocolSuite", "selector": "verify", "syntax": "verify(Actor[#Protocols], \"http://192.168.68.55:8090/stream\", #mjpeg)", "desc": "Run active wire-level client conformance probe against a live `#http`, `#mjpeg`, `#rtsp`, `#hls`, `#sse`, or `#ws` endpoint"},
+    {"cls": "NetTransportBridge", "selector": "probeHttp", "syntax": "probeHttp(Actor[#Net], \"http://192.168.68.55:8090/\", 8)", "desc": "Validate HTTP/1.1 status line & headers like a browser/curl, catching raw binary TCP sockets"},
+    {"cls": "NetTransportBridge", "selector": "probeMjpeg", "syntax": "probeMjpeg(Actor[#Net], \"http://192.168.68.55:8090/stream\", 2, \"mjpeg.jpg\", 12)", "desc": "Validate `multipart/x-mixed-replace` MJPEG stream, decode frames, save sample JPEG, and check disconnect survival"},
+    {"cls": "NetTransportBridge", "selector": "probeRtsp", "syntax": "probeRtsp(Actor[#Net], \"rtsp://192.168.68.55:8554/cam\", \"rtsp.jpg\", 12)", "desc": "Speak RFC 2326 RTSP `OPTIONS`+`DESCRIBE` (SDP), check Send/Receive capabilities & TX1 SPS level_idc, and optionally capture 1 TCP frame"},
+    {"cls": "NetTransportBridge", "selector": "probeSse", "syntax": "probeSse(Actor[#Net], \"http://192.168.68.55:8090/events\", 2, 8)", "desc": "Validate HTTP `text/event-stream` SSE headers and read live `data:` events"},
+    {"cls": "NetTransportBridge", "selector": "probeWebSocket", "syntax": "probeWebSocket(Actor[#Net], \"ws://192.168.68.55:8765/ws\", \"ping\", 8)", "desc": "Perform RFC 6455 WebSocket `101 Switching Protocols` handshake and frame check"},
+    {"cls": "NetTransportBridge", "selector": "probeHls", "syntax": "probeHls(Actor[#Net], \"http://192.168.68.55:8090/index.m3u8\", 10)", "desc": "Validate `#EXTM3U` HLS playlist and verify first `.ts`/`fMP4` segment"},
     {"cls": "TelegramBotTwin", "selector": "sendPhoto", "syntax": "sendPhoto(Actor[#Telegram], \"/tmp/actorii_media/snap.jpg\", \"Caption\")", "desc": "Upload and send a local image (<= 10 MB) to the active Telegram chat/topic via multipart/form-data"},
     {"cls": "TelegramBotTwin", "selector": "sendDocument", "syntax": "sendDocument(Actor[#Telegram], \"/tmp/actorii_media/file.bin\", \"Caption\")", "desc": "Upload and send any local file (<= 50 MB) to the active Telegram chat/topic via multipart/form-data"},
     {"cls": "ProductLearner", "selector": "learnProduct", "syntax": "learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")", "desc": "Search official web/PDF manuals for a product, distill specs/drivers/commands/gotchas via LLM, and persist Dual-Mode Neo4j `:Product` graph + `:8084` vector `:ProductManualChunk` memory"},
