@@ -220,8 +220,8 @@
     "semantic_hash": "c236ccfc9e118ecbba50a9eadb45c634"
   },
   "src/actorii/ai.py": {
-    "mtime": 1794769852.1186702,
-    "ast_hash": "ad5daa98df012ac7ef94d5f7b758b958",
+    "mtime": 1794866625.1768394,
+    "ast_hash": "df7adbbf19b5492afb32d9766902b6f9",
     "semantic_hash": ""
   },
   "src/actorii/classes/agent.py": {
@@ -300,8 +300,8 @@
     "semantic_hash": "b8a709d6f78150b7c482cfb0499459c9"
   },
   "benchmarks/run_industry_harness_suite.py": {
-    "mtime": 1794665886.289627,
-    "ast_hash": "f3d8fc531785e11291e4bcfc97397507",
+    "mtime": 1794866718.782084,
+    "ast_hash": "6721c7a92a2ad4f59377a649ce6ddd5b",
     "semantic_hash": ""
   },
   "benchmarks/run_standard_benchmarks.py": {
@@ -325,8 +325,8 @@
     "semantic_hash": "0e9c86c32fcc21efeb8d34aef3550f01"
   },
   "src/actorii/harness/__init__.py": {
-    "mtime": 1794847238.3354385,
-    "ast_hash": "1c961c69745e00bb980f84805d0de560",
+    "mtime": 1794866671.658947,
+    "ast_hash": "457734e7674c1c461304e4b1469b5fb3",
     "semantic_hash": ""
   },
   "src/actorii/harness/benchmark.py": {
@@ -355,8 +355,8 @@
     "semantic_hash": ""
   },
   "src/actorii/tui.py": {
-    "mtime": 1794847290.4618194,
-    "ast_hash": "9c3ebda40a93e4ac500a9d809c4ea719",
+    "mtime": 1794866714.4778888,
+    "ast_hash": "180b2d083343604d6dffa970e0432b37",
     "semantic_hash": ""
   },
   "tests/test_agent_harness_and_tui.py": {
@@ -420,8 +420,8 @@
     "semantic_hash": ""
   },
   "benchmarks/run_tb21_hard_suite.py": {
-    "mtime": 1794665886.289627,
-    "ast_hash": "9212b93a21cb006138f945de80b53da5",
+    "mtime": 1794866729.2895603,
+    "ast_hash": "755645553b6c244b23a3e811912d4684",
     "semantic_hash": ""
   },
   "benchmarks/run_tb21_hard_clade_tournament.py": {
@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "src/actorii/telegram_gateway.py": {
-    "mtime": 1794847326.1584496,
-    "ast_hash": "20c1a651213a211544c9defdc9f35d76",
+    "mtime": 1794866712.4807982,
+    "ast_hash": "26b0446fc2edf7219f752302c8263d29",
     "semantic_hash": ""
   },
   "benchmarks/run_longmem_locomo_suite.py": {
@@ -800,8 +800,8 @@
     "semantic_hash": ""
   },
   "tests/test_conversational_polish.py": {
-    "mtime": 1794769852.1196704,
-    "ast_hash": "bc38a78a0799f1bbc67832354d4381df",
+    "mtime": 1794866716.251969,
+    "ast_hash": "d63aa24ee58b778b64f0ff5d10431775",
     "semantic_hash": ""
   },
   "scripts/run_self_evolution_benchmark.py": {
@@ -937,6 +937,26 @@
   "MODERNIZATION_ROADMAP.md": {
     "mtime": 1794847329.66461,
     "ast_hash": "1d0f904e2fd6c404f050840a847e6b37",
+    "semantic_hash": ""
+  },
+  "benchmarks/TB21_HARD_DEV_MEDIUM_RESULTS.json": {
+    "mtime": 1794869810.4738085,
+    "ast_hash": "c87cd48bfedf94b53c3875f9282c441c",
+    "semantic_hash": ""
+  },
+  "benchmarks/TB21_HARD_DEV_RESULTS.json": {
+    "mtime": 1794856791.134295,
+    "ast_hash": "5594559a46a8b71d50c2d485bdfb44fd",
+    "semantic_hash": ""
+  },
+  "benchmarks/TB21_HARD_DEV_MEDIUM_REPORT.md": {
+    "mtime": 1794869810.473893,
+    "ast_hash": "3d9a4a5eda4224a9af51934d23d69a50",
+    "semantic_hash": ""
+  },
+  "benchmarks/TB21_HARD_DEV_REPORT.md": {
+    "mtime": 1794856791.1348174,
+    "ast_hash": "67bb3d335fee00d9bc414430ea6b0b2d",
     "semantic_hash": ""
   }
 }

@@ -80,31 +80,40 @@ def resolve_llm_api_key() -> str:
     return ""
 
 
-THINKING_MODES = ("off", "auto", "high")
+THINKING_MODES = ("off", "auto", "medium", "high")
 
 
 def get_thinking_mode() -> str:
-    """Resolve active thinking mode (`off`, `auto`, or `high`) from `ACTORII_THINKING_MODE` / `ACTORII_ENABLE_THINKING`."""
+    """Resolve active thinking mode (`off`, `auto`, `medium`, or `high`) from `ACTORII_THINKING_MODE` / `ACTORII_ENABLE_THINKING`."""
     explicit = os.environ.get("ACTORII_THINKING_MODE", "").strip().lower()
     if explicit in ("high", "always", "full", "deep"):
         return "high"
+    if explicit in ("medium", "med", "balanced"):
+        return "medium"
     if explicit in ("auto", "selective", "smart", "on", "1", "true"):
         return "auto"
     if explicit in ("off", "0", "false", "none", "low"):
         return "off"
-    if os.environ.get("ACTORII_ENABLE_THINKING", "").strip().lower() in ("1", "true", "on", "auto"):
+    en = os.environ.get("ACTORII_ENABLE_THINKING", "").strip().lower()
+    if en in ("1", "true", "on", "auto"):
         return "auto"
-    if os.environ.get("ACTORII_ENABLE_THINKING", "").strip().lower() in ("2", "high", "always", "full"):
+    if en in ("medium", "med"):
+        return "medium"
+    if en in ("2", "high", "always", "full"):
         return "high"
     return "off"
 
 
 def set_thinking_mode(mode: str) -> str:
-    """Update active thinking mode in process environment and return normalized mode (`off`, `auto`, or `high`)."""
+    """Update active thinking mode in process environment and return normalized mode (`off`, `auto`, `medium`, or `high`)."""
     m = str(mode or "").strip().lower()
     if m in ("high", "always", "full", "deep", "2"):
         norm = "high"
         os.environ["ACTORII_THINKING_MODE"] = "high"
+        os.environ["ACTORII_ENABLE_THINKING"] = "1"
+    elif m in ("medium", "med", "balanced"):
+        norm = "medium"
+        os.environ["ACTORII_THINKING_MODE"] = "medium"
         os.environ["ACTORII_ENABLE_THINKING"] = "1"
     elif m in ("auto", "selective", "smart", "on", "1", "true"):
         norm = "auto"
@@ -115,7 +124,7 @@ def set_thinking_mode(mode: str) -> str:
         os.environ["ACTORII_THINKING_MODE"] = "off"
         os.environ["ACTORII_ENABLE_THINKING"] = "0"
     else:
-        raise ValueError(f"Unknown thinking mode {mode!r}; expected one of: off, auto, high")
+        raise ValueError(f"Unknown thinking mode {mode!r}; expected one of: off, auto, medium, high")
     return norm
 
 
@@ -185,7 +194,7 @@ def resolve_default_endpoint_for_model(model: str, explicit_endpoint: Optional[s
     """Route CPU/Ollama specialist models (`qwen2.5-coder*`, `*-cpu*`) to `:11434/api/chat` and GPU/cloud models to `ACTORII_LLM_ENDPOINT` or `ACTORII_LLM_PROVIDER`."""
     if explicit_endpoint:
         return str(explicit_endpoint)
-    env_ep = os.environ.get("ACTORII_LLM_ENDPOINT", "").strip()
+    env_ep = (os.environ.get("ACTORII_LLM_ENDPOINT") or os.environ.get("VALKYRIE_LLM_URL") or "").strip()
     if env_ep:
         return env_ep
     prov = os.environ.get("ACTORII_LLM_PROVIDER", "").strip().lower()
@@ -399,6 +408,12 @@ class ValkyrieLLMClient:
             env_thinking = (
                 (think_mode == "high" and not is_raw_synthesis and not already_verified_pass)
                 or (
+                    think_mode == "medium"
+                    and not is_raw_synthesis
+                    and not already_verified_pass
+                    and (step_num <= 4 or step_num % 3 == 0 or needs_deep_reasoning)
+                )
+                or (
                     think_mode == "auto"
                     and step_num >= 2
                     and needs_deep_reasoning
@@ -406,7 +421,9 @@ class ValkyrieLLMClient:
                 )
             )
             is_thinking = "cascade" in str(self.model).lower() or env_thinking
-            think_budget = 600 if think_mode == "high" else 350
+            think_budget = (
+                1200 if think_mode == "high" else (768 if think_mode == "medium" else 400)
+            )
             payload = {
                 "model": self.model,
                 "messages": messages,
@@ -489,7 +506,7 @@ class ValkyrieLLMClient:
                 followup_payload: Dict[str, Any] = {
                     "model": self.model,
                     "messages": followup_msgs,
-                    "max_tokens": 2048,
+                    "max_tokens": max(int(max_tokens or 2048), 4096),
                     "temperature": 0.2,
                     "stream": False,
                 }

@@ -926,6 +926,10 @@ def test_thinking_mode_tuning_across_ai_telegram_and_tui(
     monkeypatch.setenv("ACTORII_ENABLE_THINKING", "1")
     assert get_thinking_mode() == "auto"
 
+    assert set_thinking_mode("medium") == "medium"
+    assert get_thinking_mode() == "medium"
+    assert os.environ.get("ACTORII_ENABLE_THINKING") == "1"
+
     assert set_thinking_mode("high") == "high"
     assert get_thinking_mode() == "high"
     assert os.environ.get("ACTORII_ENABLE_THINKING") == "1"

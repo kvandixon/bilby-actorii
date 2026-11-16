@@ -486,20 +486,22 @@ class BilbyTelegramGateway:
                     desc = {
                         "off": "`off` (fast direct Actor actions; zero chain-of-thought)",
                         "auto": "`auto` (selective System-2 thinking on planning steps 2–3, errors/mismatches, and loop checkpoints)",
+                        "medium": "`medium` (balanced 768-tok System-2 thinking on initial planning steps 1–4, periodic checkpoints, and errors)",
                         "high": "`high` (System-2 thinking enabled on every step)",
                     }.get(cur, f"`{cur}`")
                     return (
                         f"🧠 **Thinking mode:** {desc}\n"
-                        "Switch anytime with `/think off`, `/think auto`, or `/think high`."
+                        "Switch anytime with `/think off`, `/think auto`, `/think medium`, or `/think high`."
                     )
                 try:
                     new_mode = set_thinking_mode(req_mode)
                 except ValueError:
-                    return "Usage: `/think [off | auto | high]`"
+                    return "Usage: `/think [off | auto | medium | high]`"
                 self._save_offset(self.offset)
                 labels = {
                     "off": "⚡ **Thinking mode set to `off`** — fast direct Actor actions (`force_no_think`).",
                     "auto": "🧠 **Thinking mode set to `auto`** — selective System-2 reasoning on planning steps (2–3), errors/mismatches, and loop checkpoints.",
+                    "medium": "🎯 **Thinking mode set to `medium`** — balanced 768-tok System-2 reasoning on initial design steps (1–4), periodic checkpoints, and errors.",
                     "high": "🔬 **Thinking mode set to `high`** — bounded System-2 reasoning active on every step.",
                 }
                 return labels[new_mode]

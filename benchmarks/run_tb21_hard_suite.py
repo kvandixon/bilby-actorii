@@ -79,7 +79,14 @@ sed -i -e '1567,1568d' bottle.py
     return cache_dir
 
 
-def run_terminal_bench_hard_task(task_name: str, harness_name: str, model: str) -> TaskMetrics:
+def run_terminal_bench_hard_task(
+    task_name: str,
+    harness_name: str,
+    model: str,
+    *,
+    max_steps: int = 32,
+    timeout_s: int = 1200,
+) -> TaskMetrics:
     tid = f"TB2.1-Hard/{task_name}"
     src_dir = TB_DIR / task_name
     tmp_dir = Path(tempfile.mkdtemp(prefix=f"bench_tbhard_{task_name}_{harness_name}_"))
@@ -121,7 +128,7 @@ def run_terminal_bench_hard_task(task_name: str, harness_name: str, model: str) 
         )
 
         _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-            harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
+            harness_name, tmp_dir, prompt, model=model, max_steps=max_steps, timeout_s=timeout_s
         )
 
         # 3. Run official `tests/test_outputs.py` verification suite against `tmp_dir`
@@ -202,6 +209,9 @@ def main() -> int:
         default=3,
         help="Independent trials per task at production temp=0.1 (default: 3 for avg@3 on N <= 10 suites)",
     )
+    parser.add_argument("--max-steps", type=int, default=32, help="Max ReAct steps per task (default: 32)")
+    parser.add_argument("--timeout", type=int, default=1200, help="Container wall-clock timeout in seconds (default: 1200)")
+    parser.add_argument("--tasks", nargs="*", default=[], help="Optional subset of TB2.1-Hard task names to run")
     parser.add_argument("--results-json", default="", help="Override output JSON path")
     parser.add_argument("--report-md", default="", help="Override output Markdown report path")
     args = parser.parse_args()
@@ -209,21 +219,24 @@ def main() -> int:
     out_json = Path(args.results_json).resolve() if args.results_json else RESULTS_JSON
     out_md = Path(args.report_md).resolve() if args.report_md else REPORT_MD
     trials = max(1, int(args.trials))
+    task_list = [t for t in args.tasks if t in TB_HARD_5_TASKS] if args.tasks else TB_HARD_5_TASKS
 
     harnesses = HARNESS_ORDER if args.harness == "all" else (args.harness,)
     results: List[TaskMetrics] = []
     result_dicts: list[dict] = []
     print(
-        f"\n================ TERMINAL-BENCH 2.1 HARD SUITE (5 TASKS x {trials} TRIALS x {len(harnesses)} HARNESS) ================",
+        f"\n================ TERMINAL-BENCH 2.1 HARD SUITE ({len(task_list)} TASKS x {trials} TRIALS x {len(harnesses)} HARNESS | max_steps={args.max_steps}, timeout={args.timeout}s) ================",
         flush=True,
     )
     for trial_idx in range(1, trials + 1):
         if trials > 1:
             print(f"\n--- Trial {trial_idx} / {trials} ---", flush=True)
-        for tname in TB_HARD_5_TASKS:
+        for tname in task_list:
             for h in harnesses:
                 print(f"  -> [T{trial_idx}/{trials}] Running TB2.1-Hard/{tname} on [{h}] ...", flush=True)
-                m = run_terminal_bench_hard_task(tname, h, args.model)
+                m = run_terminal_bench_hard_task(
+                    tname, h, args.model, max_steps=args.max_steps, timeout_s=args.timeout
+                )
                 results.append(m)
                 d_row = asdict(m)
                 d_row["trial"] = trial_idx

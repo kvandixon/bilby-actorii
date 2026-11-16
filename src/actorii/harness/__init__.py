@@ -549,6 +549,7 @@ class LLMBridge:
                 "key": turn_key,
                 "base_messages": [sys_msg, *prior_msgs, turn_user_msg],
                 "step_pairs": [],  # List[Tuple[int, Dict[str, str], Dict[str, str]]]
+                "pair_offset": 0,
             }
             setattr(harness_obj, "_kv_turn_cache", cache)
 
@@ -605,7 +606,11 @@ class LLMBridge:
             obs_msg = {"role": "user", "content": obs_body}
             cached_pairs.append((st_n, asst_msg, obs_msg))
 
-        for _, a_m, u_m in cached_pairs[-20:]:
+        pair_offset = int(cache.get("pair_offset", 0) or 0)
+        if len(cached_pairs) - pair_offset > 40:
+            pair_offset = len(cached_pairs) - 28
+            cache["pair_offset"] = pair_offset
+        for _, a_m, u_m in cached_pairs[pair_offset:]:
             messages.append(a_m)
             messages.append(u_m)
 
@@ -663,7 +668,7 @@ class LLMBridge:
                     model=harness_obj.model,
                 )
                 try:
-                    raw_reply = client.complete_messages(messages, temperature=0.2)
+                    raw_reply = client.complete_messages(messages, max_tokens=4096, temperature=0.2)
                     cleaned_check = _strip_leading_prose_before_code(
                         _unwrap_xml_tool_call(str(raw_reply or "").strip())
                     )
@@ -692,7 +697,7 @@ class LLMBridge:
                                 ),
                             },
                         ]
-                        raw_reply = client.complete_messages(cont_msgs, temperature=0.2)
+                        raw_reply = client.complete_messages(cont_msgs, max_tokens=4096, temperature=0.2)
                     stats = client.last_call_stats or {}
                     GLOBAL_TELEMETRY.log_llm_call(
                         turn_id=turn_id,

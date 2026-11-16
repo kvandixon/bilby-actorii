@@ -704,7 +704,7 @@ class ActorTUISession:
             req_mode = arg.strip().lower()
             if not req_mode or req_mode == "status":
                 cur = get_thinking_mode()
-                self._emit(self._c(CYAN + BOLD, f"✔ Thinking mode: {cur} (options: off, auto, high)"))
+                self._emit(self._c(CYAN + BOLD, f"✔ Thinking mode: {cur} (options: off, auto, medium, high)"))
                 return True
             try:
                 new_m = set_thinking_mode(req_mode)

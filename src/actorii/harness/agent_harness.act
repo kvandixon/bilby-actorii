@@ -50,7 +50,7 @@ Def initHarness(self, sandboxObj) {
     self.chatLog := new(OrderedCollection);
     self.taskContract := nil;
     self.lastErrorContext := nil;
-    self.tokenBudget := 28000;
+    self.tokenBudget := 44000;
     ^self;
 }!!
 
