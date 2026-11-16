@@ -5,7 +5,7 @@
     "semantic_hash": "26fc285598b870c681fad05b670212f1"
   },
   "pyproject.toml": {
-    "mtime": 1794790033.4667323,
+    "mtime": 1794791782.1784286,
     "ast_hash": "3282599275817c1f655b3c128bfa47d8",
     "semantic_hash": ""
   },
@@ -105,7 +105,7 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1794790034.8467972,
+    "mtime": 1794791782.1734285,
     "ast_hash": "6ea9cbe5d955e9f89760a9259c3b3c7a",
     "semantic_hash": ""
   },
@@ -145,7 +145,7 @@
     "semantic_hash": "bc47ec773ab41acea5dbddaa1e953dc1"
   },
   "src/actorii/classes/__init__.py": {
-    "mtime": 1794790191.7381752,
+    "mtime": 1794791782.1794288,
     "ast_hash": "a201c65a23c2deca1762997d5f507023",
     "semantic_hash": ""
   },
@@ -270,8 +270,8 @@
     "semantic_hash": "569b23ea44feb2a3eae4fae3a5b800e2"
   },
   "src/actorii/guardrails/linter.py": {
-    "mtime": 1794790376.5598557,
-    "ast_hash": "3514af559fa3eae4ebf11cec98616539",
+    "mtime": 1794847201.58376,
+    "ast_hash": "02a56f994a41fa8c6f9c00031bb36d7c",
     "semantic_hash": ""
   },
   "tests/test_guardrails_and_bridge.py": {
@@ -325,8 +325,8 @@
     "semantic_hash": "0e9c86c32fcc21efeb8d34aef3550f01"
   },
   "src/actorii/harness/__init__.py": {
-    "mtime": 1794789981.3042793,
-    "ast_hash": "00bada7c191eb505c4d1bb81340db87e",
+    "mtime": 1794847238.3354385,
+    "ast_hash": "1c961c69745e00bb980f84805d0de560",
     "semantic_hash": ""
   },
   "src/actorii/harness/benchmark.py": {
@@ -335,13 +335,13 @@
     "semantic_hash": ""
   },
   "src/actorii/harness/grammar_graph.py": {
-    "mtime": 1794789984.9444504,
-    "ast_hash": "cf7e5b1ef24a84b279319d64664d3d86",
+    "mtime": 1794847285.6706004,
+    "ast_hash": "97a652992ffa918ff3b04767dc21b078",
     "semantic_hash": ""
   },
   "src/actorii/harness/host_bridge.py": {
-    "mtime": 1794790378.3759408,
-    "ast_hash": "01d6abbdf687f0edd062394c0f057eab",
+    "mtime": 1794847203.1468313,
+    "ast_hash": "e5edcd4ac1a22960cf020f3553132708",
     "semantic_hash": ""
   },
   "src/actorii/harness/memory_graph.py": {
@@ -350,13 +350,13 @@
     "semantic_hash": ""
   },
   "src/actorii/harness/twins.py": {
-    "mtime": 1794790131.0573215,
-    "ast_hash": "b7dfc36cfb826359754037fd21a5cfc6",
+    "mtime": 1794847148.5363371,
+    "ast_hash": "8fff4a82c11641af070090e78617e131",
     "semantic_hash": ""
   },
   "src/actorii/tui.py": {
-    "mtime": 1794790010.2726414,
-    "ast_hash": "1a16a9e4251e50188ce8df238f582459",
+    "mtime": 1794847290.4618194,
+    "ast_hash": "9c3ebda40a93e4ac500a9d809c4ea719",
     "semantic_hash": ""
   },
   "tests/test_agent_harness_and_tui.py": {
@@ -435,8 +435,8 @@
     "semantic_hash": ""
   },
   "src/actorii/telegram_gateway.py": {
-    "mtime": 1794790036.203861,
-    "ast_hash": "b337ff2f500518714240f178db509cbd",
+    "mtime": 1794847326.1584496,
+    "ast_hash": "20c1a651213a211544c9defdc9f35d76",
     "semantic_hash": ""
   },
   "benchmarks/run_longmem_locomo_suite.py": {
@@ -855,8 +855,8 @@
     "semantic_hash": ""
   },
   "scripts/hooks/pre-push": {
-    "mtime": 1794665886.2966275,
-    "ast_hash": "2b28399c65b6aed6454b3cf21ca49609",
+    "mtime": 1794846502.8287923,
+    "ast_hash": "5a01d4a2623e104058cbbe31ef1db54f",
     "semantic_hash": ""
   },
   "scripts/install_hooks.sh": {
@@ -865,8 +865,8 @@
     "semantic_hash": ""
   },
   "scripts/release_gate.py": {
-    "mtime": 1794769852.1186702,
-    "ast_hash": "aec53db43354fc14a1b055cf8f6a7a3d",
+    "mtime": 1794847328.3605502,
+    "ast_hash": "d78d004978d33db7806e38aafa664be8",
     "semantic_hash": ""
   },
   "tests/test_release_gate.py": {
@@ -875,8 +875,8 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1794700967.2827692,
-    "ast_hash": "6ee7f03fc22ea91e94b705d5be00da4d",
+    "mtime": 1794846504.5768728,
+    "ast_hash": "242ca8aa7b91d13b6ed7b26974f71da1",
     "semantic_hash": ""
   },
   "benchmarks/archive/BENCHMARK_RESULTS_2026-11-14_v430.json": {
@@ -925,8 +925,18 @@
     "semantic_hash": ""
   },
   "tests/test_web_protocols.py": {
-    "mtime": 1794790227.9688787,
+    "mtime": 1794791782.1804287,
     "ast_hash": "bea33b83d6441d0a899c6f2194b0b3ed",
+    "semantic_hash": ""
+  },
+  "tests/test_network_topology_and_truth_guard.py": {
+    "mtime": 1794847360.0339968,
+    "ast_hash": "bad5c2a602a327b2b0b5da104d30023c",
+    "semantic_hash": ""
+  },
+  "MODERNIZATION_ROADMAP.md": {
+    "mtime": 1794847329.66461,
+    "ast_hash": "1d0f904e2fd6c404f050840a847e6b37",
     "semantic_hash": ""
   }
 }

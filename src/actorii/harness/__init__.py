@@ -42,6 +42,7 @@ from actorii.harness.telemetry import GLOBAL_TELEMETRY, summarize_actor_action_b
 from actorii.harness.twins import (
     JetsonEdgeTwin,
     NetTransportBridge,
+    NetworkTopologyBridge,
     PDFDocumentTwin,
     PantryGraphTwin,
     ReverseEngineeringTwin,
@@ -57,6 +58,7 @@ HARNESS_ACT_PATH = Path(__file__).resolve().parent / "agent_harness.act"
 WEB_SCRAPER_ACT_PATH = Path(__file__).resolve().parent / "web_scraper.act"
 PRODUCT_LEARNER_ACT_PATH = Path(__file__).resolve().parent / "product_learner.act"
 WEB_PROTOCOLS_ACT_PATH = Path(__file__).resolve().parent / "web_protocols.act"
+NETWORK_TOPOLOGY_ACT_PATH = Path(__file__).resolve().parent / "network_topology.act"
 OOP_FOUNDATION_ACT_PATH = Path(__file__).resolve().parent / "oop_foundation.act"
 DEFAULT_PERSONA_PATH = Path.home() / ".actorii" / "persona.md"
 
@@ -72,6 +74,7 @@ DEFAULT_HARNESS_SYSTEM_PROMPT = (
     "  * `Actor[#Valkyrie]` (`#System`): `summary(Actor[#Valkyrie])!!`, `stackHealth(...)!!`, `gpuStatus(...)!!`, `vramFreeMiB(...)!!`, `serviceStatus(..., 8080)!!`, `askSkippy(..., questionOrImagePath)!!` (multimodal Cloud Skippy consult/vision!) (container-only when `isSandboxed`: `listDirectory`, `readTextFile`, `runShell`)\n"
     "  * `Actor[#Thermometer]`: `summary(Actor[#Thermometer])!!`, `temperatureF(...)!!`, `temperatureC(...)!!`, `humidity(...)!!`, `syncLive(..., 6)!!` | `Actor[#ThermoUI]`: `summary(...)!!`, `addButton(..., label, href)!!`, `draw(...)!!`\n"
     "  * `Actor[#Jetson]`: `summary(Actor[#Jetson])!!`, `telemetry(...)!!`, `discover(...)!!`, `scanLan(...)!!`, `setHost(..., ip)!!`, `cameraStatus(...)!!`, `exec(..., cmd, 20)!!`, `writeFile(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 45)!!` (supports `.sh`, `.py`, `.cu`, `.cpp`, `.c`!), `deployService(..., name, workDir, startCmd, port, 25)!!`, `serviceStatus(..., name, 25)!!`, `stopService(..., name)!!`, `pullFile(..., remotePath, localName, 30)!!`\n"
+    "  * `Actor[#Network]` (`#NetTopo`): `topologyMap(Actor[#Network])!!`, `whoOwnsIp(Actor[#Network], ipOrUrl)!!` (identifies whether `100.x.x.x` / `192.168.x.x` is `valkyrie`, user's phone, or `jetson-tx1`!), `tailnetStatus(Actor[#Network])!!`, `listBridges(Actor[#Network])!!`, `explainReachability(Actor[#Network], clientIp, targetIp, port)!!`, `exposeLanPort(Actor[#Network], \"192.168.68.57\", 8090, 8091)!!` (instant Tailscale->LAN TCP port bridge on `valkyrie:8091..8999`), `closeLanPort(Actor[#Network], 8091)!!`\n"
     "  * `Actor[#Protocols]` & `Actor[#Net]`: `listProtocols(Actor[#Protocols])!!`, `spec(Actor[#Protocols], #mjpeg|#rtsp|#http|#sse|#ws|#hls)!!`, `blueprint(Actor[#Protocols], #rtsp, #send|#receive)!!`, `blueprint(Actor[#Protocols], #mjpeg, #python|#cpp)!!`, `recommendFor(Actor[#Protocols], goalDesc)!!`, `verify(Actor[#Protocols], url, #mjpeg|#rtsp|#http|#sse|#ws|#hls)!!` | Wire probes on `Actor[#Net]`: `probeHttp`, `probeMjpeg` (saves frame + checks disconnect survival), `probeRtsp` (RFC 2326 OPTIONS/DESCRIBE + optional 1-frame TCP capture), `probeSse`, `probeWebSocket`, `probeHls`\n"
     "  * `Actor[#Memory]`: `graphSchema(Actor[#Memory])!!`, `classHierarchyTree(...)!!`, `cypherQuery(..., q)!!`, `cypherQueryWith(..., q, p1)!!`, `cypherWrite(..., q)!!`, `recallEpisodes(..., q, 8)!!`, `persistEngram(..., #Cls, desc)!!`, `rollbackEngram(..., #Cls)!!`\n"
     "  * `Actor[#ProductLearner]`: `learnProduct(Actor[#ProductLearner], name, focus)!!`, `ingestManual(..., name, urlOrPath, focus)!!`, `recallProduct(..., name, topic)!!`, `listProducts(...)!!` (read/learn manuals before guessing unfamiliar drivers/CLI!)\n"
@@ -816,6 +819,8 @@ class VMSandboxBridge:
             "Web",
             "ProductLearner",
             "Protocols",
+            "NetTopo",
+            "Network",
             "Jetson",
             "Proxy",
             "Telegram",
@@ -1902,10 +1907,85 @@ class VMSandboxBridge:
         # 1. Pure `COMPLETE:` directive (or direct conversational reply) with no preceding code
         if not chunk_src and comp_summary is not None:
             summary = comp_summary or str(prev_exec_result if prev_exec_result is not None else "Done")
-            # Guard against verbatim or near-verbatim reply parroting across ALL steps (not only step 1!):
-            # reject stale copy-pasted speeches from the last 3 turns unless already rejected twice in this turn.
             chat_log = harness_obj._fields.get("chatLog")
             current_goal = str(harness_obj._fields.get("goal", "") or "").strip()
+            has_valid_tool_step = any(
+                isinstance(e, dict)
+                and e.get("status") == "ok"
+                and not e.get("unhandled_selector")
+                and not str(e.get("action", "")).strip().upper().startswith("COMPLETE:")
+                for e in (list(step_log) if isinstance(step_log, (ActorOrderedCollection, list)) else [])
+            )
+
+            # 1a. Zero-Action Mutation / Telemetry Hallucination Guard (`UnverifiedExecutionClaimError`):
+            # Block fabricated `COMPLETE:` claims of installing/restarting/deploying/verifying live state
+            # when ZERO Actor 4.1 tool calls ran in this turn (`not has_valid_tool_step`).
+            prior_unverified_warnings = (
+                sum(
+                    1
+                    for e in list(step_log)
+                    if isinstance(e, dict) and str(e.get("error", "")).startswith("UnverifiedExecutionClaimError:")
+                )
+                if isinstance(step_log, (ActorOrderedCollection, list))
+                else 0
+            )
+            if (
+                not has_valid_tool_step
+                and prior_unverified_warnings < 1
+                and os.environ.get("ACTORII_BENCH_STRICT") != "1"
+                and len(summary) >= 60
+            ):
+                prev_asst_question = False
+                if isinstance(chat_log, (ActorOrderedCollection, list)) and len(chat_log) > 0:
+                    last_t = list(chat_log)[-1]
+                    if isinstance(last_t, dict):
+                        prev_rep_tail = str(last_t.get("reply") or "").strip()[-240:].lower()
+                        prev_asst_question = "?" in prev_rep_tail or "want me to" in prev_rep_tail or "shall i" in prev_rep_tail
+
+                confirm_goal = bool(
+                    re.match(
+                        r"^\s*(?:yes|yep|yeah|sure|ok|okay|please|go ahead|do it|do that|install|restart|deploy|start|stop|fix|run|proceed)\b",
+                        current_goal,
+                        flags=re.IGNORECASE,
+                    )
+                )
+                claims_live_mutation = bool(
+                    re.search(
+                        r"(?:\b(?:installed and running|restarted and verified|deployed and running|updated and verified|tailscale installed)\b"
+                        r"|\bpid\s*:?\s*\d{3,7}\b"
+                        r"|\binterface\s*:?\s*`?[a-z0-9_]+`?\s+is\s+up\b"
+                        r"|\b(?:service|daemon|stream|container)\s+is\s+(?:now\s+)?running\b)",
+                        summary,
+                        flags=re.IGNORECASE,
+                    )
+                )
+                if claims_live_mutation and (confirm_goal or prev_asst_question or "?" not in current_goal):
+                    unv_msg = (
+                        "UnverifiedExecutionClaimError: You emitted `COMPLETE:` claiming a live system/network state change "
+                        "(e.g. installed/restarted/running PID/interface UP) on Step 1 with ZERO executed Actor 4.1 tool calls in this turn! "
+                        "NEVER fabricate installation, PID, or network status from memory. Execute the real Actor 4.1 diagnostic or action first "
+                        "(e.g. `exec(Actor[#Jetson], ...)!!`, `whoOwnsIp(Actor[#Network], ...)!!`, or `exposeLanPort(Actor[#Network], ...)!!`), "
+                        "or state clearly if an operation requires manual interactive authorization."
+                    )
+                    harness_obj._fields["lastError"] = unv_msg
+                    unv_entry = {
+                        "step": step_num,
+                        "action": f"COMPLETE: {summary}",
+                        "status": "error",
+                        "tier": "TIER_0_READ_ONLY",
+                        "gas_used": 0,
+                        "error": unv_msg,
+                        "rolled_back": True,
+                        "failures": int(harness_obj._fields.get("failures", 0) or 0),
+                        "timestamp": time.time(),
+                    }
+                    if isinstance(step_log, ActorOrderedCollection):
+                        step_log.add(unv_entry)
+                    self._notify_step(unv_entry)
+                    return f"ERROR: {unv_msg}"
+
+            # 1b. Guard against verbatim or near-verbatim reply parroting across ALL steps (not only step 1!):
+            # reject stale copy-pasted speeches from the last 3 turns unless already rejected twice in this turn.
             prior_parrot_warnings = (
                 sum(
                     1
@@ -1921,13 +2001,6 @@ class VMSandboxBridge:
                 and isinstance(chat_log, (ActorOrderedCollection, list))
                 and len(chat_log) > 0
             ):
-                has_valid_tool_step = any(
-                    isinstance(e, dict)
-                    and e.get("status") == "ok"
-                    and not e.get("unhandled_selector")
-                    and not str(e.get("action", "")).strip().upper().startswith("COMPLETE:")
-                    for e in (list(step_log) if isinstance(step_log, (ActorOrderedCollection, list)) else [])
-                )
                 norm_sum = " ".join(summary.lower().split())
                 nums_sum = re.findall(r"-?\d+(?:\.\d+)?", norm_sum)
                 stop_goal_w = {"what", "whats", "where", "when", "check", "give", "show", "tell", "current", "status", "the", "and", "for", "with", "how", "now"}
@@ -2497,6 +2570,14 @@ def bootstrap_agent_harness(
     protocols_source = WEB_PROTOCOLS_ACT_PATH.read_text(encoding="utf-8")
     active_vm.eval_chunk(protocols_source)
     active_vm.eval_chunk("Actor[#Protocols] := initSuite(new(ProtocolSuite), Actor[#Net])!!")
+
+    net_topo_py = NetworkTopologyBridge(jetson_twin=jetson_py)
+    active_vm.expose_object(net_topo_py, global_key="#NetTopo")
+    net_topo_source = NETWORK_TOPOLOGY_ACT_PATH.read_text(encoding="utf-8")
+    active_vm.eval_chunk(net_topo_source)
+    active_vm.eval_chunk(
+        "Actor[#Network] := initTopology(new(NetworkTopology), Actor[#NetTopo], Actor[#Jetson], Actor[#Proxy])!!"
+    )
 
     act_source = HARNESS_ACT_PATH.read_text(encoding="utf-8")
     active_vm.eval_chunk(act_source)

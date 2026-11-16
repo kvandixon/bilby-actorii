@@ -76,6 +76,10 @@ RING_1_CLASSES: Set[str] = {
     "HlsStreamProtocolSpec",
     "RtspStreamProtocolSpec",
     "ProtocolSuite",
+    "NetworkTopologyBridge",
+    "NetworkNode",
+    "PortRelayRoute",
+    "NetworkTopology",
 }
 
 

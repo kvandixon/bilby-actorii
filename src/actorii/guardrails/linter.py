@@ -47,6 +47,9 @@ _MUTABLE_SCRAPER_CLASSES: FrozenSet[str] = frozenset(
         "HlsStreamProtocolSpec",
         "RtspStreamProtocolSpec",
         "ProtocolSuite",
+        "NetworkNode",
+        "PortRelayRoute",
+        "NetworkTopology",
     )
 )
 _SORTED_RING1_HARNESS_SELECTORS: List[str] = [
@@ -118,6 +121,10 @@ PROTECTED_SYSTEM_CLASSES: Set[str] = {
     "HlsStreamProtocolSpec",
     "RtspStreamProtocolSpec",
     "ProtocolSuite",
+    "NetworkTopologyBridge",
+    "NetworkNode",
+    "PortRelayRoute",
+    "NetworkTopology",
     "ThreadPool",
     "Future",
     "Channel",
@@ -167,6 +174,8 @@ PROTECTED_POOL_SINGLETONS: Set[str] = {
     "PDF",
     "ProductLearner",
     "Protocols",
+    "NetTopo",
+    "Network",
     "Threads",
 }
 

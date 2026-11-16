@@ -3982,9 +3982,468 @@ class JetsonEdgeTwin:
         )
 
 
+# =============================================================================
+# NetworkTopologyBridge (`Actor[#NetTopo]` backing Ring-1 `Actor[#Network]`)
+# =============================================================================
+
+_RESERVED_VALKYRIE_PORTS = frozenset({22, 80, 443, 5432, 7474, 7687, 8080, 8081, 8082, 8084, 8765, 8818, 8090, 11434, 18090, 18765})
+
+
+@actor_bridge(name="NetworkTopologyBridge")
+class NetworkTopologyBridge:
+    """Ring-0 Network Topology, Tailnet Identity & Guarded LAN->Tailscale TCP Relay Bridge (`Actor[#NetTopo]`).
+
+    Gives Bilby's Ring-1 `Actor[#Network]` object model ground-truth visibility into:
+      1. Host network interfaces & subnets (`192.168.68.0/22` LAN vs `100.64.0.0/10` Tailscale CGNAT vs Docker bridges).
+      2. Live Tailscale tailnet peers (`tailscale status --json`) so Bilby immediately knows which `100.x.x.x` IP belongs
+         to `valkyrie` vs the user's phone (`kevins-s25-ultra`) vs whether an edge device (Jetson) is on the tailnet at all!
+      3. Guarded user-space TCP port relays (`8091..8999`) bridging a Tailscale-reachable port on `valkyrie` to an
+         authorized `192.168.x.x` LAN edge device (never allowing forwards to `127.0.0.1` or internal stack ports, and
+         operating cleanly inside `ProtectSystem=strict` via `~/.actorii/port_bridges/`).
+    """
+
+    def __init__(self, state_dir: Optional[Path] = None, jetson_twin: Optional[JetsonEdgeTwin] = None) -> None:
+        from actorii.harness.telemetry import resolve_actorii_state_dir
+
+        self._state_dir = state_dir or (resolve_actorii_state_dir() / "port_bridges")
+        self._registry_file = self._state_dir / "bridges.json"
+        self._jetson_twin = jetson_twin
+        self._managed_procs: Dict[int, subprocess.Popen[Any]] = {}
+
+    @actor_query
+    def hostInterfaces(self) -> Any:
+        """Return live IPv4 interfaces on `valkyrie` (`ip -j -4 addr show`) as an Actor `Array` of `Dictionary` entries."""
+        from actorii.classes.collections import ActorArray
+
+        items: List[Any] = []
+        ip_bin = shutil.which("ip") or "/usr/sbin/ip"
+        if os.path.isfile(ip_bin):
+            try:
+                proc = subprocess.run([ip_bin, "-j", "-4", "addr", "show"], capture_output=True, text=True, timeout=4.0)
+                if proc.returncode == 0 and proc.stdout.strip():
+                    raw_list = json.loads(proc.stdout)
+                    for iface in raw_list:
+                        ifname = str(iface.get("ifname") or "")
+                        state = str(iface.get("operstate") or "UNKNOWN")
+                        for addr in iface.get("addr_info") or []:
+                            if addr.get("family") == "inet":
+                                local_ip = str(addr.get("local") or "")
+                                prefix = int(addr.get("prefixlen") or 32)
+                                kind = (
+                                    "loopback"
+                                    if ifname == "lo" or local_ip.startswith("127.")
+                                    else (
+                                        "tailscale"
+                                        if ifname.startswith("tailscale") or local_ip.startswith("100.")
+                                        else ("docker" if ifname.startswith(("docker", "br-", "veth")) else "lan")
+                                    )
+                                )
+                                items.append(
+                                    _to_actor_dict(
+                                        {
+                                            "interface": ifname,
+                                            "ip": local_ip,
+                                            "cidr": f"{local_ip}/{prefix}",
+                                            "kind": kind,
+                                            "state": state,
+                                        }
+                                    )
+                                )
+            except Exception:
+                pass
+        arr = ActorArray(len(items))
+        for i, it in enumerate(items):
+            arr.atPut(i, it)
+        return arr
+
+    @actor_query
+    def tailnetPeers(self) -> Any:
+        """Query `tailscale status --json` (read-only) and return all Tailnet nodes (`Self` + `Peer`s) with hostnames, OS, IPs, and online state."""
+        from actorii.classes.collections import ActorArray
+
+        peers: List[Any] = []
+        ts_bin = shutil.which("tailscale") or "/usr/bin/tailscale"
+        if os.path.isfile(ts_bin):
+            try:
+                proc = subprocess.run([ts_bin, "status", "--json"], capture_output=True, text=True, timeout=5.0)
+                if proc.returncode == 0 and proc.stdout.strip():
+                    data = json.loads(proc.stdout)
+                    self_node = data.get("Self") or {}
+                    self_ips = [str(x) for x in (self_node.get("TailscaleIPs") or []) if ":" not in str(x)]
+                    if self_node:
+                        peers.append(
+                            _to_actor_dict(
+                                {
+                                    "role": "self",
+                                    "hostname": str(self_node.get("HostName") or "valkyrie"),
+                                    "dnsName": str(self_node.get("DNSName") or "").rstrip("."),
+                                    "os": str(self_node.get("OS") or "linux"),
+                                    "tailscaleIp": self_ips[0] if self_ips else "",
+                                    "online": bool(self_node.get("Online", True)),
+                                }
+                            )
+                        )
+                    for _, p in sorted((data.get("Peer") or {}).items()):
+                        if not isinstance(p, dict):
+                            continue
+                        p_ips = [str(x) for x in (p.get("TailscaleIPs") or []) if ":" not in str(x)]
+                        peers.append(
+                            _to_actor_dict(
+                                {
+                                    "role": "peer",
+                                    "hostname": str(p.get("HostName") or "peer"),
+                                    "dnsName": str(p.get("DNSName") or "").rstrip("."),
+                                    "os": str(p.get("OS") or ""),
+                                    "tailscaleIp": p_ips[0] if p_ips else "",
+                                    "online": bool(p.get("Online", False)),
+                                }
+                            )
+                        )
+            except Exception:
+                pass
+        arr = ActorArray(len(peers))
+        for i, it in enumerate(peers):
+            arr.atPut(i, it)
+        return arr
+
+    @actor_query
+    def identifyIp(self, ip_or_host: str) -> Any:
+        """Identify who owns `ip_or_host` across `valkyrie` interfaces, active Tailnet peers, and configured LAN Edge Twins (`Jetson`)."""
+        raw = str(ip_or_host or "").strip()
+        host_only = raw.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0].strip()
+        if not host_only:
+            return _to_actor_dict({"ok": False, "ip": raw, "owner": "unknown", "network": "invalid", "note": "Empty IP/host."})
+
+        # 1. Check Tailscale peers first (`100.x.x.x` confusion prevention!)
+        ts_nodes = self.tailnetPeers()
+        valkyrie_ts_ip = ""
+        for node in ts_nodes:
+            ts_ip = str(node.at("tailscaleIp") or "")
+            hname = str(node.at("hostname") or "")
+            role = str(node.at("role") or "")
+            if role == "self" and ts_ip:
+                valkyrie_ts_ip = ts_ip
+            if host_only in (ts_ip, hname.lower(), str(node.at("dnsName") or "").lower()):
+                note = (
+                    "This is `valkyrie` (local Fedora host). Note: `:8090` on `valkyrie` is ActorII Web Studio, NOT the Jetson! Use a bridge port like `:8091` (`listBridges(Actor[#Network])!!`) to reach Jetson services over Tailscale."
+                    if role == "self"
+                    else f"This Tailscale IP belongs to `{hname}` ({node.at('os')}, role=client peer), NOT the Jetson! The Jetson is on LAN (`192.168.68.x`) unless Tailscale is installed on it or bridged via `valkyrie` (`{valkyrie_ts_ip}:<bridgePort>`)."
+                )
+                return _to_actor_dict(
+                    {
+                        "ok": True,
+                        "ip": host_only,
+                        "owner": hname,
+                        "role": role,
+                        "os": str(node.at("os") or ""),
+                        "network": "tailscale",
+                        "online": bool(node.at("online")),
+                        "valkyrieTailscaleIp": valkyrie_ts_ip,
+                        "note": note,
+                    }
+                )
+
+        # 2. Check local `valkyrie` LAN / loopback / docker interfaces
+        for iface in self.hostInterfaces():
+            if str(iface.at("ip") or "") == host_only:
+                return _to_actor_dict(
+                    {
+                        "ok": True,
+                        "ip": host_only,
+                        "owner": "valkyrie",
+                        "role": "self",
+                        "network": str(iface.at("kind") or "lan"),
+                        "interface": str(iface.at("interface") or ""),
+                        "valkyrieTailscaleIp": valkyrie_ts_ip,
+                        "note": f"Local `valkyrie` `{iface.at('interface')}` address.",
+                    }
+                )
+
+        # 3. Check configured Jetson LAN IP
+        jetson_ip = ""
+        if self._jetson_twin is not None:
+            jetson_ip = str(self._jetson_twin._load_cfg().get("host") or "")
+        if jetson_ip and host_only in (jetson_ip, "jetson", "jetson.local"):
+            reachable = bool(JetsonEdgeTwin._probe_tcp_banner(jetson_ip, 22, 1.0))
+            return _to_actor_dict(
+                {
+                    "ok": True,
+                    "ip": jetson_ip,
+                    "owner": "jetson-tx1",
+                    "role": "edge_device",
+                    "network": "lan_only",
+                    "online": reachable,
+                    "valkyrieTailscaleIp": valkyrie_ts_ip,
+                    "note": (
+                        f"NVIDIA Jetson TX1 on local Wi-Fi LAN (`{jetson_ip}`). Not directly reachable from remote Tailscale clients unless bridged via `valkyrie` (`exposeLanPort(Actor[#Network], {jetson_ip!r}, <remotePort>, <listenPort>)!!`)."
+                    ),
+                }
+            )
+
+        if host_only.startswith("100."):
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "ip": host_only,
+                    "owner": "unassigned_tailscale_ip",
+                    "network": "tailscale",
+                    "valkyrieTailscaleIp": valkyrie_ts_ip,
+                    "note": f"`{host_only}` is in Tailscale CGNAT space (`100.64.0.0/10`) but is NOT registered to any peer on this Tailnet!",
+                }
+            )
+
+        return _to_actor_dict(
+            {
+                "ok": True,
+                "ip": host_only,
+                "owner": "lan_or_external_host",
+                "network": "lan" if host_only.startswith(("192.168.", "10.", "172.")) else "public",
+                "valkyrieTailscaleIp": valkyrie_ts_ip,
+                "note": "External or uncataloged LAN address.",
+            }
+        )
+
+    def _load_bridges_meta(self) -> Dict[str, Dict[str, Any]]:
+        try:
+            if self._registry_file.is_file():
+                data = json.loads(self._registry_file.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return data
+        except Exception:
+            pass
+        return {}
+
+    def _save_bridges_meta(self, meta: Dict[str, Dict[str, Any]]) -> None:
+        try:
+            self._state_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+            self._registry_file.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+        except Exception:
+            pass
+
+    @actor_query
+    def listBridges(self) -> Any:
+        """Discover both systemd `socat` bridges (like `:8091 -> 192.168.68.57:8090`) and runtime `Actor[#Network]` port relays."""
+        from actorii.classes.collections import ActorArray
+
+        bridges: List[Any] = []
+        seen_ports: set[int] = set()
+
+        # 1. Inspect active `socat TCP4-LISTEN:<port>... TCP4:<target_ip>:<target_port>` processes on `valkyrie`
+        ps_bin = shutil.which("ps") or "/usr/bin/ps"
+        if os.path.isfile(ps_bin):
+            try:
+                proc = subprocess.run([ps_bin, "-eo", "pid,args", "--no-headers"], capture_output=True, text=True, timeout=4.0)
+                for ln in (proc.stdout or "").splitlines():
+                    if "socat" not in ln or "TCP" not in ln:
+                        continue
+                    m = re.search(
+                        r"^\s*(\d+)\s+\S*socat\s+TCP4?-LISTEN:(\d+)[^\s]*\s+TCP4?:([0-9a-zA-Z._-]+):(\d+)",
+                        ln,
+                    )
+                    if m:
+                        pid_n = int(m.group(1))
+                        lport = int(m.group(2))
+                        rip = m.group(3)
+                        rport = int(m.group(4))
+                        seen_ports.add(lport)
+                        bridges.append(
+                            _to_actor_dict(
+                                {
+                                    "listenPort": lport,
+                                    "targetHost": rip,
+                                    "targetPort": rport,
+                                    "pid": pid_n,
+                                    "alive": True,
+                                    "managedBy": "socat",
+                                }
+                            )
+                        )
+            except Exception:
+                pass
+
+        # 2. Include metadata from `~/.actorii/port_bridges/bridges.json`
+        meta = self._load_bridges_meta()
+        for p_str, info in sorted(meta.items()):
+            lport = int(p_str)
+            if lport in seen_ports:
+                continue
+            pid_n = int(info.get("pid") or 0)
+            alive = False
+            if pid_n > 0:
+                try:
+                    os.kill(pid_n, 0)
+                    alive = True
+                except OSError:
+                    alive = False
+            bridges.append(
+                _to_actor_dict(
+                    {
+                        "listenPort": lport,
+                        "targetHost": str(info.get("targetHost") or ""),
+                        "targetPort": int(info.get("targetPort") or 0),
+                        "pid": pid_n,
+                        "alive": alive,
+                        "managedBy": "actorii",
+                    }
+                )
+            )
+
+        arr = ActorArray(len(bridges))
+        for idx, b in enumerate(bridges):
+            arr.atPut(idx, b)
+        return arr
+
+    @actor_command
+    def exposeLanPort(self, target_host: str, target_port: int, listen_port: int = 8091) -> Any:
+        """Create or verify a guarded user-space TCP relay on `valkyrie:<listen_port>` (`8091..8999`) -> `<target_host>:<target_port>` so Tailscale peers can reach a LAN edge service."""
+        import ipaddress
+
+        thost = str(target_host or "").strip()
+        tport = int(target_port or 0)
+        lport = int(listen_port or 8091)
+
+        if lport in _RESERVED_VALKYRIE_PORTS or not (8091 <= lport <= 8999):
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "listenPort": lport,
+                    "error": f"BLOCKED: `listen_port` must be in safe relay range `8091..8999` and not a reserved stack port (got {lport}).",
+                }
+            )
+        if not (1 <= tport <= 65535):
+            return _to_actor_dict({"ok": False, "listenPort": lport, "error": f"Invalid `target_port` {tport}."})
+
+        # Strictly require `target_host` to be a non-host RFC1918 LAN IP (e.g. `192.168.68.57`), NEVER loopback or `valkyrie` itself!
+        local_ips = _discover_local_host_ips()
+        try:
+            addr = ipaddress.ip_address(thost)
+        except ValueError:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "listenPort": lport,
+                    "error": f"Invalid `target_host` {thost!r}: pass an explicit LAN IPv4 address (e.g. '192.168.68.57').",
+                }
+            )
+        if not addr.is_private or addr.is_loopback or thost in local_ips:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "listenPort": lport,
+                    "error": f"BLOCKED [RELAY_SSRF_GUARD]: `exposeLanPort` only bridges to external private LAN edge devices, never loopback or `valkyrie` ({thost}).",
+                }
+            )
+
+        # Check if an existing `socat` bridge is already serving this exact route!
+        for b in self.listBridges():
+            if int(b.at("listenPort") or 0) == lport and bool(b.at("alive")):
+                if str(b.at("targetHost")) == thost and int(b.at("targetPort") or 0) == tport:
+                    ts_ip = ""
+                    for peer in self.tailnetPeers():
+                        if str(peer.at("role")) == "self":
+                            ts_ip = str(peer.at("tailscaleIp") or "")
+                    return _to_actor_dict(
+                        {
+                            "ok": True,
+                            "listenPort": lport,
+                            "targetHost": thost,
+                            "targetPort": tport,
+                            "pid": int(b.at("pid") or 0),
+                            "tailscaleUrl": f"http://{ts_ip}:{lport}/" if ts_ip else f"http://valkyrie:{lport}/",
+                            "note": "Existing active TCP relay already forwarding this exact route.",
+                        }
+                    )
+                if str(b.at("managedBy")) == "socat" and str(lport) not in self._load_bridges_meta():
+                    return _to_actor_dict(
+                        {
+                            "ok": False,
+                            "listenPort": lport,
+                            "error": f"Port :{lport} is already bound by an external systemd socat unit targeting {b.at('targetHost')}:{b.at('targetPort')}. Pick another port in 8092..8999.",
+                        }
+                    )
+
+        socat_bin = shutil.which("socat") or "/usr/bin/socat"
+        if not os.path.isfile(socat_bin):
+            return _to_actor_dict({"ok": False, "listenPort": lport, "error": "`socat` binary not installed on host."})
+
+        # Stop any prior ActorII-managed relay on `lport`
+        self.closeLanPort(lport)
+
+        self._state_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+        log_file = self._state_dir / f"relay_{lport}.log"
+        with log_file.open("ab") as lf:
+            proc = subprocess.Popen(
+                [
+                    socat_bin,
+                    f"TCP4-LISTEN:{lport},bind=0.0.0.0,reuseaddr,fork",
+                    f"TCP4:{thost}:{tport}",
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=lf,
+                stderr=lf,
+                start_new_session=True,
+            )
+        time.sleep(0.25)
+        alive = proc.poll() is None
+        if alive:
+            self._managed_procs[lport] = proc
+            meta = self._load_bridges_meta()
+            meta[str(lport)] = {
+                "listenPort": lport,
+                "targetHost": thost,
+                "targetPort": tport,
+                "pid": proc.pid,
+                "createdAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            }
+            self._save_bridges_meta(meta)
+
+        ts_ip = ""
+        for peer in self.tailnetPeers():
+            if str(peer.at("role")) == "self":
+                ts_ip = str(peer.at("tailscaleIp") or "")
+
+        return _to_actor_dict(
+            {
+                "ok": alive,
+                "listenPort": lport,
+                "targetHost": thost,
+                "targetPort": tport,
+                "pid": proc.pid if alive else 0,
+                "tailscaleUrl": f"http://{ts_ip}:{lport}/" if ts_ip else "",
+                "error": "" if alive else f"socat exited immediately (code={proc.returncode}); check if port {lport} is in use.",
+            }
+        )
+
+    @actor_command
+    def closeLanPort(self, listen_port: int) -> Any:
+        """Stop an ActorII-managed user-space TCP relay on `listen_port` (never kills external systemd units)."""
+        lport = int(listen_port or 0)
+        meta = self._load_bridges_meta()
+        entry = meta.pop(str(lport), None)
+        proc = self._managed_procs.pop(lport, None)
+        killed = False
+        if proc is not None and proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            killed = True
+        elif entry and int(entry.get("pid") or 0) > 0:
+            pid_n = int(entry["pid"])
+            try:
+                os.kill(pid_n, 15)
+                killed = True
+            except OSError:
+                pass
+        self._save_bridges_meta(meta)
+        return _to_actor_dict({"ok": True, "listenPort": lport, "stopped": killed})
+
+
 __all__ = [
     "JetsonEdgeTwin",
     "NetTransportBridge",
+    "NetworkTopologyBridge",
     "PDFDocumentTwin",
     "PantryGraphTwin",
     "ReverseEngineeringTwin",

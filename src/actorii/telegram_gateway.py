@@ -413,6 +413,7 @@ class BilbyTelegramGateway:
             "/think",
             "/thinking",
             "/protocols",
+            "/network",
             "/help",
             "/start",
         )
@@ -518,7 +519,8 @@ class BilbyTelegramGateway:
                     "• `/stop` (or `/cancel`) — Break Bilby out of an active loop immediately\n"
                     "• `/status` — VM, GPU VRAM, and Harness status\n"
                     "• `/protocols [mjpeg|rtsp|http|sse|ws|hls] [send|receive]` — Web & Streaming Protocol specs & blueprints\n"
-                    "• `/twins` — Live Digital Twins (`Valkyrie`, `Jetson`, `Protocols`, `ProductLearner`, `Proxy`, `ReverseEngineer`, `Thermometer`, `Pantry`, `Telegram`)\n"
+                    "• `/network [ip]` — Inspect LAN + Tailscale Network Topology & Port Bridges (`Actor[#Network]`)\n"
+                    "• `/twins` — Live Digital Twins (`Valkyrie`, `Jetson`, `Network`, `Protocols`, `ProductLearner`, `Proxy`, `ReverseEngineer`, `Thermometer`, `Pantry`, `Telegram`)\n"
                     "• `/proxy [status|links|lan|tailscale|local|pause]` — Manage `:8090` Reverse Proxy\n"
                     "• `/controls` — Inspect active security & containment locks\n"
                     "• `/freeze` | `/unlock` — Emergency kill-switch\n"
@@ -533,7 +535,7 @@ class BilbyTelegramGateway:
                 out = "\n".join(self.session.transcript[before:]).strip()
                 return out or "Evaluated."
 
-            if cmd_lower in ("/status", "/protocols", "/proxy", "/twins", "/engrams", "/scratch", "/history", "/clear", "/classes", "/schema", "/capabilities", "/caps", "/config", "/bench"):
+            if cmd_lower in ("/status", "/protocols", "/network", "/proxy", "/twins", "/engrams", "/scratch", "/history", "/clear", "/classes", "/schema", "/capabilities", "/caps", "/config", "/bench"):
                 before = len(self.session.transcript)
                 self.session.handle_input(f"{cmd_lower} {arg_str}".strip())
                 out = "\n".join(self.session.transcript[before:]).strip()

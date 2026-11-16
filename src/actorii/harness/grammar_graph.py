@@ -235,6 +235,38 @@ SEED_CONSTRUCTS: List[Dict[str, Any]] = [
         ),
         "anti_pattern": "/* NEVER send raw `[4-byte length][JPEG]` on TCP without `HTTP/1.1 200 OK` when serving web/browser streams, and NEVER open `rtsp://` directly in a browser without an HTTP MJPEG/HLS bridge! */",
     },
+    {
+        "id": "network_topology_and_tailscale",
+        "title": "Network Topology, Tailscale Identity & LAN Port Relay (`Actor[#Network]`)",
+        "keywords": [
+            "tailscale",
+            "tailnet",
+            "100.",
+            "192.168.",
+            "subnet",
+            "route",
+            "bridge",
+            "forward",
+            "ip",
+            "connect",
+            "phone",
+            "lan",
+            "firewall",
+        ],
+        "rule": (
+            "Whenever a user mentions Tailscale, a `100.x.x.x` or `192.168.x.x` IP, or remote phone/browser connectivity to a LAN device (`Jetson`), "
+            "ALWAYS inspect `Actor[#Network]` FIRST before guessing or installing software: "
+            "(1) `whoOwnsIp(Actor[#Network], \"100.x.x.x\")!!` or `topologyMap(Actor[#Network])!!` — distinguishes `valkyrie`'s Tailscale IP from the user's Android/iOS phone Tailscale IP and checks if the Jetson is LAN-only; "
+            "(2) `explainReachability(Actor[#Network], clientIp, targetIp, port)!!` — checks existing `socat` bridges (`listBridges(Actor[#Network])!!`); "
+            "(3) `exposeLanPort(Actor[#Network], \"192.168.68.57\", 8090, 8091)!!` — instantly bridges any LAN edge port onto `valkyrie:8091..8999` so Tailscale clients can connect immediately without interactive OAuth on the edge board!"
+        ),
+        "canonical_example": (
+            "whoOwnsIp(Actor[#Network], \"100.112.213.15\")!!\n"
+            "topologyMap(Actor[#Network])!!\n"
+            "exposeLanPort(Actor[#Network], \"192.168.68.57\", 8090, 8091)!!"
+        ),
+        "anti_pattern": "/* NEVER guess who owns a `100.x.x.x` Tailscale IP or claim Tailscale is installed without running `whoOwnsIp(Actor[#Network], ip)!!` or `exec(Actor[#Jetson], ...)!!`! */",
+    },
 ]
 
 SEED_PRIMITIVES: List[Dict[str, str]] = [
@@ -290,6 +322,11 @@ SEED_PRIMITIVES: List[Dict[str, str]] = [
     {"cls": "NetTransportBridge", "selector": "probeSse", "syntax": "probeSse(Actor[#Net], \"http://192.168.68.55:8090/events\", 2, 8)", "desc": "Validate HTTP `text/event-stream` SSE headers and read live `data:` events"},
     {"cls": "NetTransportBridge", "selector": "probeWebSocket", "syntax": "probeWebSocket(Actor[#Net], \"ws://192.168.68.55:8765/ws\", \"ping\", 8)", "desc": "Perform RFC 6455 WebSocket `101 Switching Protocols` handshake and frame check"},
     {"cls": "NetTransportBridge", "selector": "probeHls", "syntax": "probeHls(Actor[#Net], \"http://192.168.68.55:8090/index.m3u8\", 10)", "desc": "Validate `#EXTM3U` HLS playlist and verify first `.ts`/`fMP4` segment"},
+    {"cls": "NetworkTopology", "selector": "topologyMap", "syntax": "topologyMap(Actor[#Network])", "desc": "Return full map of `valkyrie` host interfaces, Tailscale tailnet peers (`100.x.x.x`), and active LAN TCP port bridges"},
+    {"cls": "NetworkTopology", "selector": "whoOwnsIp", "syntax": "whoOwnsIp(Actor[#Network], \"100.112.213.15\")", "desc": "Identify whether an IP/hostname belongs to `valkyrie`, a Tailscale client peer (e.g. phone), or `jetson-tx1`"},
+    {"cls": "NetworkTopology", "selector": "explainReachability", "syntax": "explainReachability(Actor[#Network], \"100.112.213.15\", \"192.168.68.57\", 8090)", "desc": "Diagnose Tailscale<->LAN reachability between client and target port and report active bridge URLs"},
+    {"cls": "NetworkTopology", "selector": "exposeLanPort", "syntax": "exposeLanPort(Actor[#Network], \"192.168.68.57\", 8090, 8091)", "desc": "Bridge a LAN edge device port (`192.168.x.x:port`) onto `valkyrie:8091..8999` for instant Tailscale access"},
+    {"cls": "NetworkTopology", "selector": "listBridges", "syntax": "listBridges(Actor[#Network])", "desc": "List active systemd `socat` and runtime TCP port relays on `valkyrie`"},
     {"cls": "TelegramBotTwin", "selector": "sendPhoto", "syntax": "sendPhoto(Actor[#Telegram], \"/tmp/actorii_media/snap.jpg\", \"Caption\")", "desc": "Upload and send a local image (<= 10 MB) to the active Telegram chat/topic via multipart/form-data"},
     {"cls": "TelegramBotTwin", "selector": "sendDocument", "syntax": "sendDocument(Actor[#Telegram], \"/tmp/actorii_media/file.bin\", \"Caption\")", "desc": "Upload and send any local file (<= 50 MB) to the active Telegram chat/topic via multipart/form-data"},
     {"cls": "ProductLearner", "selector": "learnProduct", "syntax": "learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")", "desc": "Search official web/PDF manuals for a product, distill specs/drivers/commands/gotchas via LLM, and persist Dual-Mode Neo4j `:Product` graph + `:8084` vector `:ProductManualChunk` memory"},

@@ -73,7 +73,8 @@ SLASH_COMMANDS: Dict[str, str] = {
     "/schema": "/schema                    Inspect active Neo4j domain node labels & relationships (`graphSchema(Actor[#Memory])`)",
     "/hydrate": "/hydrate <EngramName>      Hydrate a saved `:ActorEngram` from Neo4j into `Actor[#EngramName]`",
     "/protocols": "/protocols [proto] [mode]  Inspect Web & Streaming Protocol Objects (`#http`, `#mjpeg`, `#rtsp`, `#hls`, `#sse`, `#ws`)",
-    "/twins": "/twins                     Inspect live Digital Twins (`#Valkyrie`, `#Protocols`, `#Proxy`, `#Pantry`, `#Thermometer`)",
+    "/network": "/network [ip]              Inspect LAN + Tailscale Network Topology & Port Relays (`Actor[#Network]`)",
+    "/twins": "/twins                     Inspect live Digital Twins (`#Valkyrie`, `#Network`, `#Protocols`, `#Proxy`, `#Pantry`)",
     "/proxy": "/proxy [status|lan|tailscale|local|pause|auth on|auth off|rotate|logs] Manage WLAN/Tailscale reverse proxy",
     "/connect": "/connect [url|off]         Attach TUI to shared `:8090` Web Studio VM (`http://127.0.0.1:8090`)",
     "/step": "/step [objective]          Execute a single ReAct tick (`step(Actor[#Harness])!!`)",
@@ -878,12 +879,14 @@ class ActorTUISession:
             pdf_twin = self.vm.eval_chunk("summary(Actor[#PDF])!!")
             learner_twin = self.vm.eval_chunk("summary(Actor[#ProductLearner])!!")
             proto_twin = self.vm.eval_chunk("summary(Actor[#Protocols])!!")
+            net_topo_twin = self.vm.eval_chunk("summary(Actor[#Network])!!")
             has_hue = "Hue" in self.vm.global_vars.get("Actor", {})
             hue = self.vm.eval_chunk("listLights(Actor[#Hue])!!") if has_hue else None
             pantry_cnt = self.vm.eval_chunk("recipeCount(Actor[#Pantry])!!")
             pantry_list = self.vm.eval_chunk("listRecipes(Actor[#Pantry], 5)!!")
             self._emit(f"  • {self._c(GREEN + BOLD, 'Actor[#Valkyrie]')}        : {valk}")
             self._emit(f"  • {self._c(GREEN + BOLD, 'Actor[#Jetson]')}          : {jetson_twin}")
+            self._emit(f"  • {self._c(BLUE + BOLD, 'Actor[#Network]')}         : {net_topo_twin}")
             self._emit(f"  • {self._c(CYAN + BOLD, 'Actor[#Protocols]')}       : {proto_twin}")
             self._emit(f"  • {self._c(MAGENTA + BOLD, 'Actor[#ProductLearner]')}  : {learner_twin}")
             self._emit(f"  • {self._c(BLUE + BOLD, 'Actor[#Proxy]')}           : {proxy_twin}")
@@ -902,6 +905,14 @@ class ActorTUISession:
                     raise RuntimeError("No local #Thermometer")
             except Exception:
                 self._emit(f"  • {self._c(GRAY, 'Actor[#Thermometer]: offline')}\n")
+            return True
+
+        if cmd == "/network":
+            if arg.strip():
+                out = self.vm.eval_chunk(f"whoOwnsIp(Actor[#Network], {arg.strip()!r})!!")
+            else:
+                out = self.vm.eval_chunk("topologyMap(Actor[#Network])!!")
+            self._emit(f"\n{out}\n")
             return True
 
         if cmd == "/protocols":
