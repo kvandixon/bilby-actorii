@@ -36,7 +36,18 @@ _CALL_OPCODES: FrozenSet[Any] = frozenset(
     (Opcode.CALL_METHOD, Opcode.CALL_EARLY, Opcode.CALL_GLOBAL)
 )
 _MUTABLE_SCRAPER_CLASSES: FrozenSet[str] = frozenset(
-    ("WebScraper", "ProductLearner")
+    (
+        "WebScraper",
+        "ProductLearner",
+        "ProtocolSpec",
+        "HttpProtocolSpec",
+        "SseProtocolSpec",
+        "WebSocketProtocolSpec",
+        "MjpegStreamProtocolSpec",
+        "HlsStreamProtocolSpec",
+        "RtspStreamProtocolSpec",
+        "ProtocolSuite",
+    )
 )
 _SORTED_RING1_HARNESS_SELECTORS: List[str] = [
     "buildStepPrompt",
@@ -99,6 +110,14 @@ PROTECTED_SYSTEM_CLASSES: Set[str] = {
     "PDFDocumentTwin",
     "WebScraper",
     "ProductLearner",
+    "ProtocolSpec",
+    "HttpProtocolSpec",
+    "SseProtocolSpec",
+    "WebSocketProtocolSpec",
+    "MjpegStreamProtocolSpec",
+    "HlsStreamProtocolSpec",
+    "RtspStreamProtocolSpec",
+    "ProtocolSuite",
     "ThreadPool",
     "Future",
     "Channel",
@@ -147,6 +166,7 @@ PROTECTED_POOL_SINGLETONS: Set[str] = {
     "Web",
     "PDF",
     "ProductLearner",
+    "Protocols",
     "Threads",
 }
 

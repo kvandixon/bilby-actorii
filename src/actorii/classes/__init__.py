@@ -235,6 +235,14 @@ def register_classes(
         obj_cls.add_method("error", object_error)
         obj_cls.add_method("init", object_init)
         obj_cls.add_method(
+            "class",
+            lambda self: (
+                self.class_name()
+                if callable(getattr(self, "class_name", None))
+                else str(getattr(self, "class_name", type(self).__name__.replace("Actor", "")))
+            ),
+        )
+        obj_cls.add_method(
             "isKindOf", lambda self, target: is_kind_of(self, target, hierarchy)
         )
         obj_cls.add_method(

@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
+import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -1202,6 +1205,158 @@ def _validate_public_http_url(raw_url: str, *, label: str = "URL") -> str:
     return u
 
 
+def _discover_local_host_ips() -> set[str]:
+    """Return all IPv4/IPv6 addresses bound on the local `valkyrie` host so LAN probes never SSRF the host itself."""
+    local_ips = {"127.0.0.1", "::1", "0.0.0.0"}
+    try:
+        from actorii.reverse_proxy import discover_host_network_ips
+
+        info = discover_host_network_ips()
+        for v in (info or {}).values():
+            if v and isinstance(v, str):
+                local_ips.add(v.strip())
+    except Exception:
+        pass
+    try:
+        for res in socket.getaddrinfo(socket.gethostname(), None):
+            if res and res[4] and res[4][0]:
+                local_ips.add(str(res[4][0]).split("%", 1)[0])
+    except Exception:
+        pass
+    return local_ips
+
+
+def _validate_probe_target_url(
+    raw_url: str,
+    *,
+    allowed_schemes: Tuple[str, ...] = ("http", "https"),
+    label: str = "Probe URL",
+) -> urllib.parse.ParseResult:
+    """Validate URLs for active protocol conformance probes (`probeHttp`, `probeMjpeg`, `probeRtsp`, etc.).
+
+    Allows public hosts AND non-host LAN edge devices (`192.168.0.0/16`, `10.0.0.0/8`, `172.16.0.0/12`, `.local`)
+    such as the NVIDIA Jetson (`192.168.68.55`), while strictly blocking loopback (`127.0.0.0/8`, `::1`),
+    `valkyrie`'s own local IP addresses, cloud metadata (`169.254.169.254`), Docker internal gateways,
+    and protected local stack ports (`:5432, :7474, :7687, :8080, :8082, :8084, :8818, :11434`).
+    """
+    import ipaddress
+
+    u = str(raw_url or "").strip()
+    if not u:
+        raise ValueError(f"Empty {label}")
+    parsed = urllib.parse.urlparse(u)
+    scheme = parsed.scheme.lower()
+    if scheme not in allowed_schemes:
+        raise PermissionError(
+            f"BLOCKED [PROBE_SCHEME_GUARD]: {label} requires scheme in {allowed_schemes} (got {scheme!r})."
+        )
+    host = (parsed.hostname or "").strip().lower()
+    if not host:
+        raise ValueError(f"Missing hostname in {label}: {u!r}")
+
+    if os.environ.get("ACTORII_ALLOW_PRIVATE_URLS", "0") == "1":
+        return parsed
+
+    blocked_hosts = {
+        "localhost",
+        "localhost.localdomain",
+        "host.docker.internal",
+        "gateway.docker.internal",
+        "neo4j",
+        "bilby-neo4j",
+        "valkyrie",
+        "valkyrie.local",
+        "metadata.google.internal",
+    }
+    if host in blocked_hosts or host.endswith((".localhost", ".internal")):
+        raise PermissionError(
+            f"BLOCKED [SSRF_PROBE_GUARD]: {label} targeting internal/loopback host {host!r} is forbidden."
+        )
+    if parsed.port in (5432, 7474, 7687, 8080, 8082, 8084, 8818, 11434):
+        raise PermissionError(
+            f"BLOCKED [SSRF_PROBE_GUARD]: {label} targeting protected local stack port :{parsed.port} is forbidden."
+        )
+
+    local_host_ips = _discover_local_host_ips()
+
+    def _check_probe_ip(ip_str: str) -> None:
+        addr = ipaddress.ip_address(ip_str)
+        if (
+            addr.is_loopback
+            or addr.is_link_local
+            or addr.is_multicast
+            or addr.is_unspecified
+            or ip_str in local_host_ips
+        ):
+            raise PermissionError(
+                f"BLOCKED [SSRF_PROBE_GUARD]: {label} targeting loopback/host/link-local IP {ip_str} ({host!r}) is forbidden."
+            )
+
+    try:
+        _check_probe_ip(host)
+    except ValueError:
+        try:
+            infos = socket.getaddrinfo(host, None)
+            for info in infos:
+                sockaddr = info[4]
+                if sockaddr and sockaddr[0]:
+                    _check_probe_ip(str(sockaddr[0]).split("%", 1)[0])
+        except socket.gaierror:
+            pass
+    return parsed
+
+
+def _parse_jpeg_dimensions(jpeg_bytes: bytes) -> Tuple[int, int]:
+    """Extract `(width, height)` from a baseline or progressive JPEG (`SOF0`..`SOF3`) frame."""
+    n = len(jpeg_bytes)
+    if n < 4 or jpeg_bytes[:2] != b"\xff\xd8":
+        return (0, 0)
+    idx = 2
+    sof_markers = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}
+    while idx + 4 < n:
+        if jpeg_bytes[idx] != 0xFF:
+            idx += 1
+            continue
+        while idx < n and jpeg_bytes[idx] == 0xFF:
+            idx += 1
+        if idx >= n:
+            break
+        marker = jpeg_bytes[idx]
+        idx += 1
+        if marker in (0xD8, 0xD9) or (0xD0 <= marker <= 0xD7) or marker == 0x01:
+            continue
+        if idx + 2 > n:
+            break
+        seg_len = int.from_bytes(jpeg_bytes[idx : idx + 2], "big")
+        if seg_len < 2 or idx + seg_len > n:
+            break
+        if marker in sof_markers and seg_len >= 7:
+            height = int.from_bytes(jpeg_bytes[idx + 3 : idx + 5], "big")
+            width = int.from_bytes(jpeg_bytes[idx + 5 : idx + 7], "big")
+            return (width, height)
+        idx += seg_len
+    return (0, 0)
+
+
+def _stage_media_sample(raw_bytes: bytes, sample_name: str, default_name: str) -> str:
+    """Atomically write a verified media frame into `/tmp/actorii_media/` (`0600`) for `askSkippy`/`sendPhoto`."""
+    raw_base = os.path.basename(str(sample_name or "").strip() or default_name)
+    safe_base = re.sub(r"[^A-Za-z0-9._-]", "_", raw_base).lstrip(".") or default_name
+    stage_dir = Path(os.environ.get("ACTORII_MEDIA_STAGE_DIR", TELEGRAM_MEDIA_STAGE_DIR))
+    stage_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+    dest_path = stage_dir / safe_base
+    if os.path.islink(dest_path):
+        dest_path.unlink()
+    part_path = stage_dir / f".{safe_base}.{os.getpid()}.part"
+    fd = os.open(str(part_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.write(fd, raw_bytes)
+    finally:
+        os.close(fd)
+    os.replace(str(part_path), str(dest_path))
+    return str(dest_path)
+
+
 @actor_bridge(name="NetTransportBridge")
 class NetTransportBridge:
     """Low-level HTTP/HTML/MCP transport driver exposed at `Actor[#Net]` for the 1993 Actor 4.1 `WebScraper` (`Actor[#Web]`)."""
@@ -1677,6 +1832,913 @@ class NetTransportBridge:
         limit = max(500, min(30000, int(max_chars or 12000)))
         txt = p.read_text(encoding="utf-8", errors="replace").strip()
         return f"[LocalManual: {p.name}]\n{txt[:limit]}"
+
+    # ------------------------------------------------------------------
+    # Active Wire-Level Protocol Conformance & Stream Receive Probes
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _open_probe_socket(parsed: urllib.parse.ParseResult, timeout_sec: float) -> Tuple[Any, str, int, str]:
+        import ssl
+
+        scheme = parsed.scheme.lower()
+        host = parsed.hostname or ""
+        default_port = 443 if scheme in ("https", "wss", "rtsps") else (554 if scheme == "rtsp" else 80)
+        port = int(parsed.port or default_port)
+        path_q = parsed.path or "/"
+        if parsed.query:
+            path_q = f"{path_q}?{parsed.query}"
+        raw_sock = socket.create_connection((host, port), timeout=timeout_sec)
+        raw_sock.settimeout(timeout_sec)
+        if scheme in ("https", "wss", "rtsps"):
+            ctx = ssl.create_default_context()
+            sock = ctx.wrap_socket(raw_sock, server_hostname=host)
+            sock.settimeout(timeout_sec)
+            return sock, host, port, path_q
+        return raw_sock, host, port, path_q
+
+    @staticmethod
+    def _diagnose_non_http_prefix(head: bytes, expected_proto: str = "HTTP/1.1") -> str:
+        hex_preview = " ".join(f"{b:02x}" for b in head[:16])
+        if len(head) >= 6 and head[4:6] == b"\xff\xd8":
+            frame_len = int.from_bytes(head[:4], "little")
+            return (
+                f"InvalidProtocolFraming: Endpoint emitted raw length-prefixed binary JPEG over TCP "
+                f"(first 16 bytes: {hex_preview}; uint32_le={frame_len} followed by JPEG SOI ff d8) with NO {expected_proto} status line! "
+                f"Web browsers, curl, and HTTP clients reject raw TCP sockets. Wrap frames in `{expected_proto} 200 OK` + "
+                "`Content-Type: multipart/x-mixed-replace; boundary=frame` (for MJPEG `<img src=...>`) or serve HTML at `/`."
+            )
+        if head.startswith(b"\xff\xd8"):
+            return (
+                f"InvalidProtocolFraming: Endpoint emitted raw JPEG bytes (`ff d8 ...`) directly on TCP without an `{expected_proto} 200 OK` status line or `Content-Type` header!"
+            )
+        if head.upper().startswith(b"RTSP/1.0"):
+            return (
+                "ProtocolMismatch: Endpoint speaks `RTSP/1.0`, not HTTP! Web browsers cannot open `rtsp://` directly; "
+                "use `probeRtsp(Actor[#Net], url, \"snap.jpg\", 10)!!` to inspect/receive RTSP, or bridge RTSP to HTTP MJPEG/HLS for browsers."
+            )
+        return (
+            f"InvalidStatusLine: Expected `{expected_proto}` status line, but received raw bytes `{hex_preview}` ({head[:24]!r}). "
+            "Ensure the server writes `HTTP/1.1 200 OK\\r\\nContent-Type: ...\\r\\n\\r\\n` before payload bytes."
+        )
+
+    @actor_query
+    def probeHttp(self, url: str, timeout_sec: int = 8) -> Any:
+        """Actively probe an HTTP(S) endpoint like a real browser/`curl`, catching raw-TCP non-HTTP sockets & reporting headers."""
+        from actorii.core import Symbol
+
+        u = str(url or "").strip()
+        timeout_f = max(1.5, min(30.0, float(timeout_sec or 8)))
+        try:
+            parsed = _validate_probe_target_url(u, allowed_schemes=("http", "https"), label="HTTP Probe URL")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "protocol": Symbol("http"), "url": u, "statusCode": 0, "statusLine": "", "contentType": "", "diagnosis": str(exc)})
+
+        sock = None
+        try:
+            sock, host, port, path_q = self._open_probe_socket(parsed, timeout_f)
+            host_hdr = f"{host}:{port}" if parsed.port else host
+            req_bytes = (
+                f"GET {path_q} HTTP/1.1\r\n"
+                f"Host: {host_hdr}\r\n"
+                "User-Agent: ActorII-ProtocolProbe/4.4\r\n"
+                "Accept: text/html,application/json,multipart/x-mixed-replace,*/*\r\n"
+                "Connection: close\r\n\r\n"
+            ).encode("ascii", errors="ignore")
+            sock.sendall(req_bytes)
+
+            buf = bytearray()
+            while b"\r\n\r\n" not in buf and len(buf) < 16384:
+                chunk = sock.recv(2048)
+                if not chunk:
+                    break
+                buf.extend(chunk)
+                if len(buf) >= 12 and not bytes(buf[:5]).upper().startswith(b"HTTP/"):
+                    break
+
+            raw_head = bytes(buf)
+            if not raw_head:
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("http"),
+                        "url": u,
+                        "statusCode": 0,
+                        "statusLine": "",
+                        "contentType": "",
+                        "diagnosis": "EmptyResponse: Server accepted TCP connection and closed immediately without sending an HTTP status line.",
+                    }
+                )
+            if not raw_head[:5].upper().startswith(b"HTTP/"):
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("raw_tcp"),
+                        "url": u,
+                        "statusCode": 0,
+                        "statusLine": "",
+                        "contentType": "",
+                        "firstBytesHex": " ".join(f"{b:02x}" for b in raw_head[:16]),
+                        "diagnosis": self._diagnose_non_http_prefix(raw_head, "HTTP/1.1"),
+                    }
+                )
+
+            hdr_part, _, body_prefix = raw_head.partition(b"\r\n\r\n")
+            lines = hdr_part.decode("iso-8859-1", errors="replace").split("\r\n")
+            status_line = lines[0].strip() if lines else ""
+            parts = status_line.split(None, 2)
+            status_code = int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else 0
+            headers_map: Dict[str, str] = {}
+            for ln in lines[1:]:
+                if ":" in ln:
+                    k, v = ln.split(":", 1)
+                    headers_map[k.strip().lower()] = v.strip()
+
+            while len(body_prefix) < 512:
+                try:
+                    more = sock.recv(512)
+                    if not more:
+                        break
+                    body_prefix += more
+                except socket.timeout:
+                    break
+
+            ctype = headers_map.get("content-type", "")
+            cors = headers_map.get("access-control-allow-origin", "")
+            preview_txt = body_prefix[:300].decode("utf-8", errors="replace").strip() if not ctype.lower().startswith(("image/", "multipart/", "video/", "application/octet")) else f"<{len(body_prefix)} binary bytes>"
+            ok = 200 <= status_code < 400
+            diag = (
+                f"Valid {status_line} | Content-Type={ctype or '(missing)'} | CORS={cors or 'none'}"
+                if ok
+                else f"HTTP error status `{status_line}` (Content-Type={ctype or 'none'})."
+            )
+            return _to_actor_dict(
+                {
+                    "ok": ok,
+                    "protocol": Symbol("http"),
+                    "url": u,
+                    "statusCode": status_code,
+                    "statusLine": status_line,
+                    "contentType": ctype,
+                    "cors": cors,
+                    "headers": headers_map,
+                    "bodyPreview": preview_txt,
+                    "diagnosis": diag,
+                }
+            )
+        except Exception as exc:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "protocol": Symbol("http"),
+                    "url": u,
+                    "statusCode": 0,
+                    "statusLine": "",
+                    "contentType": "",
+                    "diagnosis": f"{type(exc).__name__}: {exc}",
+                }
+            )
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+
+    @actor_query
+    def probeMjpeg(
+        self,
+        url: str,
+        frames_to_read: int = 2,
+        save_sample_as: str = "mjpeg_probe.jpg",
+        timeout_sec: int = 12,
+    ) -> Any:
+        """Validate a browser-compatible HTTP `multipart/x-mixed-replace` MJPEG stream, decode `frames_to_read` frames, save a sample JPEG for `askSkippy`/`sendPhoto`, and verify server survival after disconnect."""
+        from actorii.core import Symbol
+
+        u = str(url or "").strip()
+        want_frames = max(1, min(10, int(frames_to_read or 2)))
+        timeout_f = max(2.0, min(30.0, float(timeout_sec or 12)))
+        try:
+            parsed = _validate_probe_target_url(u, allowed_schemes=("http", "https"), label="MJPEG Probe URL")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "protocol": Symbol("mjpeg"), "url": u, "framesVerified": 0, "diagnosis": str(exc)})
+
+        sock = None
+        t_start = time.monotonic()
+        try:
+            sock, host, port, path_q = self._open_probe_socket(parsed, timeout_f)
+            host_hdr = f"{host}:{port}" if parsed.port else host
+            req_bytes = (
+                f"GET {path_q} HTTP/1.1\r\n"
+                f"Host: {host_hdr}\r\n"
+                "User-Agent: Mozilla/5.0 ActorII-MJPEGProbe/4.4\r\n"
+                "Accept: multipart/x-mixed-replace,image/jpeg,*/*\r\n"
+                "Connection: close\r\n\r\n"
+            ).encode("ascii", errors="ignore")
+            sock.sendall(req_bytes)
+
+            buf = bytearray()
+            deadline = t_start + timeout_f
+            while b"\r\n\r\n" not in buf and time.monotonic() < deadline and len(buf) < 16384:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                buf.extend(chunk)
+                if len(buf) >= 12 and not bytes(buf[:5]).upper().startswith(b"HTTP/"):
+                    break
+
+            raw_init = bytes(buf)
+            if not raw_init[:5].upper().startswith(b"HTTP/"):
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("mjpeg"),
+                        "url": u,
+                        "framesVerified": 0,
+                        "diagnosis": self._diagnose_non_http_prefix(raw_init, "HTTP/1.1"),
+                    }
+                )
+
+            hdr_bytes, _, remainder = raw_init.partition(b"\r\n\r\n")
+            lines = hdr_bytes.decode("iso-8859-1", errors="replace").split("\r\n")
+            status_line = lines[0].strip() if lines else ""
+            parts = status_line.split(None, 2)
+            status_code = int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else 0
+            headers_map: Dict[str, str] = {}
+            for ln in lines[1:]:
+                if ":" in ln:
+                    k, v = ln.split(":", 1)
+                    headers_map[k.strip().lower()] = v.strip()
+
+            ctype = headers_map.get("content-type", "")
+            if status_code != 200 or "multipart/x-mixed-replace" not in ctype.lower():
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("mjpeg"),
+                        "url": u,
+                        "statusCode": status_code,
+                        "statusLine": status_line,
+                        "contentType": ctype,
+                        "framesVerified": 0,
+                        "diagnosis": (
+                            f"Expected `HTTP/1.1 200 OK` with `Content-Type: multipart/x-mixed-replace; boundary=...`, "
+                            f"but got `{status_line}` with `Content-Type: {ctype or '(missing)'}`."
+                        ),
+                    }
+                )
+
+            boundary = ""
+            for seg in ctype.split(";")[1:]:
+                seg_s = seg.strip()
+                if seg_s.lower().startswith("boundary="):
+                    boundary = seg_s.split("=", 1)[1].strip().strip('"')
+                    break
+            if not boundary:
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("mjpeg"),
+                        "url": u,
+                        "statusCode": status_code,
+                        "contentType": ctype,
+                        "framesVerified": 0,
+                        "diagnosis": f"Missing `boundary=...` parameter in `Content-Type: {ctype}`.",
+                    }
+                )
+
+            stream_buf = bytearray(remainder)
+            frames: List[bytes] = []
+            frame_times: List[float] = []
+            max_bytes = 12 * 1024 * 1024
+
+            while len(frames) < want_frames and time.monotonic() < deadline and len(stream_buf) < max_bytes:
+                soi = stream_buf.find(b"\xff\xd8")
+                if soi >= 0:
+                    eoi = stream_buf.find(b"\xff\xd9", soi + 2)
+                    if eoi >= 0:
+                        jpg = bytes(stream_buf[soi : eoi + 2])
+                        del stream_buf[: eoi + 2]
+                        frames.append(jpg)
+                        frame_times.append(time.monotonic())
+                        continue
+                chunk = sock.recv(16384)
+                if not chunk:
+                    break
+                stream_buf.extend(chunk)
+        except Exception as exc:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "protocol": Symbol("mjpeg"),
+                    "url": u,
+                    "framesVerified": 0,
+                    "diagnosis": f"{type(exc).__name__}: {exc}",
+                }
+            )
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+
+        if len(frames) < want_frames:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "protocol": Symbol("mjpeg"),
+                    "url": u,
+                    "statusCode": 200,
+                    "contentType": ctype,
+                    "framesVerified": len(frames),
+                    "diagnosis": f"Multipart stream headers matched, but only decoded {len(frames)}/{want_frames} complete JPEG (`FFD8..FFD9`) frame(s) before timeout/EOF.",
+                }
+            )
+
+        width, height = _parse_jpeg_dimensions(frames[0])
+        fps = 0.0
+        if len(frame_times) >= 2 and (frame_times[-1] - frame_times[0]) > 0.001:
+            fps = round((len(frame_times) - 1) / (frame_times[-1] - frame_times[0]), 2)
+
+        sample_path = ""
+        if save_sample_as:
+            sample_path = _stage_media_sample(frames[0], save_sample_as, "mjpeg_probe.jpg")
+
+        # Verify server survives client disconnect by opening a quick second connection
+        survived_disconnect = False
+        try:
+            s2, _, _, _ = self._open_probe_socket(parsed, 2.5)
+            s2.close()
+            survived_disconnect = True
+        except Exception:
+            survived_disconnect = False
+
+        ok = width > 0 and height > 0 and survived_disconnect
+        diag = (
+            f"Verified {len(frames)} live MJPEG frame(s) ({width}x{height} JPEG, ~{len(frames[0])} bytes/frame, "
+            f"fps={fps}, boundary={boundary!r}, survivedDisconnect={survived_disconnect}"
+            + (f", sample={sample_path}" if sample_path else "")
+            + ")."
+        )
+        if not survived_disconnect:
+            diag += " WARNING: Server process died or stopped accepting new clients after first client disconnect (check SIGPIPE / accept loop)!"
+        return _to_actor_dict(
+            {
+                "ok": ok,
+                "protocol": Symbol("mjpeg"),
+                "url": u,
+                "statusCode": 200,
+                "contentType": ctype,
+                "boundary": boundary,
+                "framesVerified": len(frames),
+                "width": width,
+                "height": height,
+                "frameBytes": len(frames[0]),
+                "fps": fps,
+                "survivedDisconnect": survived_disconnect,
+                "samplePath": sample_path,
+                "diagnosis": diag,
+            }
+        )
+
+    @actor_query
+    def probeRtsp(
+        self,
+        rtsp_url: str,
+        capture_sample_as: str = "",
+        timeout_sec: int = 10,
+    ) -> Any:
+        """Probe an `rtsp://` endpoint via RFC 2326 `OPTIONS` + `DESCRIBE` (SDP), inspect Send/Receive capabilities, and optionally receive 1 decoded JPEG frame via `-rtsp_transport tcp`."""
+        from actorii.core import Symbol
+
+        u = str(rtsp_url or "").strip()
+        timeout_f = max(2.0, min(30.0, float(timeout_sec or 10)))
+        try:
+            parsed = _validate_probe_target_url(u, allowed_schemes=("rtsp", "rtsps"), label="RTSP Probe URL")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "protocol": Symbol("rtsp"), "url": u, "statusCode": 0, "diagnosis": str(exc)})
+
+        def _read_rtsp_response(s: Any) -> Tuple[int, str, Dict[str, str], str]:
+            buf = bytearray()
+            while b"\r\n\r\n" not in buf and len(buf) < 32768:
+                ch = s.recv(4096)
+                if not ch:
+                    break
+                buf.extend(ch)
+            raw = bytes(buf)
+            if not raw.upper().startswith(b"RTSP/"):
+                return -1, raw[:32].decode("iso-8859-1", errors="replace"), {}, ""
+            hdr_b, _, rest = raw.partition(b"\r\n\r\n")
+            hdr_lines = hdr_b.decode("iso-8859-1", errors="replace").split("\r\n")
+            st_line = hdr_lines[0].strip() if hdr_lines else ""
+            st_parts = st_line.split(None, 2)
+            code = int(st_parts[1]) if len(st_parts) >= 2 and st_parts[1].isdigit() else 0
+            hmap: Dict[str, str] = {}
+            for ln in hdr_lines[1:]:
+                if ":" in ln:
+                    k, v = ln.split(":", 1)
+                    hmap[k.strip().lower()] = v.strip()
+            clen = int(hmap.get("content-length", "0") or 0)
+            body_b = bytearray(rest)
+            while len(body_b) < clen and len(body_b) < 65536:
+                ch = s.recv(min(4096, clen - len(body_b)))
+                if not ch:
+                    break
+                body_b.extend(ch)
+            return code, st_line, hmap, body_b[:clen].decode("utf-8", errors="replace") if clen else body_b.decode("utf-8", errors="replace")
+
+        sock = None
+        try:
+            sock, host, port, _ = self._open_probe_socket(parsed, timeout_f)
+            clean_uri = f"{parsed.scheme}://{host}:{port}{parsed.path or '/'}"
+            if parsed.query:
+                clean_uri = f"{clean_uri}?{parsed.query}"
+
+            opt_req = (
+                f"OPTIONS {clean_uri} RTSP/1.0\r\n"
+                "CSeq: 1\r\n"
+                "User-Agent: ActorII-RTSPProbe/4.4\r\n\r\n"
+            ).encode("ascii", errors="ignore")
+            sock.sendall(opt_req)
+            opt_code, opt_line, opt_hdrs, _ = _read_rtsp_response(sock)
+            if opt_code == -1:
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("rtsp"),
+                        "url": u,
+                        "statusCode": 0,
+                        "diagnosis": f"Endpoint did not reply with `RTSP/1.0` (got {opt_line!r}).",
+                    }
+                )
+
+            public_methods = opt_hdrs.get("public", "")
+            supports_receive = any(m in public_methods.upper() for m in ("DESCRIBE", "PLAY")) or not public_methods
+            supports_send = any(m in public_methods.upper() for m in ("ANNOUNCE", "RECORD"))
+
+            desc_req = (
+                f"DESCRIBE {clean_uri} RTSP/1.0\r\n"
+                "CSeq: 2\r\n"
+                "Accept: application/sdp\r\n"
+                "User-Agent: ActorII-RTSPProbe/4.4\r\n\r\n"
+            ).encode("ascii", errors="ignore")
+            sock.sendall(desc_req)
+            desc_code, desc_line, desc_hdrs, sdp_body = _read_rtsp_response(sock)
+        except Exception as exc:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "protocol": Symbol("rtsp"),
+                    "url": u,
+                    "statusCode": 0,
+                    "diagnosis": f"{type(exc).__name__}: {exc}",
+                }
+            )
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+
+        codecs: List[str] = []
+        media_tracks: List[str] = []
+        has_level_idc_zero_bug = False
+        for ln in sdp_body.splitlines():
+            s_ln = ln.strip()
+            if s_ln.startswith("m="):
+                media_tracks.append(s_ln[2:])
+            elif s_ln.startswith("a=rtpmap:"):
+                codecs.append(s_ln.split(" ", 1)[-1] if " " in s_ln else s_ln)
+            elif s_ln.startswith("a=fmtp:") and "profile-level-id=" in s_ln:
+                plid = s_ln.split("profile-level-id=", 1)[1].split(";", 1)[0].strip()
+                if len(plid) == 6 and plid.endswith("00"):
+                    has_level_idc_zero_bug = True
+
+        sample_path = ""
+        capture_err = ""
+        if desc_code == 200 and capture_sample_as:
+            ffmpeg_bin = shutil.which("ffmpeg")
+            if ffmpeg_bin:
+                stage_dir = Path(os.environ.get("ACTORII_MEDIA_STAGE_DIR", TELEGRAM_MEDIA_STAGE_DIR))
+                stage_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+                safe_base = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(str(capture_sample_as))).lstrip(".") or "rtsp_probe.jpg"
+                if not safe_base.lower().endswith((".jpg", ".jpeg", ".png")):
+                    safe_base += ".jpg"
+                dest = stage_dir / safe_base
+                try:
+                    proc = subprocess.run(
+                        [
+                            ffmpeg_bin,
+                            "-hide_banner",
+                            "-loglevel",
+                            "error",
+                            "-rtsp_transport",
+                            "tcp",
+                            "-i",
+                            u,
+                            "-frames:v",
+                            "1",
+                            "-y",
+                            str(dest),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=min(20.0, timeout_f + 5.0),
+                    )
+                    if proc.returncode == 0 and dest.is_file() and dest.stat().st_size > 0:
+                        sample_path = str(dest)
+                    else:
+                        capture_err = (proc.stderr or "").strip()[:300]
+                except Exception as exc:
+                    capture_err = f"{type(exc).__name__}: {exc}"
+            else:
+                capture_err = "Local `ffmpeg` binary not found for frame decode."
+
+        if desc_code == 200:
+            diag = (
+                f"Active RTSP stream (`{desc_line}`) | Public=[{public_methods}] | "
+                f"Tracks={media_tracks} | Codecs={codecs} | canReceive={supports_receive} | canPublishSend={supports_send}"
+            )
+            if has_level_idc_zero_bug:
+                diag += " | WARNING: SDP `profile-level-id` ends in `00` (`level_idc=0`, classic Jetson TX1 `nvv4l2h264enc` bug — switch encoder to `omxh264enc insert-sps-pps=true`!)."
+            if sample_path:
+                diag += f" | Captured sample frame -> {sample_path}"
+            elif capture_err:
+                diag += f" | Frame capture warning: {capture_err}"
+            ok = not has_level_idc_zero_bug and (not capture_sample_as or bool(sample_path))
+        elif desc_code == 404 and opt_code == 200:
+            ok = False
+            diag = (
+                f"RTSP server is online (`{opt_line}`, Public=[{public_methods}]), but mount returned `{desc_line}` (no active publisher on this path yet; "
+                f"canPublishSend={supports_send})."
+            )
+        else:
+            ok = False
+            diag = f"RTSP DESCRIBE returned `{desc_line}` (OPTIONS=`{opt_line}`, Public=[{public_methods}])."
+
+        return _to_actor_dict(
+            {
+                "ok": ok,
+                "protocol": Symbol("rtsp"),
+                "url": u,
+                "optionsStatus": opt_code,
+                "statusCode": desc_code,
+                "statusLine": desc_line,
+                "publicMethods": public_methods,
+                "canReceive": supports_receive,
+                "canSendPublish": supports_send,
+                "tracks": media_tracks,
+                "codecs": codecs,
+                "sdp": sdp_body[:2000],
+                "samplePath": sample_path,
+                "diagnosis": diag,
+            }
+        )
+
+    @actor_query
+    def probeSse(self, url: str, max_events: int = 2, timeout_sec: int = 8) -> Any:
+        """Validate an HTTP Server-Sent Events (`text/event-stream`) endpoint and read up to `max_events` events."""
+        from actorii.core import Symbol
+
+        u = str(url or "").strip()
+        want_ev = max(1, min(10, int(max_events or 2)))
+        timeout_f = max(1.5, min(25.0, float(timeout_sec or 8)))
+        try:
+            parsed = _validate_probe_target_url(u, allowed_schemes=("http", "https"), label="SSE Probe URL")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "protocol": Symbol("sse"), "url": u, "eventsRead": 0, "diagnosis": str(exc)})
+
+        sock = None
+        try:
+            sock, host, port, path_q = self._open_probe_socket(parsed, timeout_f)
+            host_hdr = f"{host}:{port}" if parsed.port else host
+            req = (
+                f"GET {path_q} HTTP/1.1\r\n"
+                f"Host: {host_hdr}\r\n"
+                "Accept: text/event-stream\r\n"
+                "Cache-Control: no-cache\r\n"
+                "Connection: close\r\n\r\n"
+            ).encode("ascii", errors="ignore")
+            sock.sendall(req)
+
+            buf = bytearray()
+            deadline = time.monotonic() + timeout_f
+            while b"\r\n\r\n" not in buf and time.monotonic() < deadline and len(buf) < 16384:
+                ch = sock.recv(2048)
+                if not ch:
+                    break
+                buf.extend(ch)
+            raw_init = bytes(buf)
+            if not raw_init[:5].upper().startswith(b"HTTP/"):
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("sse"),
+                        "url": u,
+                        "eventsRead": 0,
+                        "diagnosis": self._diagnose_non_http_prefix(raw_init, "HTTP/1.1"),
+                    }
+                )
+            hdr_b, _, rem = raw_init.partition(b"\r\n\r\n")
+            lines = hdr_b.decode("iso-8859-1", errors="replace").split("\r\n")
+            status_line = lines[0].strip() if lines else ""
+            parts = status_line.split(None, 2)
+            status_code = int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else 0
+            hmap: Dict[str, str] = {}
+            for ln in lines[1:]:
+                if ":" in ln:
+                    k, v = ln.split(":", 1)
+                    hmap[k.strip().lower()] = v.strip()
+            ctype = hmap.get("content-type", "")
+            if status_code != 200 or "text/event-stream" not in ctype.lower():
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("sse"),
+                        "url": u,
+                        "statusCode": status_code,
+                        "contentType": ctype,
+                        "eventsRead": 0,
+                        "diagnosis": f"Expected `200 OK` + `Content-Type: text/event-stream`, got `{status_line}` (`{ctype}`).",
+                    }
+                )
+
+            ev_buf = rem.decode("utf-8", errors="replace").replace("\r\n", "\n")
+            events: List[str] = []
+            while len(events) < want_ev and time.monotonic() < deadline and len(ev_buf) < 65536:
+                while "\n\n" in ev_buf and len(events) < want_ev:
+                    block, ev_buf = ev_buf.split("\n\n", 1)
+                    data_lines = [ln[5:].lstrip() for ln in block.split("\n") if ln.startswith("data:")]
+                    if data_lines:
+                        events.append("\n".join(data_lines))
+                if len(events) >= want_ev:
+                    break
+                try:
+                    ch = sock.recv(2048)
+                    if not ch:
+                        break
+                    ev_buf += ch.decode("utf-8", errors="replace").replace("\r\n", "\n")
+                except socket.timeout:
+                    break
+
+            ok = len(events) > 0
+            return _to_actor_dict(
+                {
+                    "ok": ok,
+                    "protocol": Symbol("sse"),
+                    "url": u,
+                    "statusCode": status_code,
+                    "contentType": ctype,
+                    "eventsRead": len(events),
+                    "events": events,
+                    "diagnosis": (
+                        f"Verified SSE `text/event-stream` ({len(events)} event(s) received)."
+                        if ok
+                        else "Valid `text/event-stream` headers, but 0 `data: ...\\n\\n` events arrived before timeout."
+                    ),
+                }
+            )
+        except Exception as exc:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "protocol": Symbol("sse"),
+                    "url": u,
+                    "eventsRead": 0,
+                    "diagnosis": f"{type(exc).__name__}: {exc}",
+                }
+            )
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+
+    @actor_query
+    def probeWebSocket(self, ws_url: str, send_text: str = "", timeout_sec: int = 8) -> Any:
+        """Perform a real RFC 6455 WebSocket `101 Switching Protocols` handshake, optionally send a masked text frame & read 1 frame."""
+        import base64
+        import hashlib
+
+        from actorii.core import Symbol
+
+        u = str(ws_url or "").strip()
+        timeout_f = max(1.5, min(20.0, float(timeout_sec or 8)))
+        try:
+            parsed = _validate_probe_target_url(u, allowed_schemes=("ws", "wss"), label="WebSocket Probe URL")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "protocol": Symbol("ws"), "url": u, "statusCode": 0, "diagnosis": str(exc)})
+
+        sock = None
+        try:
+            sock, host, port, path_q = self._open_probe_socket(parsed, timeout_f)
+            raw_nonce = os.urandom(16)
+            ws_key = base64.b64encode(raw_nonce).decode("ascii")
+            expected_accept = base64.b64encode(
+                hashlib.sha1((ws_key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode("ascii")).digest()
+            ).decode("ascii")
+            host_hdr = f"{host}:{port}" if parsed.port else host
+            req = (
+                f"GET {path_q} HTTP/1.1\r\n"
+                f"Host: {host_hdr}\r\n"
+                "Upgrade: websocket\r\n"
+                "Connection: Upgrade\r\n"
+                f"Sec-WebSocket-Key: {ws_key}\r\n"
+                "Sec-WebSocket-Version: 13\r\n\r\n"
+            ).encode("ascii", errors="ignore")
+            sock.sendall(req)
+
+            buf = bytearray()
+            while b"\r\n\r\n" not in buf and len(buf) < 16384:
+                ch = sock.recv(2048)
+                if not ch:
+                    break
+                buf.extend(ch)
+            hdr_b, _, rem = bytes(buf).partition(b"\r\n\r\n")
+            lines = hdr_b.decode("iso-8859-1", errors="replace").split("\r\n")
+            status_line = lines[0].strip() if lines else ""
+            parts = status_line.split(None, 2)
+            status_code = int(parts[1]) if len(parts) >= 2 and parts[1].isdigit() else 0
+            hmap: Dict[str, str] = {}
+            for ln in lines[1:]:
+                if ":" in ln:
+                    k, v = ln.split(":", 1)
+                    hmap[k.strip().lower()] = v.strip()
+
+            got_accept = hmap.get("sec-websocket-accept", "")
+            if status_code != 101 or got_accept != expected_accept:
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("ws"),
+                        "url": u,
+                        "statusCode": status_code,
+                        "statusLine": status_line,
+                        "diagnosis": (
+                            f"RFC 6455 handshake failed: expected `101 Switching Protocols` + valid `Sec-WebSocket-Accept`, "
+                            f"got `{status_line}` (accept_match={got_accept == expected_accept})."
+                        ),
+                    }
+                )
+
+            if send_text:
+                payload = str(send_text).encode("utf-8")[:125]
+                mask = os.urandom(4)
+                masked = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+                frame = bytes([0x81, 0x80 | len(payload)]) + mask + masked
+                sock.sendall(frame)
+
+            recv_preview = ""
+            sock.settimeout(min(2.0, timeout_f))
+            try:
+                fbuf = bytearray(rem)
+                while len(fbuf) < 2:
+                    ch = sock.recv(1024)
+                    if not ch:
+                        break
+                    fbuf.extend(ch)
+                if len(fbuf) >= 2:
+                    opcode = fbuf[0] & 0x0F
+                    plen = fbuf[1] & 0x7F
+                    offset = 2
+                    if plen == 126:
+                        while len(fbuf) < 4:
+                            fbuf.extend(sock.recv(1024))
+                        plen = int.from_bytes(fbuf[2:4], "big")
+                        offset = 4
+                    while len(fbuf) < offset + min(plen, 4096):
+                        ch = sock.recv(2048)
+                        if not ch:
+                            break
+                        fbuf.extend(ch)
+                    raw_msg = bytes(fbuf[offset : offset + plen])
+                    recv_preview = raw_msg.decode("utf-8", errors="replace")[:300] if opcode == 0x1 else f"<opcode={opcode} len={len(raw_msg)}>"
+            except socket.timeout:
+                pass
+
+            # Send clean masked close frame (0x88)
+            try:
+                sock.sendall(b"\x88\x80" + os.urandom(4))
+            except Exception:
+                pass
+
+            return _to_actor_dict(
+                {
+                    "ok": True,
+                    "protocol": Symbol("ws"),
+                    "url": u,
+                    "statusCode": 101,
+                    "statusLine": status_line,
+                    "receivedMessage": recv_preview,
+                    "diagnosis": f"Verified RFC 6455 WebSocket `101 Switching Protocols` handshake" + (f" | recv={recv_preview!r}" if recv_preview else "."),
+                }
+            )
+        except Exception as exc:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "protocol": Symbol("ws"),
+                    "url": u,
+                    "statusCode": 0,
+                    "diagnosis": f"{type(exc).__name__}: {exc}",
+                }
+            )
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+
+    @actor_query
+    def probeHls(self, m3u8_url: str, timeout_sec: int = 10) -> Any:
+        """Validate an HTTP Live Streaming (`.m3u8`) playlist and verify its first `.ts` / `fMP4` media segment."""
+        from actorii.core import Symbol
+
+        u = str(m3u8_url or "").strip()
+        timeout_f = max(2.0, min(25.0, float(timeout_sec or 10)))
+        try:
+            _validate_probe_target_url(u, allowed_schemes=("http", "https"), label="HLS Playlist URL")
+        except (PermissionError, ValueError) as exc:
+            return _to_actor_dict({"ok": False, "protocol": Symbol("hls"), "url": u, "diagnosis": str(exc)})
+
+        try:
+            req = urllib.request.Request(
+                u,
+                headers={"User-Agent": "ActorII-HLSProbe/4.4", "Accept": "application/vnd.apple.mpegurl,application/x-mpegURL,*/*"},
+            )
+            with urllib.request.urlopen(req, timeout=timeout_f) as resp:
+                status_code = int(getattr(resp, "status", 200))
+                ctype = resp.headers.get("Content-Type", "")
+                playlist = resp.read(262144).decode("utf-8", errors="replace")
+
+            if not playlist.lstrip().startswith("#EXTM3U"):
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("hls"),
+                        "url": u,
+                        "statusCode": status_code,
+                        "contentType": ctype,
+                        "diagnosis": "Invalid HLS playlist: response body does not start with `#EXTM3U`.",
+                    }
+                )
+
+            entries = [ln.strip() for ln in playlist.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+            if not entries:
+                return _to_actor_dict(
+                    {
+                        "ok": False,
+                        "protocol": Symbol("hls"),
+                        "url": u,
+                        "statusCode": status_code,
+                        "contentType": ctype,
+                        "diagnosis": "HLS `#EXTM3U` header found, but playlist contains 0 segment or variant URIs yet.",
+                    }
+                )
+
+            first_uri = urllib.parse.urljoin(u, entries[0])
+            _validate_probe_target_url(first_uri, allowed_schemes=("http", "https"), label="HLS Segment URL")
+            seg_req = urllib.request.Request(first_uri, headers={"User-Agent": "ActorII-HLSProbe/4.4"})
+            with urllib.request.urlopen(seg_req, timeout=timeout_f) as seg_resp:
+                seg_status = int(getattr(seg_resp, "status", 200))
+                seg_head = seg_resp.read(1024)
+
+            is_sub_playlist = seg_head.lstrip().startswith(b"#EXTM3U")
+            is_mpegts = len(seg_head) >= 189 and seg_head[0] == 0x47 and seg_head[188] == 0x47
+            is_fmp4 = b"ftyp" in seg_head[:32] or b"moof" in seg_head[:64] or b"styp" in seg_head[:32]
+            seg_ok = seg_status == 200 and (is_sub_playlist or is_mpegts or is_fmp4 or (len(seg_head) > 0 and seg_head[0] == 0x47))
+            container = "variant-m3u8" if is_sub_playlist else ("mpeg-ts" if is_mpegts else ("fmp4" if is_fmp4 else "unknown"))
+            return _to_actor_dict(
+                {
+                    "ok": seg_ok,
+                    "protocol": Symbol("hls"),
+                    "url": u,
+                    "statusCode": status_code,
+                    "contentType": ctype,
+                    "entryCount": len(entries),
+                    "firstSegmentUrl": first_uri,
+                    "container": container,
+                    "diagnosis": (
+                        f"Verified HLS `#EXTM3U` playlist ({len(entries)} entries) and first `{container}` segment (`200 OK`)."
+                        if seg_ok
+                        else f"Playlist parsed ({len(entries)} entries), but first segment `{first_uri}` failed container check (status={seg_status}, container={container})."
+                    ),
+                }
+            )
+        except Exception as exc:
+            return _to_actor_dict(
+                {
+                    "ok": False,
+                    "protocol": Symbol("hls"),
+                    "url": u,
+                    "diagnosis": f"{type(exc).__name__}: {exc}",
+                }
+            )
 
 
 @actor_bridge(name="PDFDocumentTwin")
@@ -2740,6 +3802,184 @@ class JetsonEdgeTwin:
     def fetchFile(self, remote_path: str, local_name: str = "", timeout_sec: int = 30) -> Any:
         """Alias for `pullFile(Actor[#Jetson], remote_path, local_name, timeout_sec)`."""
         return self.pullFile(remote_path=remote_path, local_name=local_name, timeout_sec=timeout_sec)
+
+    # ------------------------------------------------------------------
+    # Persistent User-Space Service Lifecycle (`~/services/<name>`)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _sanitize_service_name(name: str) -> str:
+        clean = re.sub(r"[^a-zA-Z0-9_-]", "-", str(name or "").strip().lstrip("#")).strip("-").lower()
+        if not clean or len(clean) > 48:
+            raise ValueError(f"Invalid service name {name!r}; expected 1..48 alphanumeric/`-`/`_` chars.")
+        if clean in ("ssh", "sshd", "systemd", "networkmanager", "gdm", "gdm3", "jetson-rtsp"):
+            raise PermissionError(f"Service name {clean!r} is reserved for protected system daemons.")
+        return clean
+
+    @actor_command
+    def deployService(
+        self,
+        service_name: str,
+        work_dir: str,
+        start_cmd: str,
+        port: int = 0,
+        timeout_sec: int = 25,
+    ) -> Any:
+        """Deploy/restart a persistent background user service in `~/services/<service_name>` on the Jetson without SSH FD hangs or `pkill -f` self-kills."""
+        import base64
+        import shlex
+
+        fallback_host = self._load_cfg().get("host", "192.168.68.55")
+        try:
+            svc = self._sanitize_service_name(service_name)
+        except (ValueError, PermissionError) as exc:
+            return _to_actor_dict({"ok": False, "host": fallback_host, "service": str(service_name), "stderr": str(exc)})
+
+        cmd_str = str(start_cmd or "").strip()
+        wdir_str = str(work_dir or f"$HOME/services/{svc}").strip()
+        if not cmd_str:
+            return _to_actor_dict({"ok": False, "host": fallback_host, "service": svc, "stderr": "Empty `start_cmd`."})
+
+        for check_txt in (cmd_str, wdir_str):
+            violation = self._validate_jetson_command(check_txt)
+            if violation:
+                return _to_actor_dict({"ok": False, "host": fallback_host, "service": svc, "stderr": violation})
+
+        port_num = max(0, min(65535, int(port or 0)))
+        runner_script = (
+            "#!/usr/bin/env bash\n"
+            "set -e\n"
+            f"SVC_DIR=\"$HOME/services/{svc}\"\n"
+            "mkdir -p \"$SVC_DIR\"\n"
+            f"WORK_DIR={wdir_str if wdir_str.startswith('$HOME') else shlex.quote(wdir_str)}\n"
+            "mkdir -p \"$WORK_DIR\"\n"
+            "cd \"$WORK_DIR\"\n"
+            f"exec {cmd_str}\n"
+        )
+        b64_runner = base64.b64encode(runner_script.encode("utf-8")).decode("ascii")
+
+        deploy_sh = (
+            f"SVC_DIR=\"$HOME/services/{svc}\"; "
+            "mkdir -p \"$SVC_DIR\"; "
+            "if [ -f \"$SVC_DIR/service.pid\" ]; then "
+            "  OLD_PID=$(cat \"$SVC_DIR/service.pid\" 2>/dev/null || true); "
+            "  if [ -n \"$OLD_PID\" ] && kill -0 \"$OLD_PID\" 2>/dev/null; then "
+            "    kill \"$OLD_PID\" 2>/dev/null || true; sleep 0.6; kill -9 \"$OLD_PID\" 2>/dev/null || true; "
+            "  fi; "
+            "fi; "
+            f"printf '%s' '{b64_runner}' | base64 -d > \"$SVC_DIR/run.sh\"; "
+            "chmod 700 \"$SVC_DIR/run.sh\"; "
+            ": > \"$SVC_DIR/service.log\"; "
+            "setsid nohup \"$SVC_DIR/run.sh\" </dev/null >>\"$SVC_DIR/service.log\" 2>&1 & "
+            "NEW_PID=$!; echo \"$NEW_PID\" > \"$SVC_DIR/service.pid\"; "
+        )
+        if port_num > 0:
+            deploy_sh += (
+                f"for _i in 1 2 3 4 5 6 7 8 9 10; do "
+                f"  if ss -tln 2>/dev/null | grep -q ':{port_num} '; then break; fi; "
+                "  sleep 0.4; "
+                "done; "
+                f"LISTEN_OK=$(ss -tln 2>/dev/null | grep -c ':{port_num} ' || true); "
+            )
+        else:
+            deploy_sh += "sleep 0.8; LISTEN_OK=1; "
+
+        deploy_sh += (
+            "ALIVE=$(kill -0 \"$NEW_PID\" 2>/dev/null && echo 1 || echo 0); "
+            "echo \"PID=$NEW_PID ALIVE=$ALIVE LISTEN=$LISTEN_OK\"; "
+            "tail -n 20 \"$SVC_DIR/service.log\" 2>/dev/null || true"
+        )
+
+        raw = self._ssh_exec_raw(deploy_sh, timeout_sec=float(timeout_sec or 25))
+        out_txt = str(raw.get("stdout") or "")
+        pid_val = 0
+        alive = False
+        listening = port_num == 0
+        m = re.search(r"PID=(\d+)\s+ALIVE=(\d+)\s+LISTEN=(\d+)", out_txt)
+        if m:
+            pid_val = int(m.group(1))
+            alive = int(m.group(2)) == 1
+            listening = (int(m.group(3)) >= 1) if port_num > 0 else True
+        ok = bool(raw.get("ok")) and alive and listening
+        return _to_actor_dict(
+            {
+                "ok": ok,
+                "host": raw.get("host", fallback_host),
+                "service": svc,
+                "pid": pid_val,
+                "alive": alive,
+                "port": port_num,
+                "portListening": listening,
+                "serviceDir": f"~/services/{svc}",
+                "logPath": f"~/services/{svc}/service.log",
+                "stdout": out_txt[:2000],
+                "stderr": str(raw.get("stderr") or ""),
+            }
+        )
+
+    @actor_query
+    def serviceStatus(self, service_name: str, tail_lines: int = 25) -> Any:
+        """Inspect PID health, listening sockets, and recent `service.log` lines for `~/services/<service_name>` on the Jetson."""
+        fallback_host = self._load_cfg().get("host", "192.168.68.55")
+        try:
+            svc = self._sanitize_service_name(service_name)
+        except (ValueError, PermissionError) as exc:
+            return _to_actor_dict({"ok": False, "host": fallback_host, "service": str(service_name), "stderr": str(exc)})
+        n_lines = max(5, min(100, int(tail_lines or 25)))
+        check_sh = (
+            f"SVC_DIR=\"$HOME/services/{svc}\"; "
+            "if [ ! -d \"$SVC_DIR\" ]; then echo 'STATUS=NOT_DEPLOYED'; exit 0; fi; "
+            "PID=$(cat \"$SVC_DIR/service.pid\" 2>/dev/null || echo 0); "
+            "if [ -n \"$PID\" ] && [ \"$PID\" != \"0\" ] && kill -0 \"$PID\" 2>/dev/null; then "
+            "  echo \"STATUS=RUNNING PID=$PID\"; ps -p \"$PID\" -o pid,etime,rss,args --no-headers 2>/dev/null || true; "
+            "else "
+            "  echo \"STATUS=STOPPED PID=$PID\"; "
+            "fi; "
+            "echo '---LOG---'; "
+            f"tail -n {n_lines} \"$SVC_DIR/service.log\" 2>/dev/null || true"
+        )
+        raw = self._ssh_exec_raw(check_sh, timeout_sec=12.0)
+        out_txt = str(raw.get("stdout") or "")
+        running = "STATUS=RUNNING" in out_txt
+        return _to_actor_dict(
+            {
+                "ok": bool(raw.get("ok")),
+                "host": raw.get("host", fallback_host),
+                "service": svc,
+                "running": running,
+                "stdout": out_txt[:2500],
+                "stderr": str(raw.get("stderr") or ""),
+            }
+        )
+
+    @actor_command
+    def stopService(self, service_name: str) -> Any:
+        """Cleanly stop a deployed user service in `~/services/<service_name>` via its recorded PID file (zero SSH self-kill risk)."""
+        fallback_host = self._load_cfg().get("host", "192.168.68.55")
+        try:
+            svc = self._sanitize_service_name(service_name)
+        except (ValueError, PermissionError) as exc:
+            return _to_actor_dict({"ok": False, "host": fallback_host, "service": str(service_name), "stderr": str(exc)})
+        stop_sh = (
+            f"SVC_DIR=\"$HOME/services/{svc}\"; "
+            "if [ -f \"$SVC_DIR/service.pid\" ]; then "
+            "  PID=$(cat \"$SVC_DIR/service.pid\" 2>/dev/null || true); "
+            "  if [ -n \"$PID\" ] && kill -0 \"$PID\" 2>/dev/null; then "
+            "    kill \"$PID\" 2>/dev/null || true; sleep 0.5; kill -9 \"$PID\" 2>/dev/null || true; "
+            "    echo \"STOPPED PID=$PID\"; "
+            "  else echo 'ALREADY_STOPPED'; fi; "
+            "else echo 'NO_PID_FILE'; fi"
+        )
+        raw = self._ssh_exec_raw(stop_sh, timeout_sec=10.0)
+        return _to_actor_dict(
+            {
+                "ok": bool(raw.get("ok")),
+                "host": raw.get("host", fallback_host),
+                "service": svc,
+                "stdout": str(raw.get("stdout") or "").strip(),
+                "stderr": str(raw.get("stderr") or ""),
+            }
+        )
 
 
 __all__ = [
