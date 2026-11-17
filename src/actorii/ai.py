@@ -226,13 +226,14 @@ class ValkyrieLLMClient:
         self,
         endpoint: Optional[str] = None,
         model: str = "default",
-        timeout: float = 360.0,
+        timeout: float = 600.0,
         custom_provider: Optional[Callable[..., str]] = None,
     ) -> None:
         self._explicit_endpoint = endpoint
         self.endpoint = resolve_default_endpoint_for_model(model, endpoint)
         self.model = model
-        self.timeout = timeout
+        env_to = os.environ.get("ACTORII_LLM_TIMEOUT_SEC", "").strip()
+        self.timeout = float(env_to) if env_to else timeout
         self.custom_provider = custom_provider
         self._lock = threading.RLock()
         self._local = threading.local()

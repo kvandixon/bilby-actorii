@@ -157,11 +157,14 @@ class _NormalizingProxyHandler(BaseHTTPRequestHandler):
                     _PROXY_STATS["total_tokens"] += tt
             except Exception:
                 pass
-            self.send_response(resp.status)
-            self.send_header("Content-Type", resp.getheader("Content-Type", "application/json"))
-            self.send_header("Content-Length", str(len(resp_body)))
-            self.end_headers()
-            self.wfile.write(resp_body)
+            try:
+                self.send_response(resp.status)
+                self.send_header("Content-Type", resp.getheader("Content-Type", "application/json"))
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.end_headers()
+                self.wfile.write(resp_body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             conn.close()
             return
 
@@ -586,7 +589,7 @@ def run_swe_bench_lite_task(row: Dict[str, Any], harness_name: str, model: str) 
         os.environ["ACTORII_ENABLE_THINKING"] = "1"
         try:
             _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-                harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
+                harness_name, tmp_dir, prompt, model=model, max_steps=28, timeout_s=900
             )
         finally:
             if prev_think is None:
@@ -1300,13 +1303,37 @@ def main() -> int:
         default=1,
         help="Number of official tasks per benchmark track (default: 1 for quick, 3 for full 12-task suite)",
     )
+    parser.add_argument(
+        "--preset",
+        choices=["", "8track"],
+        default="",
+        help="Preset task mix: '8track' runs the official 22-task 8-Track SWE sweep (SWE-Lite=6, BigCodeBench-Hard=4, others=2)",
+    )
     parser.add_argument("--output-json", default=str(DEFAULT_RESULTS_JSON))
     parser.add_argument("--output-md", default=str(DEFAULT_REPORT_MD))
     args = parser.parse_args()
 
     harnesses = [h.strip() for h in args.harnesses.split(",") if h.strip()]
-    tracks = [t.strip() for t in args.tracks.split(",") if t.strip()]
-    k = max(1, int(args.tasks_per_track))
+    if args.preset == "8track":
+        tracks = [
+            "swe_bench_lite",
+            "humaneval",
+            "mbpp",
+            "gsm8k",
+            "quixbugs",
+            "agentbench_os",
+            "cruxeval",
+            "bigcodebench_hard",
+        ]
+        per_track_limits = {
+            "swe_bench_lite": 6,
+            "bigcodebench_hard": 4,
+        }
+        default_k = 2
+    else:
+        tracks = [t.strip() for t in args.tracks.split(",") if t.strip()]
+        per_track_limits = {}
+        default_k = max(1, int(args.tasks_per_track))
 
     all_metrics: List[TaskMetrics] = []
 
@@ -1324,7 +1351,8 @@ def main() -> int:
         ]
         for t_name, loader_fn, runner_fn in track_runners:
             if t_name in tracks:
-                for row in loader_fn(limit=k):
+                tk = per_track_limits.get(t_name, default_k)
+                for row in loader_fn(limit=tk):
                     m = runner_fn(row, h, args.model)
                     all_metrics.append(m)
                     status = "PASS" if m.passed else "FAIL"
