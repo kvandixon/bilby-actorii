@@ -1,41 +1,41 @@
 {
-  "timestamp": "2026-11-18T03:26:30-0500",
+  "timestamp": "2026-11-21T13:31:14-0500",
   "model": "qwen3.8:latest",
   "humaneval": {
-    "n": 6,
-    "single_shot_actor_pass1": "6/6 (100.0%)",
-    "actor_harness_pass": "6/6 (100.0%)",
-    "engram_cold_reboot_pass": "6/6 (100.0%)",
-    "self_corrected_count": 0,
-    "python_reference_pass1": "6/6 (100.0%)",
+    "n": 12,
+    "single_shot_actor_pass1": "9/12 (75.0%)",
+    "actor_harness_pass": "12/12 (100.0%)",
+    "engram_cold_reboot_pass": "12/12 (100.0%)",
+    "self_corrected_count": 3,
+    "python_reference_pass1": "0/12 (0.0%)",
     "tasks": [
       {
         "task_id": "HumanEval/3",
         "entry_point": "below_zero",
-        "single_shot_actor_passed": true,
-        "single_shot_error": null,
+        "single_shot_actor_passed": false,
+        "single_shot_error": "ERROR: ActorGuardrailError: [LINT_UNINITIALIZED_LOCAL] Method 'Solution>>below_zero' reads local variable 'i' before assigning to it (uninitialized Actor locals default to `nil`, not `0` \u2014 initialize `i := 0;` first).",
         "actor_harness_passed": true,
-        "actor_harness_steps": 1,
-        "self_corrected": false,
+        "actor_harness_steps": 2,
+        "self_corrected": true,
         "engram_cold_reboot_passed": true,
-        "actor_gas_used": 653,
-        "actor_elapsed_s": 11.86,
-        "python_pass1": true,
-        "python_elapsed_s": 1.22
+        "actor_gas_used": 850,
+        "actor_elapsed_s": 19.86,
+        "python_pass1": false,
+        "python_elapsed_s": 4.36
       },
       {
         "task_id": "HumanEval/13",
         "entry_point": "greatest_common_divisor",
-        "single_shot_actor_passed": true,
-        "single_shot_error": null,
+        "single_shot_actor_passed": false,
+        "single_shot_error": "Unit test failed on `assert candidate(3, 7) == 1` (actual returned value was `None`, AssertionError: ). Fix the algorithm or off-by-one condition in `Def greatest_common_divisor(...)` and ensure all local variables are declared after `|`.",
         "actor_harness_passed": true,
-        "actor_harness_steps": 1,
-        "self_corrected": false,
+        "actor_harness_steps": 2,
+        "self_corrected": true,
         "engram_cold_reboot_passed": true,
-        "actor_gas_used": 225,
-        "actor_elapsed_s": 6.96,
-        "python_pass1": true,
-        "python_elapsed_s": 1.73
+        "actor_gas_used": 239,
+        "actor_elapsed_s": 13.43,
+        "python_pass1": false,
+        "python_elapsed_s": 6.47
       },
       {
         "task_id": "HumanEval/23",
@@ -47,9 +47,9 @@
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
         "actor_gas_used": 39,
-        "actor_elapsed_s": 7.91,
-        "python_pass1": true,
-        "python_elapsed_s": 1.13
+        "actor_elapsed_s": 4.66,
+        "python_pass1": false,
+        "python_elapsed_s": 4.12
       },
       {
         "task_id": "HumanEval/24",
@@ -60,10 +60,10 @@
         "actor_harness_steps": 1,
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
-        "actor_gas_used": 260,
-        "actor_elapsed_s": 11.59,
-        "python_pass1": true,
-        "python_elapsed_s": 6.82
+        "actor_gas_used": 1442,
+        "actor_elapsed_s": 8.12,
+        "python_pass1": false,
+        "python_elapsed_s": 6.01
       },
       {
         "task_id": "HumanEval/31",
@@ -75,9 +75,9 @@
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
         "actor_gas_used": 1706,
-        "actor_elapsed_s": 10.35,
-        "python_pass1": true,
-        "python_elapsed_s": 1.71
+        "actor_elapsed_s": 9.37,
+        "python_pass1": false,
+        "python_elapsed_s": 10.56
       },
       {
         "task_id": "HumanEval/35",
@@ -88,17 +88,101 @@
         "actor_harness_steps": 1,
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
-        "actor_gas_used": 290,
-        "actor_elapsed_s": 11.28,
-        "python_pass1": true,
-        "python_elapsed_s": 1.09
+        "actor_gas_used": 258,
+        "actor_elapsed_s": 28.29,
+        "python_pass1": false,
+        "python_elapsed_s": 5.94
+      },
+      {
+        "task_id": "HumanEval/41",
+        "entry_point": "car_race_collision",
+        "single_shot_actor_passed": false,
+        "single_shot_error": "Unit test failed on `assert candidate(2) == 4` (actual returned value was `None`, AssertionError: ). Fix the algorithm or off-by-one condition in `Def car_race_collision(...)` and ensure all local variables are declared after `|`.",
+        "actor_harness_passed": true,
+        "actor_harness_steps": 2,
+        "self_corrected": true,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 78,
+        "actor_elapsed_s": 7.57,
+        "python_pass1": false,
+        "python_elapsed_s": 9.05
+      },
+      {
+        "task_id": "HumanEval/45",
+        "entry_point": "triangle_area",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 51,
+        "actor_elapsed_s": 4.68,
+        "python_pass1": false,
+        "python_elapsed_s": 4.26
+      },
+      {
+        "task_id": "HumanEval/52",
+        "entry_point": "below_threshold",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 516,
+        "actor_elapsed_s": 8.08,
+        "python_pass1": false,
+        "python_elapsed_s": 6.16
+      },
+      {
+        "task_id": "HumanEval/53",
+        "entry_point": "add",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 1371,
+        "actor_elapsed_s": 4.34,
+        "python_pass1": false,
+        "python_elapsed_s": 4.55
+      },
+      {
+        "task_id": "HumanEval/55",
+        "entry_point": "fib",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 735,
+        "actor_elapsed_s": 8.32,
+        "python_pass1": false,
+        "python_elapsed_s": 7.37
+      },
+      {
+        "task_id": "HumanEval/60",
+        "entry_point": "sum_to_n",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 2010,
+        "actor_elapsed_s": 6.52,
+        "python_pass1": false,
+        "python_elapsed_s": 7.21
       }
     ]
   },
   "gsm8k": {
-    "n": 4,
-    "single_shot_actor_pass1": "4/4 (100.0%)",
-    "actor_harness_pass": "4/4 (100.0%)",
+    "n": 8,
+    "single_shot_actor_pass1": "8/8 (100.0%)",
+    "actor_harness_pass": "8/8 (100.0%)",
     "tasks": [
       {
         "task_id": "GSM8K/0",
@@ -108,8 +192,8 @@
         "actor_harness_passed": true,
         "self_corrected": false,
         "steps": 1,
-        "gas_used": 33,
-        "elapsed_s": 10.24
+        "gas_used": 42,
+        "elapsed_s": 11.12
       },
       {
         "task_id": "GSM8K/1",
@@ -118,20 +202,20 @@
         "single_shot_actor_passed": true,
         "actor_harness_passed": true,
         "self_corrected": false,
-        "steps": 1,
-        "gas_used": 35,
-        "elapsed_s": 7.13
+        "steps": 3,
+        "gas_used": 68,
+        "elapsed_s": 45.43
       },
       {
         "task_id": "GSM8K/2",
         "gold": 70000,
-        "predicted": 70000,
+        "predicted": 70000.0,
         "single_shot_actor_passed": true,
         "actor_harness_passed": true,
         "self_corrected": false,
-        "steps": 2,
-        "gas_used": 24,
-        "elapsed_s": 12.63
+        "steps": 1,
+        "gas_used": 40,
+        "elapsed_s": 6.99
       },
       {
         "task_id": "GSM8K/3",
@@ -141,8 +225,52 @@
         "actor_harness_passed": true,
         "self_corrected": false,
         "steps": 1,
-        "gas_used": 30,
-        "elapsed_s": 6.27
+        "gas_used": 36,
+        "elapsed_s": 5.84
+      },
+      {
+        "task_id": "GSM8K/4",
+        "gold": 20,
+        "predicted": 20,
+        "single_shot_actor_passed": true,
+        "actor_harness_passed": true,
+        "self_corrected": false,
+        "steps": 1,
+        "gas_used": 38,
+        "elapsed_s": 5.79
+      },
+      {
+        "task_id": "GSM8K/5",
+        "gold": 64,
+        "predicted": 64.0,
+        "single_shot_actor_passed": true,
+        "actor_harness_passed": true,
+        "self_corrected": false,
+        "steps": 2,
+        "gas_used": 390,
+        "elapsed_s": 42.31
+      },
+      {
+        "task_id": "GSM8K/6",
+        "gold": 260,
+        "predicted": 260,
+        "single_shot_actor_passed": true,
+        "actor_harness_passed": true,
+        "self_corrected": false,
+        "steps": 3,
+        "gas_used": 45,
+        "elapsed_s": 40.79
+      },
+      {
+        "task_id": "GSM8K/7",
+        "gold": 160,
+        "predicted": 160.0,
+        "single_shot_actor_passed": true,
+        "actor_harness_passed": true,
+        "self_corrected": false,
+        "steps": 1,
+        "gas_used": 52,
+        "elapsed_s": 11.28
       }
     ]
   }

@@ -3,7 +3,7 @@
 
 # Benchmark #3 Report: 3-Harness Head-to-Head on `LongMemEval` (ICLR 2025) + `LOCOMO` (Snap Research)
 
-**Date**: 2026-11-17 16:38:00 EST  
+**Date**: 2026-11-21 13:31:16 EST  
 **Harnesses Evaluated**: `ActorII v4.1` (`Bilby`) vs `Hermes Agent` (`hermes-bench:latest`) vs `Pi Coding Agent v0.86.1` (`pi-bench:latest`)  
 **Model & Inference Parity**: `qwen3.8:latest` on `:8080` via normalizing proxy `:18088` (`enable_thinking=False` enforced identically across all 3 harnesses)  
 **Dataset**: `17` multi-session tasks per harness

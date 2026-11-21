@@ -302,6 +302,9 @@ Def runGoal(self, goalText, maxSteps) {
     setGoal(self, goalText);
     self.maxSteps := maxSteps;
     self.status := #running;
+    if tryReflexShortcut(self.sandbox, self, goalText) then
+        ^self.lastResult;
+    endif;
     loop
         while (self.status == #running)
     begin
