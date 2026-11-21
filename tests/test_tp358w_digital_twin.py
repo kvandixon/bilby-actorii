@@ -15,6 +15,7 @@ Verifies:
 
 from __future__ import annotations
 
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -335,8 +336,8 @@ class TestActorDigitalTwinAndCollaborators:
 
 
 @pytest.mark.skipif(
-    not _is_bluez_adapter_powered(),
-    reason="BlueZ adapter /org/bluez/hci0 is not powered on",
+    os.environ.get("ACTORII_RUN_LIVE_BLE") != "1" or not _is_bluez_adapter_powered(),
+    reason="set ACTORII_RUN_LIVE_BLE=1 with powered BlueZ adapter and nearby TP358S sensor to run live BLE test",
 )
 class TestLivePhysicalTP358WHardware:
     """Live BLE hardware test against 00:11:22:33:44:55 (`TP358S (Demo)`) on valkyrie."""

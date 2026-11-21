@@ -99,7 +99,7 @@ Def firecrawlSearch(self, queryText, limit | resp) {
  *   5. Fallback to Headless Chromium Playwright (`playwrightExtract`)
  * ------------------------------------------------------------------------- */
 
-Def scrape(self, targetUrl | cached resp txt) {
+Def scrape(self, targetUrl | cached resp txt errs) {
     cached := at(self.pageCache, targetUrl);
     if cached <> nil then
         self.cacheHits := self.cacheHits + 1;
@@ -109,6 +109,10 @@ Def scrape(self, targetUrl | cached resp txt) {
     endif;
 
     self.scrapeCount := self.scrapeCount + 1;
+    if size(self.pageCache) >= 128 then
+        self.pageCache := new(Dictionary, 64);
+    endif;
+    errs := "";
 
     /* Rung 1: Firecrawl REST `/v2/scrape` */
     resp := firecrawlScrape(self, targetUrl);
@@ -117,6 +121,7 @@ Def scrape(self, targetUrl | cached resp txt) {
         atPut(self.pageCache, targetUrl, txt);
         ^txt;
     endif;
+    errs := "firecrawl=" + asString(at(resp, #error));
 
     /* Rung 2: Fast zero-VRAM Trafilatura (`web-clean`) */
     resp := trafilaturaExtract(self.net, targetUrl, self.maxChars);
@@ -127,6 +132,7 @@ Def scrape(self, targetUrl | cached resp txt) {
         atPut(self.pageCache, targetUrl, txt);
         ^txt;
     endif;
+    errs := errs + "; trafilatura=" + asString(at(resp, #error));
 
     /* Rung 3: Keyless MCP Ring (Exa / Parallel / Keenable) */
     resp := keylessRingExtract(self.net, targetUrl, self.maxChars);
@@ -137,6 +143,7 @@ Def scrape(self, targetUrl | cached resp txt) {
         atPut(self.pageCache, targetUrl, txt);
         ^txt;
     endif;
+    errs := errs + "; keyless=" + asString(at(resp, #error));
 
     /* Rung 4: Headless Playwright Chromium (`browser-fetch`) */
     resp := playwrightExtract(self.net, targetUrl, self.maxChars);
@@ -147,10 +154,11 @@ Def scrape(self, targetUrl | cached resp txt) {
         atPut(self.pageCache, targetUrl, txt);
         ^txt;
     endif;
+    errs := errs + "; playwright=" + asString(at(resp, #error));
 
     self.lastProvider := #failed;
     self.lastStatus := #error;
-    ^"ERROR: All scrape providers (firecrawl, trafilatura, keyless-mcp, playwright) failed for " + asString(targetUrl) + ": " + asString(at(resp, #error));
+    ^"ERROR: All scrape providers (firecrawl, trafilatura, keyless-mcp, playwright) failed for " + asString(targetUrl) + ": " + errs;
 }!!
 
 Def extract(self, targetUrl) {
@@ -158,20 +166,26 @@ Def extract(self, targetUrl) {
 }!!
 
 Def cleanUrl(self, targetUrl | resp) {
+    self.scrapeCount := self.scrapeCount + 1;
     resp := trafilaturaExtract(self.net, targetUrl, self.maxChars);
     if at(resp, #ok) == true then
         self.lastProvider := #trafilatura;
+        self.lastStatus := #ok;
         ^formatScrapeEntry(self.net, resp, #trafilatura, self.maxChars);
     endif;
+    self.lastStatus := #error;
     ^"ERROR: trafilatura failed for " + asString(targetUrl) + ": " + asString(at(resp, #error));
 }!!
 
 Def renderBrowser(self, targetUrl | resp) {
+    self.scrapeCount := self.scrapeCount + 1;
     resp := playwrightExtract(self.net, targetUrl, self.maxChars);
     if at(resp, #ok) == true then
         self.lastProvider := #playwright;
+        self.lastStatus := #ok;
         ^formatScrapeEntry(self.net, resp, #playwright, self.maxChars);
     endif;
+    self.lastStatus := #error;
     ^"ERROR: playwright failed for " + asString(targetUrl) + ": " + asString(at(resp, #error));
 }!!
 
@@ -183,7 +197,7 @@ Def renderBrowser(self, targetUrl | resp) {
  *   4. Fallback to DuckDuckGo (`ddgsSearch`)
  * ------------------------------------------------------------------------- */
 
-Def search(self, queryText, limit | cacheKey cached resp txt) {
+Def search(self, queryText, limit | cacheKey cached resp txt errs) {
     cacheKey := asString(queryText) + "::" + asString(limit);
     cached := at(self.searchCache, cacheKey);
     if cached <> nil then
@@ -194,6 +208,10 @@ Def search(self, queryText, limit | cacheKey cached resp txt) {
     endif;
 
     self.searchCount := self.searchCount + 1;
+    if size(self.searchCache) >= 128 then
+        self.searchCache := new(Dictionary, 64);
+    endif;
+    errs := "";
 
     /* Rung 1: Firecrawl REST `/v2/search` */
     resp := firecrawlSearch(self, queryText, limit);
@@ -202,6 +220,7 @@ Def search(self, queryText, limit | cacheKey cached resp txt) {
         atPut(self.searchCache, cacheKey, txt);
         ^txt;
     endif;
+    errs := "firecrawl=" + asString(at(resp, #error));
 
     /* Rung 2: Keyless MCP Ring (Exa / Parallel / Keenable) */
     resp := keylessRingSearch(self.net, queryText, limit, self.maxChars);
@@ -212,6 +231,7 @@ Def search(self, queryText, limit | cacheKey cached resp txt) {
         atPut(self.searchCache, cacheKey, txt);
         ^txt;
     endif;
+    errs := errs + "; keyless=" + asString(at(resp, #error));
 
     /* Rung 3: DuckDuckGo Search (`ddgs`) */
     resp := ddgsSearch(self.net, queryText, limit, self.maxChars);
@@ -222,10 +242,11 @@ Def search(self, queryText, limit | cacheKey cached resp txt) {
         atPut(self.searchCache, cacheKey, txt);
         ^txt;
     endif;
+    errs := errs + "; ddgs=" + asString(at(resp, #error));
 
     self.lastProvider := #failed;
     self.lastStatus := #error;
-    ^"ERROR: All search providers (firecrawl, keyless-mcp, ddgs) failed for '" + asString(queryText) + "': " + asString(at(resp, #error));
+    ^"ERROR: All search providers (firecrawl, keyless-mcp, ddgs) failed for '" + asString(queryText) + "': " + errs;
 }!!
 
 Def lastProvider(self) { ^self.lastProvider; }!!

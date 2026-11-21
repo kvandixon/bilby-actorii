@@ -135,7 +135,7 @@ class _NormalizingProxyHandler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
-        conn = http.client.HTTPConnection("127.0.0.1", 8080, timeout=360)
+        conn = http.client.HTTPConnection("127.0.0.1", 8080, timeout=600)
         headers = {"Content-Type": "application/json", "Content-Length": str(len(raw_body))}
         conn.request("POST", self.path, body=raw_body, headers=headers)
         resp = conn.getresponse()
@@ -544,6 +544,8 @@ def dispatch_container(
     max_steps: int = 6,
     timeout_s: int = 120,
 ) -> Tuple[int, str, int, int, int, int]:
+    scale = float(os.environ.get("BENCH_TIMEOUT_SCALE", "1.0") or "1.0")
+    timeout_s = max(60, int(timeout_s * scale))
     if harness_name == "actorii":
         return run_actorii_container(workspace_dir, prompt, model=model, max_steps=max_steps, timeout_s=timeout_s)
     if harness_name == "pi":
@@ -1360,6 +1362,10 @@ def main() -> int:
                         f"  {status} {m.task_id}\n"
                         f"       {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s",
                         flush=True,
+                    )
+                    Path(args.output_json).write_text(
+                        json.dumps([asdict(x) for x in all_metrics], indent=2, default=str),
+                        encoding="utf-8",
                     )
 
     print("\n--- MOBILE SUMMARY ---", flush=True)

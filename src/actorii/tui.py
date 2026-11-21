@@ -18,6 +18,7 @@ import argparse
 import curses
 import json
 import os
+import re
 import readline
 import sys
 import textwrap
@@ -63,10 +64,11 @@ SLASH_COMMANDS: Dict[str, str] = {
     "/chat": "/chat <message>            Conversational & action turn with multi-turn episodic memory",
     "/goal": "/goal <objective>          Run autonomous multi-step AgentHarness loop in Actor bytecode",
     "/last": "/last                      Show full Actor 4.1 code & VM results from the last turn",
-    "/think": "/think [off|auto|high]     Inspect or tune System-2 thinking level (`off`, `auto`, `high`)",
+    "/engine": "/engine [strata|llama|toggle] Switch `:8080` between Strata Coder IQ1_M (~101 tok/s) & llama.cpp Qwen3.8-27B",
+    "/think": "/think [off|auto|medium|high] Inspect or tune System-2 thinking level (`off`, `auto`, `medium`, `high`)",
     "/verbose": "/verbose [on|off]          Toggle verbose inline Actor 4.1 step/result output",
     "/history": "/history                   Display multi-turn conversation history (`chatHistory(Actor[#Harness])!!`)",
-    "/clear": "/clear                     Clear multi-turn conversation history & reset circuit breaker",
+    "/clear": "/clear (or /new)           Clear multi-turn conversation history & reset circuit breaker",
     "/bench": "/bench [list|run|humaneval|gsm8k] Run 5-task in-image bench or official OpenAI HumanEval / GSM8K",
     "/grammar": "/grammar [topic]           Query Neo4j 1993 Actor Grammar & Error-Remediation Graph (`Actor[#Grammar]`)",
     "/engrams": "/engrams                   List saved Neo4j `:ActorEngram` computational memory-skills (`Actor[#Memory]`)",
@@ -102,6 +104,14 @@ SLASH_COMMANDS: Dict[str, str] = {
     "/help": "/help                      Show command reference",
     "/quit": "/quit                      Auto-save session image & exit ActorII TUI",
 }
+
+
+_MAX_TRANSCRIPT_LINES = 500
+
+
+def _actor_str_lit(text: str) -> str:
+    """Encode an arbitrary Python string (including newlines, quotes, backslashes) as a safe Actor 4.1 double-quoted string literal."""
+    return json.dumps(str(text), ensure_ascii=False)
 
 
 def _looks_like_actor_code(text: str) -> bool:
@@ -168,6 +178,7 @@ class ActorTUISession:
         # Load Sam benchmark object unless demo twins are explicitly disabled
         self._seed_convenience_objects()
         self.transcript: List[str] = []
+        self._suppress_stdout: bool = False
         self.sandbox.step_callbacks.append(self._on_harness_step)
         self.state_dir.mkdir(parents=True, exist_ok=True)
 
@@ -206,7 +217,10 @@ class ActorTUISession:
 
     def _emit(self, line: str = "") -> None:
         self.transcript.append(line)
-        print(line)
+        if len(self.transcript) > _MAX_TRANSCRIPT_LINES * 2:
+            del self.transcript[: len(self.transcript) - _MAX_TRANSCRIPT_LINES]
+        if not self._suppress_stdout:
+            print(line)
 
     def _on_harness_step(self, entry: Dict[str, Any]) -> None:
         self._record_audit_event("harness_step", entry)
@@ -455,6 +469,8 @@ class ActorTUISession:
             max_steps=max_steps,
         )
         gas_before = int(self.harness._fields.get("totalGasUsed", 0) or 0)
+        if len(self.transcript) > _MAX_TRANSCRIPT_LINES:
+            del self.transcript[: len(self.transcript) - _MAX_TRANSCRIPT_LINES]
         if self.verbose:
             self._emit(
                 f"\n{self._c(MAGENTA + BOLD, '▶ AgentHarness (`runGoal`)')}\n"
@@ -462,9 +478,8 @@ class ActorTUISession:
             )
         else:
             self._emit(f"\n{self._c(MAGENTA + BOLD, '▶')} {self._c(GRAY, objective)}")
-        escaped = objective.replace("\\", "\\\\").replace('"', '\\"')
         try:
-            final_res = self.vm.eval_chunk(f'runGoal(Actor[#Harness], "{escaped}", {max_steps})!!')
+            final_res = self.vm.eval_chunk(f"runGoal(Actor[#Harness], {_actor_str_lit(objective)}, {max_steps})!!")
         except KeyboardInterrupt:
             self.harness._fields["status"] = Symbol("halted")
             self._emit(self._c(YELLOW + BOLD, "\n⏹ Goal interrupted by user (Ctrl+C)."))
@@ -661,8 +676,7 @@ class ActorTUISession:
             if not arg:
                 self._emit(self._c(RED, "Usage: /lint <actor_code!!>"))
                 return True
-            escaped = arg.replace("\\", "\\\\").replace('"', '\\"')
-            res = self.vm.eval_chunk(f'lint(Actor[#Harness], "{escaped}")!!')
+            res = self.vm.eval_chunk(f"lint(Actor[#Harness], {_actor_str_lit(arg)})!!")
             color = GREEN if str(res).startswith("OK:") else RED
             self._emit(f"{self._c(color + BOLD, f'[Lint Report] {res}')}")
             return True
@@ -671,8 +685,7 @@ class ActorTUISession:
             if not arg:
                 self._emit(self._c(RED, "Usage: /shadow <actor_code!!>"))
                 return True
-            escaped = arg.replace("\\", "\\\\").replace('"', '\\"')
-            res = self.vm.eval_chunk(f'dryRun(Actor[#Harness], "{escaped}")!!')
+            res = self.vm.eval_chunk(f"dryRun(Actor[#Harness], {_actor_str_lit(arg)})!!")
             color = CYAN if str(res).startswith("SHADOW_OK") else RED
             self._emit(f"{self._c(color + BOLD, f'[Speculative Dry-Run] {res}')}")
             return True
@@ -713,6 +726,24 @@ class ActorTUISession:
                 self._emit(self._c(RED, str(exc)))
             return True
 
+        if cmd == "/engine":
+            actor_pool = getattr(self.vm, "global_vars", {}).get("Actor")
+            valk_bridge = actor_pool.get("Valkyrie") if isinstance(actor_pool, dict) else None
+            valk = getattr(valk_bridge, "target", valk_bridge)
+            req_eng = arg.strip().lower() or "status"
+            if valk is None or not hasattr(valk, "switchEngine"):
+                self._emit(self._c(RED, "Actor[#Valkyrie] engine switcher unavailable."))
+                return True
+            if req_eng in ("status", "check", "info"):
+                out = valk.engineStatus() if hasattr(valk, "engineStatus") else valk.switchEngine("status")
+                self._emit(f"\n{out}\n")
+                return True
+            self._emit(self._c(CYAN, f"Switching :8080 engine -> {req_eng} ..."))
+            out = valk.switchEngine(req_eng)
+            color = GREEN + BOLD if out.startswith("Active Engine:") else RED
+            self._emit(self._c(color, out))
+            return True
+
         if cmd == "/verbose":
             mode = arg.strip().lower()
             if mode in ("on", "1", "true"):
@@ -750,7 +781,7 @@ class ActorTUISession:
             self._emit("")
             return True
 
-        if cmd == "/clear":
+        if cmd in ("/clear", "/new"):
             if self.remote_studio_url:
                 try:
                     self._remote_studio_request("/api/chat/clear", method="POST", timeout=5.0)
@@ -770,8 +801,7 @@ class ActorTUISession:
             stats = self.vm.eval_chunk("graphStats(Actor[#Grammar])!!")
             self._emit(f"\n{self._c(CYAN + BOLD, str(stats))}")
             if arg:
-                escaped = arg.replace("\\", "\\\\").replace('"', '\\"')
-                out = self.vm.eval_chunk(f'lookupSyntax(Actor[#Grammar], "{escaped}")!!')
+                out = self.vm.eval_chunk(f"lookupSyntax(Actor[#Grammar], {_actor_str_lit(arg)})!!")
                 self._emit(f"{out}\n")
             else:
                 out = self.vm.eval_chunk('queryConstructsForTask(Actor[#Grammar], "general", "", "")!!')
@@ -799,13 +829,14 @@ class ActorTUISession:
             if not arg:
                 self._emit(self._c(RED, 'Usage: /evolve Def policyNote(self) { ^"Custom rule"; }!! [| <validation!!>]'))
                 return True
-            if " | " in arg and not arg.strip().startswith("Def"):
-                patch_part, val_part = arg.split(" | ", 1)
+            split_m = re.split(r"!!\s*\|\s*", arg, maxsplit=1)
+            if len(split_m) == 2:
+                patch_part, val_part = split_m[0].strip() + "!!", split_m[1].strip()
             else:
-                patch_part, val_part = arg, ""
-            p_esc = patch_part.strip().replace("\\", "\\\\").replace('"', '\\"')
-            v_esc = val_part.strip().replace("\\", "\\\\").replace('"', '\\"')
-            out = self.vm.eval_chunk(f'evolve(Actor[#Harness], "{p_esc}", "{v_esc}")!!')
+                patch_part, val_part = arg.strip(), ""
+            out = self.vm.eval_chunk(
+                f"evolve(Actor[#Harness], {_actor_str_lit(patch_part)}, {_actor_str_lit(val_part)})!!"
+            )
             color = GREEN if str(out).startswith("EVOLVE_COMMITTED") else RED
             self._emit(f"\n{self._c(color + BOLD, str(out))}\n")
             return True
@@ -821,7 +852,7 @@ class ActorTUISession:
                 return True
             ename = arg.strip().lstrip("#")
             try:
-                inst = self.vm.eval_chunk(f'loadEngram(Actor[#Memory], "{ename}")!!')
+                inst = self.vm.eval_chunk(f"loadEngram(Actor[#Memory], {_actor_str_lit(ename)})!!")
                 self._emit(
                     f"{self._c(GREEN + BOLD, f'✔ Hydrated `:ActorEngram` into Actor[#{ename}]: {inst!r}')}\n"
                 )
@@ -834,9 +865,13 @@ class ActorTUISession:
             parts = sub_raw.split(maxsplit=1)
             action = parts[0].lower()
             rest = parts[1].strip() if len(parts) > 1 else ""
-            from actorii.harness.twins import ReverseProxyTwin
+            actor_dict = self.vm.global_vars.get("Actor", {})
+            proxy_bridge = actor_dict.get("Proxy") if isinstance(actor_dict, dict) else None
+            ptwin = getattr(proxy_bridge, "target", getattr(proxy_bridge, "_target", proxy_bridge))
+            if ptwin is None or not hasattr(ptwin, "status"):
+                from actorii.harness.twins import ReverseProxyTwin
 
-            ptwin = ReverseProxyTwin()
+                ptwin = ReverseProxyTwin()
             if action in ("status", "urls", "links", "info"):
                 out = ptwin.status()
             elif action in ("lan", "wlan", "open", "on"):
@@ -909,7 +944,7 @@ class ActorTUISession:
 
         if cmd == "/network":
             if arg.strip():
-                out = self.vm.eval_chunk(f"whoOwnsIp(Actor[#Network], {arg.strip()!r})!!")
+                out = self.vm.eval_chunk(f"whoOwnsIp(Actor[#Network], {_actor_str_lit(arg.strip())})!!")
             else:
                 out = self.vm.eval_chunk("topologyMap(Actor[#Network])!!")
             self._emit(f"\n{out}\n")
@@ -988,7 +1023,7 @@ class ActorTUISession:
                 return True
             if action == "setup" and len(sub) >= 2:
                 tid = sub[1].lstrip("#")
-                res = self.vm.eval_chunk(f'setupTask(Actor[#Bench], "{tid}")!!')
+                res = self.vm.eval_chunk(f"setupTask(Actor[#Bench], {_actor_str_lit(tid)})!!")
                 self._emit(f"{self._c(GREEN + BOLD, f'✔ Benchmark task seeded in pool: {res}')}")
                 return True
             if action in ("report", "scoreboard", "results", "official"):
@@ -1004,7 +1039,7 @@ class ActorTUISession:
                     self._emit(f"\n{self._c(GREEN + BOLD, str(rep))}\n")
                 else:
                     self._emit(self._c(MAGENTA + BOLD, f"\n▶ Running Benchmark Task #{target}..."))
-                    res = self.vm.eval_chunk(f'runTask(Actor[#Bench], "{target}")!!')
+                    res = self.vm.eval_chunk(f"runTask(Actor[#Bench], {_actor_str_lit(target)})!!")
                     self._emit(f"\n{self._c(GREEN + BOLD, str(res))}\n")
                 self.auto_save_session()
                 return True
@@ -1012,7 +1047,7 @@ class ActorTUISession:
             tid = action.lstrip("#")
             if tid in BENCHMARK_TASKS:
                 self._emit(self._c(MAGENTA + BOLD, f"\n▶ Running Benchmark Task #{tid}..."))
-                res = self.vm.eval_chunk(f'runTask(Actor[#Bench], "{tid}")!!')
+                res = self.vm.eval_chunk(f"runTask(Actor[#Bench], {_actor_str_lit(tid)})!!")
                 self._emit(f"\n{self._c(GREEN + BOLD, str(res))}\n")
                 self.auto_save_session()
                 return True
@@ -1025,8 +1060,7 @@ class ActorTUISession:
 
         if cmd == "/step":
             if arg:
-                escaped = arg.replace("\\", "\\\\").replace('"', '\\"')
-                self.vm.eval_chunk(f'setGoal(Actor[#Harness], "{escaped}")!!')
+                self.vm.eval_chunk(f"setGoal(Actor[#Harness], {_actor_str_lit(arg)})!!")
             elif not self.harness._fields.get("goal"):
                 self._emit(self._c(RED, "No active goal set. Use `/step <goal>` or `/goal <goal>`."))
                 return True
@@ -1082,14 +1116,37 @@ class ActorTUISession:
         if cmd == "/load":
             path = arg or "ACTOR_HARNESS.IMG"
             try:
-                self.vm.load_image(path)
-                # Re-bind bridge objects and self.harness in restored image
-                self.vm.expose_object(self.sandbox, global_key="#Sandbox")
-                from actorii.harness.benchmark import ActorBenchSuite
-                self.vm.expose_object(ActorBenchSuite(self.vm), global_key="#Bench")
-                if "Harness" in self.vm.global_vars.get("Actor", {}):
-                    self.harness = self.vm.global_vars["Actor"]["Harness"]
-                    self.harness._fields["sandbox"] = self.vm.global_vars["Actor"]["Sandbox"]
+                # Preserve live Python bridge targets before image restore overwrites `Actor[...]`
+                pre_actor = dict(self.vm.global_vars.get("Actor", {}))
+                bridge_keys = (
+                    "Sandbox", "LLM", "Grammar", "Memory", "Host", "VM", "Bench",
+                    "Threads", "Valkyrie", "System", "Hue", "Pantry",
+                    "ReverseEngineer", "REA", "Telegram", "Proxy", "Jetson",
+                    "Net", "PDF", "NetTopo",
+                )
+                saved_bridges: Dict[str, Any] = {}
+                for b_key in bridge_keys:
+                    b_obj = pre_actor.get(b_key)
+                    if b_obj is not None:
+                        saved_bridges[b_key] = getattr(b_obj, "target", getattr(b_obj, "_target", b_obj))
+
+                prev_lock = bool(getattr(self.vm, "lock_system_singletons", False))
+                self.vm.lock_system_singletons = False
+                try:
+                    self.vm.load_image(path)
+                    for b_key, b_target in saved_bridges.items():
+                        self.vm.expose_object(b_target, global_key=f"#{b_key}")
+                    if "Sandbox" not in saved_bridges:
+                        self.vm.expose_object(self.sandbox, global_key="#Sandbox")
+                    if "Bench" not in saved_bridges:
+                        from actorii.harness.benchmark import ActorBenchSuite
+
+                        self.vm.expose_object(ActorBenchSuite(self.vm), global_key="#Bench")
+                    if "Harness" in self.vm.global_vars.get("Actor", {}):
+                        self.harness = self.vm.global_vars["Actor"]["Harness"]
+                        self.harness._fields["sandbox"] = self.vm.global_vars["Actor"]["Sandbox"]
+                finally:
+                    self.vm.lock_system_singletons = prev_lock
                 self._emit(f"{self._c(GREEN + BOLD, f'✔ Restored whole-world image from {path}')}")
             except Exception as exc:
                 self._emit(f"{self._c(RED + BOLD, f'✖ Load failed: {exc}')}")
@@ -1154,7 +1211,7 @@ class ActorTUISession:
                 elif k_low == "api_key":
                     os.environ["ACTORII_LLM_API_KEY"] = v_clean
                 elif k_low == "namespace":
-                    self.vm.eval_chunk(f'setNamespace(Actor[#Memory], "{v_clean}")!!')
+                    self.vm.eval_chunk(f"setNamespace(Actor[#Memory], {_actor_str_lit(v_clean)})!!")
                 elif k_low == "lockdown":
                     os.environ["ACTORII_HOST_LOCKDOWN"] = "1" if v_clean in ("1", "true", "on") else "0"
                 elif k_low in ("thinking", "think"):
@@ -1226,12 +1283,20 @@ def run_curses_dock(session: ActorTUISession) -> None:
         history: List[str] = []
         hist_idx = -1
 
-        # Capture session output into clean plain-text lines for the left pane
+        # Capture session output into clean plain-text lines for the left pane without leaking to stdout
         prev_use_color = session.use_color
+        prev_suppress = session._suppress_stdout
         session.use_color = False
+        session._suppress_stdout = True
         if not session.transcript:
             session.transcript.append("Welcome to ActorII v4.1 Split-Pane TUI Dock.")
             session.transcript.append("Type `/goal <task>`, `3 + 4 * 5!!`, or `/help`. Press ESC or `/quit` to exit dock.")
+
+        def _safe_addstr(y: int, x: int, text: str, attr: int = 0) -> None:
+            try:
+                stdscr.addstr(y, x, text, attr)
+            except curses.error:
+                pass
 
         try:
             while True:
@@ -1247,9 +1312,7 @@ def run_curses_dock(session: ActorTUISession) -> None:
 
                 # 1. Top Status Bar
                 ribbon = session.status_ribbon_text()[: max_x - 1]
-                stdscr.attron(curses.color_pair(6) | curses.A_BOLD)
-                stdscr.addstr(0, 0, ribbon.ljust(max_x - 1))
-                stdscr.attroff(curses.color_pair(6) | curses.A_BOLD)
+                _safe_addstr(0, 0, ribbon.ljust(max_x - 1), curses.color_pair(6) | curses.A_BOLD)
 
                 sidebar_w = min(44, max_x // 3) if (show_sidebar and max_x >= 80) else 0
                 main_w = max_x - sidebar_w - (1 if sidebar_w else 0)
@@ -1276,7 +1339,7 @@ def run_curses_dock(session: ActorTUISession) -> None:
                         color = curses.color_pair(1) | curses.A_BOLD
                     elif txt.strip().startswith("❯"):
                         color = curses.color_pair(3) | curses.A_BOLD
-                    stdscr.addstr(y, 1, txt[: main_w - 2], color)
+                    _safe_addstr(y, 1, txt[: main_w - 2], color)
 
                 # 3. Right Sidebar Dock (Live Object Pool + Scratchpad + Classes + Chat Turns)
                 if sidebar_w > 0:
@@ -1291,7 +1354,7 @@ def run_curses_dock(session: ActorTUISession) -> None:
                     def _put_side(text: str, attr: int = 0) -> None:
                         nonlocal sy
                         if sy < max_y - 2:
-                            stdscr.addstr(sy, sx, text[:sw], attr)
+                            _safe_addstr(sy, sx, text[:sw], attr)
                             sy += 1
 
                     _put_side("■ LIVE OBJECT POOL (`Actor[]`)", curses.color_pair(1) | curses.A_BOLD)
@@ -1334,9 +1397,12 @@ def run_curses_dock(session: ActorTUISession) -> None:
                 prompt_prefix = f"actorii [{session.harness._fields.get('status')}] ❯ "
                 avail_in = max(10, max_x - len(prompt_prefix) - 2)
                 tail_input = input_buf[-avail_in:]
-                stdscr.addstr(max_y - 1, 0, prompt_prefix, curses.color_pair(1) | curses.A_BOLD)
-                stdscr.addstr(max_y - 1, len(prompt_prefix), tail_input)
-                stdscr.move(max_y - 1, min(max_x - 1, len(prompt_prefix) + len(tail_input)))
+                _safe_addstr(max_y - 1, 0, prompt_prefix, curses.color_pair(1) | curses.A_BOLD)
+                _safe_addstr(max_y - 1, len(prompt_prefix), tail_input)
+                try:
+                    stdscr.move(max_y - 1, min(max_x - 1, len(prompt_prefix) + len(tail_input)))
+                except curses.error:
+                    pass
                 stdscr.refresh()
 
                 ch = stdscr.getch()
@@ -1380,6 +1446,7 @@ def run_curses_dock(session: ActorTUISession) -> None:
                     input_buf += chr(ch)
         finally:
             session.use_color = prev_use_color
+            session._suppress_stdout = prev_suppress
 
     curses.wrapper(_curses_main)
 

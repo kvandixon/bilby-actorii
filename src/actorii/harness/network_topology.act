@@ -173,7 +173,7 @@ Def explainReachability(self, clientNetworkOrIp, targetIp, targetPort | clientIn
     loop while (i < n) begin
         b := bridges[i];
         if (asString(at(b, #targetHost)) == asString(at(targetInfo, #ip))) then
-            if (at(b, #targetPort) == targetPort) then
+            if (asString(at(b, #targetPort)) == asString(targetPort)) then
                 if (at(b, #alive) == true) then
                     matchedBridge := b;
                 endif;

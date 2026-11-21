@@ -16,7 +16,10 @@ from actorii.guardrails.judge import (
     ZeroVramSystemOneJudge,
 )
 from actorii.guardrails.linter import (
+    PROTECTED_POOL_SINGLETONS,
     PROTECTED_SYSTEM_CLASSES,
+    RING1_MUTABLE_HARNESS_SELECTORS,
+    SYNTHESIZABLE_TWIN_CLASSES,
     ActorGuardrailError,
     ActorLinter,
     LintIssue,
@@ -27,8 +30,11 @@ from actorii.guardrails.linter import (
 )
 
 __all__ = [
+    "PROTECTED_POOL_SINGLETONS",
     "PROTECTED_SYSTEM_CLASSES",
+    "RING1_MUTABLE_HARNESS_SELECTORS",
     "SPECIALIST_CPU_8082_URL",
+    "SYNTHESIZABLE_TWIN_CLASSES",
     "SYSTEMONE_CPU_URL",
     "ActorCodeJudge",
     "ActorFileOutManager",

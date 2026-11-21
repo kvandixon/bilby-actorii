@@ -535,3 +535,116 @@ def test_engram_persistence_backend_reloads_capability(tmp_path) -> None:
     )
     assert res["status"] == "passed", res.get("generations")
     assert res["persistence_verified"] is True
+
+
+def test_make_live_provider_sends_no_think_flags_and_recovers_reasoning_only_reply(monkeypatch) -> None:
+    """Verify `make_live_provider` sends `force_no_think` / `reasoning_effort` and recovers from empty `content` + `reasoning_content`."""
+    from types import SimpleNamespace
+    from actorii.harness.self_evolution_bench import SelfEvolutionRunner, make_live_provider
+
+    sent_payloads = []
+    responses = [
+        {
+            "choices": [
+                {
+                    "finish_reason": "length",
+                    "message": {
+                        "content": "",
+                        "reasoning_content": "Let me think about implementing median(self)...",
+                    },
+                }
+            ],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+        },
+        {
+            "choices": [
+                {
+                    "finish_reason": "stop",
+                    "message": {
+                        "content": "now(SensorWindow)!! Def median(self) { ^5; }!!",
+                    },
+                }
+            ],
+            "usage": {"prompt_tokens": 140, "completion_tokens": 20},
+        },
+    ]
+
+    class _FakeResp:
+        def __init__(self, body: dict) -> None:
+            self._raw = json.dumps(body).encode("utf-8")
+
+        def read(self) -> bytes:
+            return self._raw
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    def fake_urlopen(req, timeout=None):
+        sent_payloads.append(json.loads(req.data.decode("utf-8")))
+        return _FakeResp(responses.pop(0))
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    stats: dict = {}
+    prov = make_live_provider(
+        SimpleNamespace(system_prompt="SYS"),
+        endpoint="http://127.0.0.1:8080/v1",
+        model="qwen3.8:latest",
+        temperature=0.0,
+        seed=42,
+        timeout=30.0,
+        max_tokens=4096,
+        stats=stats,
+    )
+    out = prov("USER_PROMPT", "", {})
+    assert out == "now(SensorWindow)!! Def median(self) { ^5; }!!"
+    assert len(sent_payloads) == 2
+    assert sent_payloads[0]["force_no_think"] is True
+    assert sent_payloads[0]["reasoning_effort"] == "low"
+    assert sent_payloads[0]["chat_template_kwargs"] == {"enable_thinking": False}
+    assert sent_payloads[1]["force_no_think"] is True
+    assert stats["llm_calls"] == 2
+    assert stats["prompt_tokens"] == 240
+    assert stats["completion_tokens"] == 70
+    assert SelfEvolutionRunner().llm_max_tokens == 4096
+
+
+def test_committed_snapshot_preserves_inherit_and_now_across_generations(tmp_path: Path) -> None:
+    """Verify `_snapshot_committed_chunks` emits canonical `inherit` + `now` + `Def` chunks so Gen N+1 replay never compiles onto `AgentHarness`."""
+    from actorii.harness.self_evolution_bench import (
+        DEFAULT_EVOLUTION_SPECS,
+        SelfEvolutionRunner,
+        vm_fingerprint,
+    )
+
+    spec = DEFAULT_EVOLUTION_SPECS["ring_buffer_telemetry"]
+    runner = SelfEvolutionRunner(mode="scripted", work_dir=tmp_path)
+    base_vm, _, _ = runner._boot_vm(spec, "base")
+    base_class_names = set((getattr(base_vm.hierarchy, "_classes", {}) or {}).keys())
+
+    # Simulate Gen 2 where `inherit` + `now` live in the VM, while `ok_actions` only captured `Def initCapacity`
+    # (because `inherit`/`now` ran inside a partially-failing multi-chunk step).
+    vm2, _, _ = runner._boot_vm(spec, "gen2")
+    vm2.eval_chunk(
+        "inherit(Object, #RingTelemetry, #(#cap #buf #head #cnt), 4, nil)!!\n"
+        "now(RingTelemetry)!!\n"
+        "Def initCapacity(self, c) { self.cap := c; self.buf := new(OrderedCollection); self.head := 0; self.cnt := 0; ^self; }!!"
+    )
+
+    incomplete_ok_chunks = [
+        "Def initCapacity(self, c) { self.cap := c; self.buf := new(OrderedCollection); self.head := 0; self.cnt := 0; ^self; }!!"
+    ]
+    snapped = runner._snapshot_committed_chunks(spec, vm2, base_class_names, incomplete_ok_chunks)
+    joined = "\n".join(snapped)
+    assert "inherit(Object, #RingTelemetry" in joined
+    assert "now(RingTelemetry)!!" in joined
+    assert "Def initCapacity" in joined
+
+    # Replaying `snapped` into a fresh Gen 3 VM must succeed without compiling `initCapacity` onto `AgentHarness`!
+    vm3, _, _ = runner._boot_vm(spec, "gen3")
+    for ch in snapped:
+        vm3.eval_chunk(ch)
+    assert vm3.hierarchy.get("RingTelemetry") is not None
+    assert "initCapacity" not in getattr(vm3.hierarchy.get("AgentHarness"), "_class_methods", {})

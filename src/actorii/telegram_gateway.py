@@ -115,6 +115,8 @@ class BilbyTelegramGateway:
         self._cancel_requested: bool = False
         self._async_goals: bool = False
         self._goal_thread: Optional[threading.Thread] = None
+        self._vm_lock = threading.RLock()
+        self._state_lock = threading.Lock()
         self._load_state()
         self._sync_telegram_twin_route(self.default_chat_id, self.default_thread_id)
         self._running = True
@@ -150,6 +152,16 @@ class BilbyTelegramGateway:
                 self.total_gas = int(data.get("total_gas", 0) or 0)
                 self._verbose_output = bool(data.get("verbose_output", False))
                 saved_think = data.get("thinking_mode")
+                engine_mode_path = self.state_path.parent / "engine_mode.json"
+                if engine_mode_path.is_file():
+                    try:
+                        em_data = json.loads(engine_mode_path.read_text(encoding="utf-8"))
+                        em_epoch = float(em_data.get("updated_epoch") or engine_mode_path.stat().st_mtime)
+                        tg_epoch = float(data.get("updated_at_epoch") or 0.0)
+                        if em_epoch >= tg_epoch and em_data.get("thinking_mode"):
+                            saved_think = str(em_data["thinking_mode"])
+                    except Exception:
+                        pass
                 if isinstance(saved_think, str) and saved_think.strip():
                     from actorii.ai import set_thinking_mode
 
@@ -177,8 +189,12 @@ class BilbyTelegramGateway:
                                 acts = t.get("actions") or []
                                 if acts:
                                     a_txt = f"[Executed: {'; '.join(acts)}] {a_txt}"
-                                self.session.harness._history.add({"role": "user", "content": u_txt})
-                                self.session.harness._history.add({"role": "assistant", "content": a_txt})
+                                if isinstance(self.session.harness._history, ActorOrderedCollection):
+                                    self.session.harness._history.add({"role": "user", "content": u_txt})
+                                    self.session.harness._history.add({"role": "assistant", "content": a_txt})
+                                else:
+                                    self.session.harness._history.append({"role": "user", "content": u_txt})
+                                    self.session.harness._history.append({"role": "assistant", "content": a_txt})
                 saved_scratch = data.get("scratchpad")
                 if isinstance(saved_scratch, dict) and saved_scratch:
                     from actorii.classes.dictionary import Dictionary
@@ -198,22 +214,24 @@ class BilbyTelegramGateway:
         return self._load_state()
 
     def _save_offset(self, offset: int) -> None:
-        self.offset = int(offset)
-        try:
-            self.state_path.parent.mkdir(parents=True, exist_ok=True)
-            turns = self.session.sandbox.getChatHistory(self.session.harness)
-            recent_turns = [t for t in turns[-20:] if isinstance(t, dict)]
-            scratch_dict: Dict[str, Any] = {}
-            scratch_obj = self.session.harness._fields.get("scratchpad")
-            if scratch_obj is not None and hasattr(scratch_obj, "_entries"):
-                for k, v in scratch_obj._entries.items():
-                    norm_k = str(k).lstrip("#")
-                    if isinstance(v, (str, int, float, bool)) or v is None:
-                        scratch_dict[norm_k] = v
-                    else:
-                        scratch_dict[norm_k] = repr(v)[:500]
-            self.state_path.write_text(
-                json.dumps(
+        from actorii.ai import get_thinking_mode
+
+        with self._state_lock:
+            self.offset = int(offset)
+            try:
+                self.state_path.parent.mkdir(parents=True, exist_ok=True)
+                turns = self.session.sandbox.getChatHistory(self.session.harness)
+                recent_turns = [t for t in turns[-20:] if isinstance(t, dict)]
+                scratch_dict: Dict[str, Any] = {}
+                scratch_obj = self.session.harness._fields.get("scratchpad")
+                if scratch_obj is not None and hasattr(scratch_obj, "_entries"):
+                    for k, v in list(scratch_obj._entries.items()):
+                        norm_k = str(k).lstrip("#")
+                        if isinstance(v, (str, int, float, bool)) or v is None:
+                            scratch_dict[norm_k] = v
+                        else:
+                            scratch_dict[norm_k] = repr(v)[:500]
+                payload_str = json.dumps(
                     {
                         "offset": self.offset,
                         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -224,16 +242,17 @@ class BilbyTelegramGateway:
                         "total_steps": self.total_steps,
                         "total_gas": self.total_gas,
                         "verbose_output": self._verbose_output,
-                        "thinking_mode": __import__("actorii.ai", fromlist=["get_thinking_mode"]).get_thinking_mode(),
+                        "thinking_mode": get_thinking_mode(),
                         "chat_history": recent_turns,
                         "scratchpad": scratch_dict,
                     },
                     indent=2,
-                ),
-                encoding="utf-8",
-            )
-        except Exception:
-            pass
+                )
+                tmp_path = self.state_path.with_name(f".{self.state_path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+                tmp_path.write_text(payload_str, encoding="utf-8")
+                os.replace(str(tmp_path), str(self.state_path))
+            except Exception:
+                pass
 
     def send_message(
         self,
@@ -390,7 +409,7 @@ class BilbyTelegramGateway:
 
     @staticmethod
     def _is_immediate_control_command(text: str) -> bool:
-        """Return True if `text` is a control/inspection slash command that can execute while a goal thread runs."""
+        """Return True if `text` is a lock-free control/inspection slash command safe to run while a goal thread is active."""
         clean = (text or "").strip()
         if not clean.startswith("/"):
             return False
@@ -412,10 +431,28 @@ class BilbyTelegramGateway:
             "/verbose",
             "/think",
             "/thinking",
-            "/protocols",
-            "/network",
             "/help",
             "/start",
+        )
+
+    def _format_busy_status_snapshot(self) -> str:
+        """Return a thread-safe status snapshot without invoking `vm.eval_chunk` while `_goal_thread` is running."""
+        from actorii.ai import get_thinking_mode
+
+        fields = getattr(self.session.harness, "_fields", {})
+        status = str(fields.get("status", "running")).lstrip("#")
+        steps = int(fields.get("stepCount", 0) or 0)
+        max_steps = fields.get("maxSteps", 0)
+        failures = int(fields.get("failures", 0) or 0)
+        goal = str(fields.get("goal", "") or "")[:160]
+        last_act = summarize_actor_action_brief(str(fields.get("lastAction", "") or ""), max_len=90)
+        return (
+            f"⏳ **Bilby Active Status (`#{status}`)**\n"
+            f"• Model: `{getattr(self.session.harness, 'model', 'unknown')}` | Thinking: `{get_thinking_mode()}`\n"
+            f"• Step: `{steps}/{max_steps or '∞'}` | Strikes: `{failures}`\n"
+            f"• Goal: {goal or '(none)'}\n"
+            f"• Last Action: `{last_act}`\n"
+            "Send `/stop` to interrupt the active loop."
         )
 
     def handle_text_command_or_goal(self, text: str) -> str:
@@ -506,6 +543,38 @@ class BilbyTelegramGateway:
                 }
                 return labels[new_mode]
 
+            if cmd_lower in ("/engine", "/model"):
+                actor_pool = getattr(self.session.vm, "global_vars", {}).get("Actor")
+                valk_bridge = actor_pool.get("Valkyrie") if isinstance(actor_pool, dict) else None
+                valk = getattr(valk_bridge, "target", valk_bridge)
+                req_eng = arg_str.strip().lower() or "status"
+                if valk is None or not hasattr(valk, "switchEngine"):
+                    return "ERROR: Actor[#Valkyrie] engine switcher unavailable."
+                if req_eng in ("status", "check", "info"):
+                    st_txt = valk.engineStatus() if hasattr(valk, "engineStatus") else valk.switchEngine("status")
+                    return (
+                        f"⚙️ **Bilby Engine Status**\n```\n{st_txt}\n```\n"
+                        "Switch anytime with `/engine strata`, `/engine llama`, or `/engine toggle`."
+                    )
+                res_txt = valk.switchEngine(req_eng)
+                self._save_offset(self.offset)
+                return f"⚙️ **Engine Switch (`{req_eng}`)**\n{res_txt}"
+
+            if cmd_lower in ("/new", "/reset", "/clear"):
+                from actorii.ai import get_thinking_mode
+
+                before = len(self.session.transcript)
+                self.session.handle_input("/clear")
+                out = "\n".join(self.session.transcript[before:]).strip()
+                self._save_offset(self.offset)
+                cur_think = get_thinking_mode()
+                return (
+                    f"✨ **New session started** — multi-turn conversation history cleared & circuit breaker reset "
+                    f"(active thinking mode: `{cur_think}`)."
+                    if cmd_lower in ("/new", "/reset")
+                    else f"{out or 'Cleared.'} (persisted to session state)"
+                )
+
             if self._frozen:
                 return "❄️ Bilby is currently FROZEN by kill-switch (`/freeze`). Send `/unlock` or `/controls`."
 
@@ -516,7 +585,8 @@ class BilbyTelegramGateway:
                     "**Commands:**\n"
                     "• Plain English or Actor 4.1 code (`!!`) — Guarded ReAct loop (clean human output)\n"
                     "• `/last` — Inspect the Actor 4.1 code & VM results from the last turn\n"
-                    "• `/think [off|auto|high]` — Inspect or tune Bilby's System-2 thinking level\n"
+                    "• `/engine [status|strata|llama|toggle]` — Switch `:8080` between `Strata Coder IQ1_M` (~101 tok/s default) & `llama.cpp Qwen3.8-27B`\n"
+                    "• `/think [off|auto|medium|high]` — Inspect or tune Bilby's System-2 thinking level\n"
                     "• `/verbose [on|off]` — Toggle inline Actor 4.1 code blocks in replies\n"
                     "• `/stop` (or `/cancel`) — Break Bilby out of an active loop immediately\n"
                     "• `/status` — VM, GPU VRAM, and Harness status\n"
@@ -527,7 +597,8 @@ class BilbyTelegramGateway:
                     "• `/controls` — Inspect active security & containment locks\n"
                     "• `/freeze` | `/unlock` — Emergency kill-switch\n"
                     "• `/eval <code!!>` — Direct Actor 4.1 bytecode evaluation\n"
-                    "• `/engrams` | `/scratch` | `/history` | `/clear`"
+                    "• `/new` (or `/clear`) — Start a fresh conversation session\n"
+                    "• `/engrams` | `/scratch` | `/history`"
                 )
 
             if cmd_lower == "/eval" and arg_str:
@@ -537,11 +608,27 @@ class BilbyTelegramGateway:
                 out = "\n".join(self.session.transcript[before:]).strip()
                 return out or "Evaluated."
 
-            if cmd_lower in ("/status", "/protocols", "/network", "/proxy", "/twins", "/engrams", "/scratch", "/history", "/clear", "/classes", "/schema", "/capabilities", "/caps", "/config", "/bench"):
+            if cmd_lower in ("/status", "/protocols", "/network", "/proxy", "/twins", "/engrams", "/scratch", "/history", "/classes", "/schema", "/capabilities", "/caps", "/config", "/bench"):
                 before = len(self.session.transcript)
                 self.session.handle_input(f"{cmd_lower} {arg_str}".strip())
                 out = "\n".join(self.session.transcript[before:]).strip()
                 return out or "Done."
+
+            # Guard against unknown slash-command typos (e.g., `/nes` instead of `/new`) leaking into the LLM
+            if "/" not in cmd_lower[1:] and cmd_lower not in (
+                "/tmp", "/home", "/etc", "/var", "/usr", "/opt", "/proc", "/sys", "/dev", "/run"
+            ):
+                import difflib
+
+                known_cmds = [
+                    "/new", "/clear", "/reset", "/engine", "/model", "/think", "/thinking",
+                    "/last", "/verbose", "/status", "/stop", "/cancel", "/controls", "/twins",
+                    "/protocols", "/network", "/proxy", "/engrams", "/scratch", "/history",
+                    "/eval", "/freeze", "/unlock", "/help", "/bench",
+                ]
+                close = difflib.get_close_matches(cmd_lower, known_cmds, n=1, cutoff=0.6)
+                hint = f" Did you mean `{close[0]}`?" if close else ""
+                return f"❓ Unknown command `{cmd_lower}`.{hint} Send `/help` to list available commands."
 
         if self._frozen:
             return "❄️ Bilby is currently FROZEN by kill-switch (`/freeze`). Send `/unlock` or `/controls`."
@@ -557,22 +644,24 @@ class BilbyTelegramGateway:
         h_status = str(self.session.harness._fields.get("status", "")).lstrip("#")
         if len(turns) > before_turns and isinstance(turns[-1], dict):
             last_turn = turns[-1]
-            reply = str(last_turn.get("reply") or "").strip()
-            actions = last_turn.get("actions") or []
-            steps = int(last_turn.get("steps", 1) or 1)
-            gas = int(last_turn.get("gas_used", 0) or 0)
-            self.total_turns += 1
-            self.total_steps += steps
-            self.total_gas += gas
-            self._save_offset(self.offset)
-            if self._verbose_output and actions:
-                act_block = "\n".join(str(a) for a in actions)
-                return f"{reply}\n\n```actor\n{act_block}\n```\n_⚡ {steps} step(s) · {elapsed:.1f}s · {gas} ops_"
-            if actions:
-                step_word = "step" if steps == 1 else "steps"
-                return f"{reply}\n\n_⚡ {steps} {step_word} · {elapsed:.1f}s_"
-            if reply:
-                return reply
+            is_halted_turn = bool(last_turn.get("halted_incomplete")) or h_status in ("halted", "blocked") or self._cancel_requested
+            if not is_halted_turn:
+                reply = str(last_turn.get("reply") or "").strip()
+                actions = last_turn.get("actions") or []
+                steps = int(last_turn.get("steps", 1) or 1)
+                gas = int(last_turn.get("gas_used", 0) or 0)
+                self.total_turns += 1
+                self.total_steps += steps
+                self.total_gas += gas
+                self._save_offset(self.offset)
+                if self._verbose_output and actions:
+                    act_block = "\n".join(str(a) for a in actions)
+                    return f"{reply}\n\n```actor\n{act_block}\n```\n_⚡ {steps} step(s) · {elapsed:.1f}s · {gas} ops_"
+                if actions:
+                    step_word = "step" if steps == 1 else "steps"
+                    return f"{reply}\n\n_⚡ {steps} {step_word} · {elapsed:.1f}s_"
+                if reply:
+                    return reply
 
         # If the goal was stopped by user or halted without a COMPLETE turn, format a clean human diagnostic (never dump raw transcript!)
         self._save_offset(self.offset)
@@ -702,7 +791,16 @@ class BilbyTelegramGateway:
 
         t0 = time.time()
         try:
-            reply_text = self.handle_text_command_or_goal(text)
+            is_immediate = self._is_immediate_control_command(text)
+            if is_immediate and self._goal_thread is not None and self._goal_thread.is_alive():
+                first_tok = (text or "").strip().split(maxsplit=1)[0].split("@", 1)[0].lower()
+                if first_tok == "/status":
+                    reply_text = self._format_busy_status_snapshot()
+                else:
+                    reply_text = self.handle_text_command_or_goal(text)
+            else:
+                with self._vm_lock:
+                    reply_text = self.handle_text_command_or_goal(text)
         except Exception as exc:
             reply_text = f"⚠️ Bilby harness error: {type(exc).__name__}: {exc}"
         finally:
@@ -879,14 +977,22 @@ class BilbyTelegramGateway:
         inbox_file = getattr(self, "inbox_path", DEFAULT_GATEWAY_INBOX)
         if not inbox_file.is_file():
             return 0
+        processing_file = inbox_file.with_name(f"{inbox_file.name}.{os.getpid()}.processing")
         try:
+            os.replace(str(inbox_file), str(processing_file))
             raw_lines = [
                 ln.strip()
-                for ln in inbox_file.read_text(encoding="utf-8").splitlines()
+                for ln in processing_file.read_text(encoding="utf-8").splitlines()
                 if ln.strip()
             ]
-            inbox_file.unlink(missing_ok=True)
+            processing_file.unlink(missing_ok=True)
+        except FileNotFoundError:
+            return 0
         except Exception:
+            try:
+                processing_file.unlink(missing_ok=True)
+            except Exception:
+                pass
             return 0
         count = 0
         for idx, ln in enumerate(raw_lines):
@@ -903,7 +1009,8 @@ class BilbyTelegramGateway:
                 if self._async_goals and chat_id and notify:
                     leftover = raw_lines[idx + 1 :]
                     if leftover:
-                        inbox_file.write_text("\n".join(leftover) + "\n", encoding="utf-8")
+                        with inbox_file.open("a", encoding="utf-8") as fh:
+                            fh.write("\n".join(leftover) + "\n")
                     self._cancel_requested = False
                     worker = threading.Thread(
                         target=self._run_update_sync,
@@ -938,7 +1045,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Bilby (ActorII v4.1) Telegram Gateway Daemon"
     )
-    parser.add_argument("--model", default=os.environ.get("ACTORII_MODEL", "qwen3.8:latest"))
+    parser.add_argument(
+        "--model",
+        default=os.environ.get("ACTORII_LLM_MODEL") or os.environ.get("ACTORII_MODEL") or "qwen3.8:latest",
+    )
     parser.add_argument("--endpoint", default=os.environ.get("ACTORII_LLM_ENDPOINT"))
     parser.add_argument("--max-steps", type=int, default=45, help="Max steps per turn (0 = unlimited, default: 45)")
     parser.add_argument("--max-failures", type=int, default=6, help="Max consecutive rollback strikes (0 = unlimited, default: 6)")

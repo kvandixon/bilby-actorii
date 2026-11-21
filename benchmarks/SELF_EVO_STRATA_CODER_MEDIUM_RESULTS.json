@@ -1,0 +1,791 @@
+{
+  "benchmark": "actorii-bilby-self-evolution",
+  "mode": "live",
+  "model": "qwen3.8:latest",
+  "endpoint": "http://127.0.0.1:8080/v1",
+  "temperature": 0.0,
+  "seed": 42,
+  "persistence_backend": "fileout",
+  "timestamp": "2026-11-17T16:31:55-0500",
+  "specs": [
+    {
+      "spec_id": "sensor_window_median",
+      "name": "Hot-add `median` to a live SensorWindow class",
+      "difficulty": "tier1_method",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "failed",
+      "passed": false,
+      "pass_at_1": false,
+      "pass_at_g": false,
+      "max_generations": 3,
+      "generations_used": 3,
+      "steps_used": 10,
+      "gas_used": 10786,
+      "visible_pass_rate": 0.3333,
+      "holdout_pass_rate": 0.75,
+      "persistence_required": true,
+      "persistence_verified": false,
+      "baseline": {
+        "visible_passed": 1,
+        "visible_total": 3,
+        "holdout_passed": 1,
+        "holdout_total": 8
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 0,
+      "latency_s": 40.216,
+      "final_source": "inherit(Object, #SensorWindow, #(#vals), 1, nil)!!\n\nnow(SensorWindow)!!\n\nDef init(self | w) { w := new(OrderedCollection); self.vals := w; ^self; }!!\n\nDef record(self, v) { add(self.vals, v); ^self; }!!\n\nDef readingCount(self) { ^size(self.vals); }!!\n\nDef valueAt(self, i) { ^self.vals[i]; }!!\n\nDef median(self | n sorted i j mid a b) { n := size(self.vals); if (n == 0) then ^nil; endif; sorted := new(OrderedCollection); i := 0; loop while (i < n) begin add(sorted, self.vals[i]); i := i + 1; endLoop; i := 1; loop while (i < n) begin j := i; loop while ((j > 0) & (sorted[j - 1] > sorted[j])) begin a := sorted[j]; sorted[j] := sorted[j - 1]; sorted[j - 1] := a; j := j - 1; endLoop; i := i + 1; endLoop; mid := n / 2; if ((n % 2) == 1) then ^sorted[mid]; else a := sorted[mid - 1]; b := sorted[mid]; ^((a + b) / 2); endif; }!!\n\nnow(SensorWindow)!!\n\nDef median(self | n sorted i j mid a b tmp) { n := size(self.vals); if (n == 0) then ^nil; endif; sorted := new(Array, n); i := 0; loop while (i < n) begin sorted[i] := self.vals[i]; i := i + 1; endLoop; i := 1; loop while (i < n) begin j := i; loop while ((j > 0) & (sorted[j - 1] > sorted[j])) begin tmp := sorted[j]; sorted[j] := sorted[j - 1]; sorted[j - 1] := tmp; j := j - 1; endLoop; i := i + 1; endLoop; mid := n / 2; if ((n % 2) == 1) then ^sorted[mid]; else a := sorted[mid - 1]; b := sorted[mid]; ^((a + b) / 2); endif; }!!\n\nnow(SensorWindow)!!\n\nDef median(self | n sorted i j tmp mid a b) { n := size(self.vals); if (n == 0) then ^nil; endif; sorted := new(Array, n); i := 0; loop while (i < n) begin sorted[i] := self.vals[i]; i := i + 1; endLoop; i := 1; loop while (i < n) begin j := i; loop while ((j > 0) & (sorted[j - 1] > sorted[j])) begin tmp := sorted[j]; sorted[j] := sorted[j - 1]; sorted[j - 1] := tmp; j := j - 1; endLoop; i := i + 1; endLoop; mid := n / 2; if ((n % 2) == 1) then ^sorted[mid]; else a := sorted[mid - 1]; b := sorted[mid]; ^((a + b) / 2); endif; }!!",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 2594,
+          "steps": 2,
+          "step_errors": 0,
+          "definitional_chunks": 7,
+          "llm": {
+            "llm_calls": 2,
+            "llm_latency_s": 8.469724367954768,
+            "prompt_tokens": 19002,
+            "completion_tokens": 388
+          },
+          "visible_passed": 1,
+          "visible_total": 3,
+          "holdout_passed": 6,
+          "holdout_total": 8,
+          "harness_gas": 0,
+          "verify_opcodes": 3588,
+          "gas_used": 3588,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 8.56,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 9)!! record(Actor[#w], 1)!! record(Actor[#w], 5)!! median(Actor[#w])!!  ->  got 1, expected 5",
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 10)!! record(Actor[#w], 2)!! record(Actor[#w], 8)!! record(Actor[#w], 4)!! median(Actor[#w])!!  ->  got 5, expected 6"
+          ],
+          "failed_holdout_tags": [
+            "idempotent",
+            "odd-unsorted"
+          ]
+        },
+        {
+          "generation": 2,
+          "diagnostics_given": true,
+          "prompt_chars": 4093,
+          "steps": 4,
+          "step_errors": 3,
+          "definitional_chunks": 2,
+          "llm": {
+            "llm_calls": 4,
+            "llm_latency_s": 15.581957954913378,
+            "prompt_tokens": 42608,
+            "completion_tokens": 856
+          },
+          "visible_passed": 1,
+          "visible_total": 3,
+          "holdout_passed": 6,
+          "holdout_total": 8,
+          "harness_gas": 0,
+          "verify_opcodes": 3599,
+          "gas_used": 3599,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 15.692,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 9)!! record(Actor[#w], 1)!! record(Actor[#w], 5)!! median(Actor[#w])!!  ->  got 1, expected 5",
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 10)!! record(Actor[#w], 2)!! record(Actor[#w], 8)!! record(Actor[#w], 4)!! median(Actor[#w])!!  ->  got 5, expected 6"
+          ],
+          "failed_holdout_tags": [
+            "idempotent",
+            "odd-unsorted"
+          ]
+        },
+        {
+          "generation": 3,
+          "diagnostics_given": true,
+          "prompt_chars": 5617,
+          "steps": 4,
+          "step_errors": 3,
+          "definitional_chunks": 2,
+          "llm": {
+            "llm_calls": 4,
+            "llm_latency_s": 15.779936508159153,
+            "prompt_tokens": 44388,
+            "completion_tokens": 856
+          },
+          "visible_passed": 1,
+          "visible_total": 3,
+          "holdout_passed": 6,
+          "holdout_total": 8,
+          "harness_gas": 0,
+          "verify_opcodes": 3599,
+          "gas_used": 3599,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 15.886,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 9)!! record(Actor[#w], 1)!! record(Actor[#w], 5)!! median(Actor[#w])!!  ->  got 1, expected 5",
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 10)!! record(Actor[#w], 2)!! record(Actor[#w], 8)!! record(Actor[#w], 4)!! median(Actor[#w])!!  ->  got 5, expected 6"
+          ],
+          "failed_holdout_tags": [
+            "idempotent",
+            "odd-unsorted"
+          ]
+        }
+      ],
+      "error": ""
+    },
+    {
+      "spec_id": "ring_buffer_telemetry",
+      "name": "Bounded sliding-window percentile / anomaly tracker",
+      "difficulty": "tier2_class_engram",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "failed",
+      "passed": false,
+      "pass_at_1": false,
+      "pass_at_g": false,
+      "max_generations": 3,
+      "generations_used": 3,
+      "steps_used": 15,
+      "gas_used": 16284,
+      "visible_pass_rate": 0.25,
+      "holdout_pass_rate": 0.0,
+      "persistence_required": true,
+      "persistence_verified": false,
+      "baseline": {
+        "visible_passed": 1,
+        "visible_total": 4,
+        "holdout_passed": 0,
+        "holdout_total": 15
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 3,
+      "latency_s": 49.637,
+      "final_source": "",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 3345,
+          "steps": 7,
+          "step_errors": 5,
+          "definitional_chunks": 3,
+          "llm": {
+            "llm_calls": 7,
+            "llm_latency_s": 28.635331628029235,
+            "prompt_tokens": 86005,
+            "completion_tokens": 969
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 0,
+          "holdout_total": 15,
+          "harness_gas": 24,
+          "verify_opcodes": 5420,
+          "gas_used": 5444,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 28.809,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#r] := initCapacity(new(RingTelemetry), 3)!! record(Actor[#r], 1)!! record(Actor[#r], 2)!! record(Actor[#r], 3)!! record(Actor[#r], 4)!! record(Actor[#...  ->  got None, expected 12",
+            "Actor[#r] := initCapacity(new(RingTelemetry), 3)!! record(Actor[#r], 1)!! record(Actor[#r], 2)!! record(Actor[#r], 3)!! record(Actor[#r], 4)!! record(Actor[#...  ->  got None, expected 3",
+            "Actor[#r] := initCapacity(new(RingTelemetry), 5)!! record(Actor[#r], 10)!! record(Actor[#r], 20)!! record(Actor[#r], 30)!! record(Actor[#r], 40)!! record(Act...  ->  got None, expected 30"
+          ],
+          "failed_holdout_tags": [
+            "anomaly-flat",
+            "anomaly-min-samples",
+            "anomaly-spread",
+            "bulk-eviction",
+            "cap-1",
+            "pct-clamp-high",
+            "pct-clamp-low",
+            "pct-rank",
+            "wraparound"
+          ]
+        },
+        {
+          "generation": 2,
+          "diagnostics_given": true,
+          "prompt_chars": 5577,
+          "steps": 4,
+          "step_errors": 3,
+          "definitional_chunks": 1,
+          "llm": {
+            "llm_calls": 4,
+            "llm_latency_s": 10.394938564044423,
+            "prompt_tokens": 42667,
+            "completion_tokens": 88
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 0,
+          "holdout_total": 15,
+          "harness_gas": 0,
+          "verify_opcodes": 5420,
+          "gas_used": 5420,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 10.493,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#r] := initCapacity(new(RingTelemetry), 3)!! record(Actor[#r], 1)!! record(Actor[#r], 2)!! record(Actor[#r], 3)!! record(Actor[#r], 4)!! record(Actor[#...  ->  got None, expected 12",
+            "Actor[#r] := initCapacity(new(RingTelemetry), 3)!! record(Actor[#r], 1)!! record(Actor[#r], 2)!! record(Actor[#r], 3)!! record(Actor[#r], 4)!! record(Actor[#...  ->  got None, expected 3",
+            "Actor[#r] := initCapacity(new(RingTelemetry), 5)!! record(Actor[#r], 10)!! record(Actor[#r], 20)!! record(Actor[#r], 30)!! record(Actor[#r], 40)!! record(Act...  ->  got None, expected 30"
+          ],
+          "failed_holdout_tags": [
+            "anomaly-flat",
+            "anomaly-min-samples",
+            "anomaly-spread",
+            "bulk-eviction",
+            "cap-1",
+            "pct-clamp-high",
+            "pct-clamp-low",
+            "pct-rank",
+            "wraparound"
+          ]
+        },
+        {
+          "generation": 3,
+          "diagnostics_given": true,
+          "prompt_chars": 5254,
+          "steps": 4,
+          "step_errors": 3,
+          "definitional_chunks": 1,
+          "llm": {
+            "llm_calls": 4,
+            "llm_latency_s": 10.155261518084444,
+            "prompt_tokens": 42311,
+            "completion_tokens": 88
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 0,
+          "holdout_total": 15,
+          "harness_gas": 0,
+          "verify_opcodes": 5420,
+          "gas_used": 5420,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 10.268,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#r] := initCapacity(new(RingTelemetry), 3)!! record(Actor[#r], 1)!! record(Actor[#r], 2)!! record(Actor[#r], 3)!! record(Actor[#r], 4)!! record(Actor[#...  ->  got None, expected 12",
+            "Actor[#r] := initCapacity(new(RingTelemetry), 3)!! record(Actor[#r], 1)!! record(Actor[#r], 2)!! record(Actor[#r], 3)!! record(Actor[#r], 4)!! record(Actor[#...  ->  got None, expected 3",
+            "Actor[#r] := initCapacity(new(RingTelemetry), 5)!! record(Actor[#r], 10)!! record(Actor[#r], 20)!! record(Actor[#r], 30)!! record(Actor[#r], 40)!! record(Act...  ->  got None, expected 30"
+          ],
+          "failed_holdout_tags": [
+            "anomaly-flat",
+            "anomaly-min-samples",
+            "anomaly-spread",
+            "bulk-eviction",
+            "cap-1",
+            "pct-clamp-high",
+            "pct-clamp-low",
+            "pct-rank",
+            "wraparound"
+          ]
+        }
+      ],
+      "error": ""
+    },
+    {
+      "spec_id": "circuit_breaker_policy",
+      "name": "Stateful closed/open/half-open retry guard",
+      "difficulty": "tier2_class_engram",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "failed",
+      "passed": false,
+      "pass_at_1": false,
+      "pass_at_g": false,
+      "max_generations": 3,
+      "generations_used": 3,
+      "steps_used": 14,
+      "gas_used": 3066,
+      "visible_pass_rate": 0.4,
+      "holdout_pass_rate": 0.1,
+      "persistence_required": true,
+      "persistence_verified": false,
+      "baseline": {
+        "visible_passed": 0,
+        "visible_total": 5,
+        "holdout_passed": 0,
+        "holdout_total": 10
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 2,
+      "latency_s": 46.307,
+      "final_source": "now(CircuitBreaker)!!\n\nDef initBreaker(self, failThreshold, cooldownTicks) { self.state := #closed; self.failThreshold := failThreshold; self.cooldownTicks := cooldownTicks; self.failureCount := 0; self.tripCount := 0; self.openedAt := 0; self.probeOutstanding := false; ^self; }!!\n\nDef state(self) { ^self.state; }!!\n\nDef failureCount(self) { ^self.failureCount; }!!\n\nDef tripCount(self) { ^self.tripCount; }!!",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 3834,
+          "steps": 6,
+          "step_errors": 5,
+          "definitional_chunks": 5,
+          "llm": {
+            "llm_calls": 6,
+            "llm_latency_s": 23.73882617102936,
+            "prompt_tokens": 63647,
+            "completion_tokens": 1333
+          },
+          "visible_passed": 2,
+          "visible_total": 5,
+          "holdout_passed": 1,
+          "holdout_total": 10,
+          "harness_gas": 12,
+          "verify_opcodes": 1018,
+          "gas_used": 1030,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 23.839,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! state(Actor[...  ->  got '#closed', expected '#open'",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got None, expected False",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got '#closed', expected '#halfOpen'"
+          ],
+          "failed_holdout_tags": [
+            "closed-allows",
+            "cooldown-boundary",
+            "halfopen-reopen-new-clock",
+            "just-before-cooldown",
+            "late-success-open",
+            "single-probe",
+            "success-resets-failures",
+            "trip-count"
+          ]
+        },
+        {
+          "generation": 2,
+          "diagnostics_given": true,
+          "prompt_chars": 5792,
+          "steps": 4,
+          "step_errors": 3,
+          "definitional_chunks": 1,
+          "llm": {
+            "llm_calls": 4,
+            "llm_latency_s": 9.977706394973211,
+            "prompt_tokens": 42800,
+            "completion_tokens": 32
+          },
+          "visible_passed": 2,
+          "visible_total": 5,
+          "holdout_passed": 1,
+          "holdout_total": 10,
+          "harness_gas": 0,
+          "verify_opcodes": 1018,
+          "gas_used": 1018,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 10.065,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! state(Actor[...  ->  got '#closed', expected '#open'",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got None, expected False",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got '#closed', expected '#halfOpen'"
+          ],
+          "failed_holdout_tags": [
+            "closed-allows",
+            "cooldown-boundary",
+            "halfopen-reopen-new-clock",
+            "just-before-cooldown",
+            "late-success-open",
+            "single-probe",
+            "success-resets-failures",
+            "trip-count"
+          ]
+        },
+        {
+          "generation": 3,
+          "diagnostics_given": true,
+          "prompt_chars": 6320,
+          "steps": 4,
+          "step_errors": 3,
+          "definitional_chunks": 1,
+          "llm": {
+            "llm_calls": 4,
+            "llm_latency_s": 12.186365209985524,
+            "prompt_tokens": 43236,
+            "completion_tokens": 296
+          },
+          "visible_passed": 2,
+          "visible_total": 5,
+          "holdout_passed": 1,
+          "holdout_total": 10,
+          "harness_gas": 0,
+          "verify_opcodes": 1018,
+          "gas_used": 1018,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 12.308,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! state(Actor[...  ->  got '#closed', expected '#open'",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got None, expected False",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got '#closed', expected '#halfOpen'"
+          ],
+          "failed_holdout_tags": [
+            "closed-allows",
+            "cooldown-boundary",
+            "halfopen-reopen-new-clock",
+            "just-before-cooldown",
+            "late-success-open",
+            "single-probe",
+            "success-resets-failures",
+            "trip-count"
+          ]
+        }
+      ],
+      "error": ""
+    },
+    {
+      "spec_id": "dag_task_scheduler",
+      "name": "Topological dependency resolver with cycle detection",
+      "difficulty": "tier2_class_engram",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "failed",
+      "passed": false,
+      "pass_at_1": false,
+      "pass_at_g": false,
+      "max_generations": 3,
+      "generations_used": 3,
+      "steps_used": 10,
+      "gas_used": 2499,
+      "visible_pass_rate": 0.25,
+      "holdout_pass_rate": 0.2308,
+      "persistence_required": true,
+      "persistence_verified": false,
+      "baseline": {
+        "visible_passed": 1,
+        "visible_total": 4,
+        "holdout_passed": 3,
+        "holdout_total": 13
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 3,
+      "latency_s": 24.187,
+      "final_source": "",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 3234,
+          "steps": 1,
+          "step_errors": 0,
+          "definitional_chunks": 0,
+          "llm": {
+            "llm_calls": 1,
+            "llm_latency_s": 2.247586132027209,
+            "prompt_tokens": 9600,
+            "completion_tokens": 18
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 3,
+          "holdout_total": 13,
+          "harness_gas": 0,
+          "verify_opcodes": 833,
+          "gas_used": 833,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 2.32,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected [1, 2, 3, 4]",
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 1, 2)!! hasCycle(Actor[#s])!!  ->  got None, expected True",
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected 2"
+          ],
+          "failed_holdout_tags": [
+            "auto-register",
+            "bulk-chain",
+            "chain-depth",
+            "diamond-depth",
+            "idempotent-add",
+            "independent-sorted",
+            "no-cycle",
+            "reverse-chain",
+            "self-cycle",
+            "smallest-first"
+          ]
+        },
+        {
+          "generation": 2,
+          "diagnostics_given": true,
+          "prompt_chars": 4181,
+          "steps": 5,
+          "step_errors": 3,
+          "definitional_chunks": 2,
+          "llm": {
+            "llm_calls": 5,
+            "llm_latency_s": 11.544263107003644,
+            "prompt_tokens": 51246,
+            "completion_tokens": 72
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 3,
+          "holdout_total": 13,
+          "harness_gas": 0,
+          "verify_opcodes": 833,
+          "gas_used": 833,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 11.638,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected [1, 2, 3, 4]",
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 1, 2)!! hasCycle(Actor[#s])!!  ->  got None, expected True",
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected 2"
+          ],
+          "failed_holdout_tags": [
+            "auto-register",
+            "bulk-chain",
+            "chain-depth",
+            "diamond-depth",
+            "idempotent-add",
+            "independent-sorted",
+            "no-cycle",
+            "reverse-chain",
+            "self-cycle",
+            "smallest-first"
+          ]
+        },
+        {
+          "generation": 3,
+          "diagnostics_given": true,
+          "prompt_chars": 5150,
+          "steps": 4,
+          "step_errors": 3,
+          "definitional_chunks": 1,
+          "llm": {
+            "llm_calls": 4,
+            "llm_latency_s": 10.028547012945637,
+            "prompt_tokens": 41826,
+            "completion_tokens": 80
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 3,
+          "holdout_total": 13,
+          "harness_gas": 0,
+          "verify_opcodes": 833,
+          "gas_used": 833,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 10.15,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected [1, 2, 3, 4]",
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 1, 2)!! hasCycle(Actor[#s])!!  ->  got None, expected True",
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected 2"
+          ],
+          "failed_holdout_tags": [
+            "auto-register",
+            "bulk-chain",
+            "chain-depth",
+            "diamond-depth",
+            "idempotent-add",
+            "independent-sorted",
+            "no-cycle",
+            "reverse-chain",
+            "self-cycle",
+            "smallest-first"
+          ]
+        }
+      ],
+      "error": ""
+    },
+    {
+      "spec_id": "harness_step_budget_advisor",
+      "name": "Metacircular step-budget advisor (oscillation / failure detection)",
+      "difficulty": "tier3_harness_policy",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "failed",
+      "passed": false,
+      "pass_at_1": false,
+      "pass_at_g": false,
+      "max_generations": 3,
+      "generations_used": 3,
+      "steps_used": 15,
+      "gas_used": 8127,
+      "visible_pass_rate": 0.25,
+      "holdout_pass_rate": 0.3333,
+      "persistence_required": true,
+      "persistence_verified": false,
+      "baseline": {
+        "visible_passed": 0,
+        "visible_total": 4,
+        "holdout_passed": 0,
+        "holdout_total": 15
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 1,
+      "latency_s": 60.816,
+      "final_source": "inherit(Object, #StepBudgetAdvisor, #(), 0, nil)!!\n\nnow(StepBudgetAdvisor)!!\n\nDef remainingBudget(self, h | m c r) {\n    m := maxSteps(h);\n    if (m <= 0) then ^ -1; endif;\n    c := stepCount(h);\n    r := m - c;\n    if (r < 0) then r := 0; endif;\n    ^ r;\n}!!\n\ninherit(Object, #StepBudgetAdvisor, #(), 0, nil)!!\n\nnow(StepBudgetAdvisor)!!\n\nDef consecutiveErrors(self, h | log n i e st cnt) {\n    log := stepLog(h);\n    n := size(log);\n    cnt := 0;\n    i := n - 1;\n    loop while (i >= 0) begin\n        e := log[i];\n        st := at(e, #status);\n        if (st == \"error\") then\n            cnt := cnt + 1;\n        else\n            i := -1;\n        endif;\n        i := i - 1;\n    endLoop;\n    ^ cnt;\n}!!\n\ninherit(Object, #StepBudgetAdvisor, #(), 0, nil)!!\n\nnow(StepBudgetAdvisor)!!\n\ninherit(Object, #StepBudgetAdvisor, #(), 0, nil)!!\n\nnow(StepBudgetAdvisor)!!\n\ninherit(Object, #StepBudgetAdvisor, #(), 0, nil)!!\n\nnow(StepBudgetAdvisor)!!\n\nDef consecutiveErrors(self, h | log n i e st cnt) {\n    log := stepLog(h);\n    n := size(log);\n    cnt := 0;\n    i := n - 1;\n    loop while (i >= 0) begin\n        e := log[i];\n        st := at(e, #status);\n        if (st == \"error\") then\n            cnt := cnt + 1;\n        else\n            i := -1;\n        endif;\n        i := i - 1;\n    endLoop;\n    ^ cnt;\n}!!",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 4528,
+          "steps": 6,
+          "step_errors": 3,
+          "definitional_chunks": 8,
+          "llm": {
+            "llm_calls": 6,
+            "llm_latency_s": 21.660029414808378,
+            "prompt_tokens": 63679,
+            "completion_tokens": 1046
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 5,
+          "holdout_total": 15,
+          "harness_gas": 0,
+          "verify_opcodes": 2709,
+          "gas_used": 2709,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 21.815,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#adv] := new(StepBudgetAdvisor)!!Actor[#f] := initFake(new(FakeHarness), 10)!! push(Actor[#f], \"a\", \"ok\")!! push(Actor[#f], \"b\", \"ok\")!! push(Actor[#f]...  ->  got None, expected True",
+            "Actor[#adv] := new(StepBudgetAdvisor)!!Actor[#f] := initFake(new(FakeHarness), 10)!! push(Actor[#f], \"a\", \"ok\")!! push(Actor[#f], \"b\", \"error\")!! push(Actor[...  ->  got None, expected '#failing'",
+            "Actor[#adv] := new(StepBudgetAdvisor)!!Actor[#f] := initFake(new(FakeHarness), 10)!! push(Actor[#f], \"a\", \"ok\")!! push(Actor[#f], \"b\", \"ok\")!! push(Actor[#f]...  ->  got None, expected 2"
+          ],
+          "failed_holdout_tags": [
+            "double-only",
+            "empty-budget",
+            "empty-log",
+            "exhausted-budget",
+            "exhausted-priority",
+            "failing-budget",
+            "failing-over-oscillating",
+            "not-pingpong",
+            "real-harness",
+            "triple-repeat"
+          ]
+        },
+        {
+          "generation": 2,
+          "diagnostics_given": true,
+          "prompt_chars": 7334,
+          "steps": 4,
+          "step_errors": 3,
+          "definitional_chunks": 2,
+          "llm": {
+            "llm_calls": 4,
+            "llm_latency_s": 17.289355701883323,
+            "prompt_tokens": 45092,
+            "completion_tokens": 883
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 5,
+          "holdout_total": 15,
+          "harness_gas": 0,
+          "verify_opcodes": 2709,
+          "gas_used": 2709,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 17.423,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#adv] := new(StepBudgetAdvisor)!!Actor[#f] := initFake(new(FakeHarness), 10)!! push(Actor[#f], \"a\", \"ok\")!! push(Actor[#f], \"b\", \"ok\")!! push(Actor[#f]...  ->  got None, expected True",
+            "Actor[#adv] := new(StepBudgetAdvisor)!!Actor[#f] := initFake(new(FakeHarness), 10)!! push(Actor[#f], \"a\", \"ok\")!! push(Actor[#f], \"b\", \"error\")!! push(Actor[...  ->  got None, expected '#failing'",
+            "Actor[#adv] := new(StepBudgetAdvisor)!!Actor[#f] := initFake(new(FakeHarness), 10)!! push(Actor[#f], \"a\", \"ok\")!! push(Actor[#f], \"b\", \"ok\")!! push(Actor[#f]...  ->  got None, expected 2"
+          ],
+          "failed_holdout_tags": [
+            "double-only",
+            "empty-budget",
+            "empty-log",
+            "exhausted-budget",
+            "exhausted-priority",
+            "failing-budget",
+            "failing-over-oscillating",
+            "not-pingpong",
+            "real-harness",
+            "triple-repeat"
+          ]
+        },
+        {
+          "generation": 3,
+          "diagnostics_given": true,
+          "prompt_chars": 7369,
+          "steps": 5,
+          "step_errors": 3,
+          "definitional_chunks": 5,
+          "llm": {
+            "llm_calls": 5,
+            "llm_latency_s": 21.337808252079412,
+            "prompt_tokens": 56636,
+            "completion_tokens": 1073
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 5,
+          "holdout_total": 15,
+          "harness_gas": 0,
+          "verify_opcodes": 2709,
+          "gas_used": 2709,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 21.503,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#adv] := new(StepBudgetAdvisor)!!Actor[#f] := initFake(new(FakeHarness), 10)!! push(Actor[#f], \"a\", \"ok\")!! push(Actor[#f], \"b\", \"ok\")!! push(Actor[#f]...  ->  got None, expected True",
+            "Actor[#adv] := new(StepBudgetAdvisor)!!Actor[#f] := initFake(new(FakeHarness), 10)!! push(Actor[#f], \"a\", \"ok\")!! push(Actor[#f], \"b\", \"error\")!! push(Actor[...  ->  got None, expected '#failing'",
+            "Actor[#adv] := new(StepBudgetAdvisor)!!Actor[#f] := initFake(new(FakeHarness), 10)!! push(Actor[#f], \"a\", \"ok\")!! push(Actor[#f], \"b\", \"ok\")!! push(Actor[#f]...  ->  got None, expected 2"
+          ],
+          "failed_holdout_tags": [
+            "double-only",
+            "empty-budget",
+            "empty-log",
+            "exhausted-budget",
+            "exhausted-priority",
+            "failing-budget",
+            "failing-over-oscillating",
+            "not-pingpong",
+            "real-harness",
+            "triple-repeat"
+          ]
+        }
+      ],
+      "error": ""
+    }
+  ],
+  "summary": {
+    "specs": 5,
+    "pass_at_1": 0.0,
+    "pass_at_1_count": 0,
+    "pass_at_g": 0.0,
+    "pass_at_g_count": 0,
+    "mean_generations_used": 3.0,
+    "steps_used": 64,
+    "gas_used": 40762,
+    "mean_holdout_pass_rate": 0.2828,
+    "persistence_verified": 0,
+    "reward_hacking_suspected": 0,
+    "rollbacks": 9,
+    "errors": 0,
+    "total_latency_s": 221.17
+  }
+}

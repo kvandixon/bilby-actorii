@@ -10,6 +10,8 @@ Provides:
 from __future__ import annotations
 
 import json
+import os
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -18,8 +20,38 @@ from typing import Any, Callable, Dict, List, Optional
 from actorii.guardrails.linter import LintReport, RiskTier
 from actorii.vm import CompiledMethod
 
-SYSTEMONE_CPU_URL = "http://127.0.0.1:11434/v1/systemone"
-SPECIALIST_CPU_8082_URL = "http://127.0.0.1:8082/v1/chat/completions"
+SYSTEMONE_CPU_URL = os.environ.get(
+    "ACTORII_SYSTEMONE_URL", "http://127.0.0.1:11434/v1/systemone"
+)
+SPECIALIST_CPU_8082_URL = os.environ.get(
+    "ACTORII_SPECIALIST_ENDPOINT", "http://127.0.0.1:8082/v1/chat/completions"
+)
+
+_SELECTOR_WORD_RE = re.compile(r"[A-Z]+(?=[A-Z][a-z]|\b)|[A-Z]?[a-z]+|[0-9]+")
+
+
+def _parse_judge_json_object(raw_text: str) -> Optional[Dict[str, Any]]:
+    """Extract and parse a JSON object from an LLM judge reply (strict, fail-closed)."""
+    txt = str(raw_text or "").strip()
+    if not txt:
+        return None
+    txt = re.sub(r"<think>.*?</think>", "", txt, flags=re.DOTALL | re.IGNORECASE).strip()
+    fence_m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", txt, flags=re.DOTALL | re.IGNORECASE)
+    candidates: List[str] = []
+    if fence_m:
+        candidates.append(fence_m.group(1))
+    start = txt.find("{")
+    end = txt.rfind("}")
+    if start != -1 and end > start:
+        candidates.append(txt[start : end + 1])
+    for cand in candidates:
+        try:
+            parsed = json.loads(cand)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            continue
+    return None
 
 
 @dataclass
@@ -87,12 +119,32 @@ class ZeroVramSystemOneJudge:
         )
 
         if self.prefer_fast_8082:
-            return self._score_via_8082(compiled_method, lint_report, state_context)
+            try:
+                return self._score_via_8082(compiled_method, lint_report, state_context)
+            except Exception as exc:
+                return JudgeVerdict(
+                    approved=False,
+                    risk_tier=lint_report.risk_tier,
+                    confidence=0.0,
+                    reasons=[f"CPU Specialist (:8082) unavailable (fail-closed): {exc}"],
+                    engine="offline_fail_closed",
+                )
 
         try:
             return self._score_via_systemone(compiled_method, lint_report, state_context)
-        except Exception:
-            return self._score_via_8082(compiled_method, lint_report, state_context)
+        except Exception as exc1:
+            try:
+                return self._score_via_8082(compiled_method, lint_report, state_context)
+            except Exception as exc2:
+                return JudgeVerdict(
+                    approved=False,
+                    risk_tier=lint_report.risk_tier,
+                    confidence=0.0,
+                    reasons=[
+                        f"CPU judge endpoints unreachable (fail-closed): systemone={exc1}; specialist_8082={exc2}"
+                    ],
+                    engine="offline_fail_closed",
+                )
 
     def _score_via_systemone(
         self,
@@ -189,14 +241,26 @@ class ZeroVramSystemOneJudge:
             res = json.loads(resp.read().decode("utf-8"))
         msg = res["choices"][0]["message"]
         text = (msg.get("content") or msg.get("reasoning_content") or "").strip()
-        approved = '"approved": true' in text.lower() or '"approved":true' in text.lower()
-        if not approved and "approve" in text.lower() and "false" not in text.lower():
-            approved = True
+        parsed = _parse_judge_json_object(text)
+        if parsed is None or not isinstance(parsed.get("approved"), bool):
+            return JudgeVerdict(
+                approved=False,
+                risk_tier=lint_report.risk_tier,
+                confidence=0.0,
+                reasons=[f"CPU Specialist (:8082) malformed non-JSON reply (fail-closed): {text[:160]}"],
+                engine="specialist_8082",
+            )
+        approved = parsed["approved"] is True
+        try:
+            conf = max(0.0, min(1.0, float(parsed.get("confidence", 0.85))))
+        except (TypeError, ValueError):
+            conf = 0.85
+        reason_str = str(parsed.get("reason") or text[:160]).strip()
         return JudgeVerdict(
             approved=approved,
             risk_tier=lint_report.risk_tier,
-            confidence=0.85,
-            reasons=[f"CPU Specialist (:8082): {text[:160]}"],
+            confidence=round(conf, 4),
+            reasons=[f"CPU Specialist (:8082): {reason_str[:200]}"],
             engine="specialist_8082",
         )
 
@@ -254,25 +318,53 @@ class ActorCodeJudge:
         #    A query-named selector (e.g. get*, is*, *Count, *Range*) synthesized by an LLM
         #    should not unexpectedly mutate fields or globals unless explicitly named set*/update*/etc.
         if is_synthesized and lint_report.risk_tier >= RiskTier.TIER_1_LOCAL_MUTATION:
-            sel_lower = lint_report.selector.lower()
-            mutator_prefixes = (
-                "set",
-                "update",
-                "add",
-                "remove",
-                "inc",
-                "dec",
-                "deposit",
-                "withdraw",
-                "reset",
-                "clear",
-                "toggle",
-                "apply",
-                "on",
-                "attach",
-                "register",
+            sel_tokens = [t.lower() for t in _SELECTOR_WORD_RE.findall(lint_report.selector or "")]
+            first_tok = sel_tokens[0] if sel_tokens else (lint_report.selector or "").lower()
+            mutator_verbs = frozenset(
+                {
+                    "set",
+                    "update",
+                    "add",
+                    "remove",
+                    "inc",
+                    "increment",
+                    "dec",
+                    "decrement",
+                    "deposit",
+                    "withdraw",
+                    "reset",
+                    "clear",
+                    "toggle",
+                    "apply",
+                    "on",
+                    "attach",
+                    "register",
+                    "store",
+                    "save",
+                    "write",
+                    "delete",
+                    "push",
+                    "pop",
+                    "put",
+                    "init",
+                    "record",
+                    "append",
+                    "insert",
+                    "replace",
+                    "edit",
+                    "patch",
+                    "evolve",
+                    "rollback",
+                }
             )
-            if not any(sel_lower.startswith(p) or p in sel_lower for p in mutator_prefixes):
+            # Match word-boundary mutator verbs (leading verb or explicit mutator token after non-query prefix),
+            # never arbitrary substrings like "on" inside "getJson"/"isConnected" or "set" inside "getOffset".
+            query_leading_verbs = frozenset({"get", "is", "has", "can", "check", "read", "find", "list", "count", "calc", "compute"})
+            is_mutator_name = first_tok in mutator_verbs or (
+                first_tok not in query_leading_verbs
+                and any(tok in mutator_verbs and tok != "on" for tok in sel_tokens)
+            )
+            if not is_mutator_name:
                 reasons.append(
                     f"Synthesized query selector '{lint_report.selector}' unexpectedly mutates state "
                     f"(writes fields={lint_report.written_fields}, globals={lint_report.globals_written})."

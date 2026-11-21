@@ -16,15 +16,19 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import re
 import shutil
+import signal
 import socket
 import subprocess
+import tempfile
 import time
 import urllib.parse
 import urllib.request
+from collections import OrderedDict, deque
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
 from actorii.bridge import actor_bridge, actor_command, actor_query
 
@@ -34,14 +38,75 @@ NEO4J_HTTP_TX_URL = os.environ.get(
 )
 
 
+def _enforce_safe_read_path(raw_path: str) -> Path:
+    """Resolve `raw_path` and block reads from `FORBIDDEN_READ_PREFIXES`."""
+    from actorii.harness.host_bridge import FORBIDDEN_READ_PREFIXES
+
+    p = Path(str(raw_path or "").strip()).expanduser().resolve()
+    p_str = str(p)
+    for fp in FORBIDDEN_READ_PREFIXES:
+        if p_str == fp or p_str.startswith(fp + "/"):
+            raise PermissionError(f"Access to restricted path '{p_str}' is forbidden.")
+    if p_str.startswith("/proc/") and p_str.endswith("/environ"):
+        raise PermissionError(f"Access to restricted path '{p_str}' is forbidden.")
+    return p
+
+
+def _write_bytes_atomic(dest_path: Path, raw_bytes: bytes, mode: int = 0o600) -> None:
+    """Atomically write `raw_bytes` to `dest_path` using `os.fdopen` (no partial `os.write`)."""
+    dest_path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+    if os.path.islink(dest_path):
+        dest_path.unlink()
+    part_path = dest_path.parent / f".{dest_path.name}.{os.getpid()}.{time.monotonic_ns()}.part"
+    fd = os.open(str(part_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(raw_bytes)
+        os.replace(str(part_path), str(dest_path))
+    except Exception:
+        try:
+            if part_path.exists():
+                part_path.unlink()
+        except OSError:
+            pass
+        raise
+
+
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """HTTP redirect handler that re-validates every redirect destination against SSRF guards."""
+
+    def __init__(self, validator: Callable[[str], Any]) -> None:
+        super().__init__()
+        self._validator = validator
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        self._validator(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _safe_urlopen(
+    req: urllib.request.Request | str,
+    *,
+    timeout: float,
+    validator: Callable[[str], Any],
+) -> Any:
+    """Open an HTTP(S) request while validating all redirect hops with `validator`."""
+    opener = urllib.request.build_opener(_SafeRedirectHandler(validator))
+    return opener.open(req, timeout=timeout)
+
+
 @actor_bridge(name="ValkyrieSystemTwin")
 class ValkyrieSystemTwin:
     """Read-only host GPU & local service telemetry twin exposed at `Actor[#Valkyrie]`."""
 
     def __init__(self) -> None:
         self._last_gpu: Dict[str, Any] = {}
+        self._last_gpu_ts: float = 0.0
 
-    def _query_nvidia_smi(self) -> Dict[str, Any]:
+    def _query_nvidia_smi(self, ttl_sec: float = 1.5) -> Dict[str, Any]:
+        now = time.monotonic()
+        if self._last_gpu and (now - self._last_gpu_ts) < ttl_sec:
+            return self._last_gpu
         if shutil.which("nvidia-smi"):
             try:
                 out = subprocess.check_output(
@@ -64,6 +129,7 @@ class ValkyrieSystemTwin:
                             "util_pct": int(parts[4]),
                             "temp_c": int(parts[5]),
                         }
+                        self._last_gpu_ts = now
                         return self._last_gpu
             except Exception:
                 pass
@@ -105,7 +171,7 @@ class ValkyrieSystemTwin:
         """Check whether a local TCP service port (`8080`, `8082`, `11434`, `7687`, `8090`) is listening."""
         p = int(port)
         try:
-            with socket.create_connection(("127.0.0.1", p), timeout=0.5):
+            with socket.create_connection(("127.0.0.1", p), timeout=0.25):
                 return "ONLINE"
         except Exception:
             return "OFFLINE"
@@ -115,13 +181,27 @@ class ValkyrieSystemTwin:
         """Return True if running inside the isolated `actorii-sandbox` Docker container."""
         return os.environ.get("ACTORII_IN_DOCKER") == "1" or os.path.exists("/.dockerenv")
 
+    def _active_8080_label(self) -> str:
+        """Probe `:8080/health` quickly to distinguish Strata Coder from llama.cpp."""
+        import urllib.request
+
+        try:
+            with urllib.request.urlopen("http://127.0.0.1:8080/health", timeout=0.6) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+                if '"service": "strata"' in raw or '"service":"strata"' in raw:
+                    return "StrataCoderGPU"
+        except Exception:
+            pass
+        return "LlamaPrimaryGPU"
+
     @actor_query
     def summary(self) -> str:
         """Return a 1-line telemetry summary of GPU VRAM, sandbox mode, and core Valkyrie stack ports."""
         gpu_str = self.gpuStatus()
         mode = "DOCKER-SANDBOX" if self.isSandboxed() else "HOST-RESIDENT"
+        lbl8080 = self._active_8080_label()
         ports = [
-            (8080, "LlamaPrimaryGPU"),
+            (8080, lbl8080),
             (8082, "SpecialistCPU"),
             (11434, "OllamaSystem1"),
             (8084, "Embeddings"),
@@ -132,7 +212,12 @@ class ValkyrieSystemTwin:
             (8765, "ActorWS"),
         ]
         port_strs = [f":{p}({label})={self.serviceStatus(p)}" for p, label in ports]
-        return f"[{mode}] {gpu_str} (Note: ~14.7GB/90.5% VRAM is intentionally pinned for qwen3.8:latest 64k context) | Services: {' '.join(port_strs)}"
+        note = (
+            "Note: Strata Coder IQ1_M pins ~15.5GB VRAM + 18.9GiB DDR5 RAM for 101 tok/s 64k context"
+            if lbl8080 == "StrataCoderGPU"
+            else "Note: ~14.4GB VRAM is intentionally pinned for qwen3.8:latest 64k context"
+        )
+        return f"[{mode}] {gpu_str} ({note}) | Services: {' '.join(port_strs)}"
 
     @actor_query
     def stackHealth(self) -> str:
@@ -155,6 +240,81 @@ class ValkyrieSystemTwin:
             except Exception as exc:
                 parts.append(f"LogTriage error: {exc}")
         return "\n\n".join(parts)
+
+    @actor_query
+    def engineStatus(self) -> str:
+        """Return active `:8080` inference engine (`strata` vs `llama`), model, thinking mode, VRAM, and RAM via `bilby-engine status`."""
+        from pathlib import Path
+
+        ctl = shutil.which("bilby-engine") or str(Path.home() / "bin" / "bilby-engine")
+        if os.path.isfile(ctl):
+            try:
+                out = subprocess.check_output([ctl, "status"], timeout=8.0, text=True, stderr=subprocess.STDOUT).strip()
+                if out:
+                    return out
+            except Exception as exc:
+                return f"engineStatus error: {exc}"
+        return self.summary()
+
+    @actor_command
+    def switchEngine(self, target: str = "status") -> str:
+        """Safely switch `:8080` between `strata` (Qwen3.8-Flash-Next Coder IQ1_M @ ~101 tok/s, default) and `llama` (Qwen3.8-27B dense for Actor 4.1 multi-method Self-Evolution or `:8082` CPU specialist RAM)."""
+        from pathlib import Path
+        from actorii.ai import set_thinking_mode
+
+        if self.isSandboxed() or os.environ.get("ACTORII_BENCH_STRICT") == "1":
+            return "BLOCKED: switchEngine is disabled inside isolated benchmark containers."
+        clean = str(target or "status").lstrip("#").strip().lower()
+        allowed = {
+            "status",
+            "toggle",
+            "strata",
+            "strata-coder",
+            "coder",
+            "fast",
+            "llama",
+            "llamacpp",
+            "llama.cpp",
+            "qwen27b",
+            "27b",
+            "dense",
+            "self-evo",
+        }
+        if clean not in allowed:
+            return f"ERROR: Unsupported engine target {target!r}. Expected: 'strata', 'llama', 'toggle', or 'status'."
+        ctl = shutil.which("bilby-engine") or str(Path.home() / "bin" / "bilby-engine")
+        if not os.path.isfile(ctl):
+            return "ERROR: bilby-engine helper not installed in ~/bin/bilby-engine."
+        try:
+            proc = subprocess.run(
+                [ctl, clean, "--json"],
+                timeout=115.0,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode != 0:
+                detail = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()[:1200]
+                return f"switchEngine error (exit {proc.returncode}): {detail}"
+            data = json.loads(proc.stdout)
+            tmode = str(data.get("thinking_mode") or "").strip().lower()
+            if tmode in ("off", "auto", "medium", "high"):
+                try:
+                    set_thinking_mode(tmode)
+                except ValueError:
+                    pass
+            svcs = data.get("services") or {}
+            elapsed = f" in {data['switch_elapsed_s']}s" if "switch_elapsed_s" in data else ""
+            return (
+                f"Active Engine: {str(data.get('active_engine', '')).upper()}{elapsed} | "
+                f"Model: {data.get('active_model')} | Thinking: {data.get('thinking_mode')} | "
+                f"8082 Specialist: {svcs.get('clef-flash-slot-8082.service')} | "
+                f"VRAM: {data.get('vram')} | RAM: {data.get('ram')}"
+            )
+        except subprocess.TimeoutExpired:
+            return "switchEngine timed out after 115s waiting for :8080 health check."
+        except Exception as exc:
+            return f"switchEngine error: {type(exc).__name__}: {exc}"
 
     @actor_command
     def askSkippy(self, question: str, timeout_sec: int = 110) -> str:
@@ -267,10 +427,14 @@ class ValkyrieSystemTwin:
         if not self.isSandboxed():
             return "BLOCKED: File reading requires the `actorii-sandbox` Docker container."
         target = str(path or "").strip()
-        if not os.path.isfile(target):
+        try:
+            safe_p = _enforce_safe_read_path(target)
+        except PermissionError as exc:
+            return f"BLOCKED: {exc}"
+        if not safe_p.is_file():
             return f"File not found: {target}"
         try:
-            with open(target, "r", encoding="utf-8", errors="replace") as fh:
+            with open(safe_p, "r", encoding="utf-8", errors="replace") as fh:
                 return fh.read(max(100, min(8000, int(max_chars or 3000))))
         except Exception as exc:
             return f"Error reading {target}: {exc}"
@@ -286,7 +450,7 @@ class ValkyrieSystemTwin:
         cmd_str = str(command or "").strip()
         if not cmd_str:
             return "ERROR: Empty command"
-        from actorii.harness.host_bridge import validate_safe_shell_command
+        from actorii.harness.host_bridge import _run_shell_with_pgkill, validate_safe_shell_command
 
         try:
             validate_safe_shell_command(cmd_str)
@@ -297,17 +461,11 @@ class ValkyrieSystemTwin:
 
         cmd_str = _re.sub(r"(?<=\s)(#[0-9A-Fa-f]{3,8})(?=\s|$)", r"'\1'", cmd_str)
         try:
-            proc = subprocess.run(
-                cmd_str,
-                shell=True,
-                timeout=5.0,
-                capture_output=True,
-                text=True,
-            )
-            combined = ((proc.stdout or "") + ("\n" + proc.stderr if proc.stderr else "")).strip()
+            rc, out_s, err_s = _run_shell_with_pgkill(cmd_str, cwd=os.getcwd(), timeout_sec=5.0)
+            combined = ((out_s or "") + ("\n" + err_s if err_s else "")).strip()
             if len(combined) > 3000:
                 combined = combined[:3000] + "...[truncated]"
-            return f"[exit={proc.returncode}] {combined}" if combined else f"[exit={proc.returncode}] (no output)"
+            return f"[exit={rc}] {combined}" if combined else f"[exit={rc}] (no output)"
         except Exception as exc:
             return f"ERROR: {type(exc).__name__}: {exc}"
 
@@ -386,6 +544,10 @@ class PantryGraphTwin:
         )
         with urllib.request.urlopen(req, timeout=2.5) as resp:
             body = json.loads(resp.read().decode("utf-8", errors="replace"))
+        errors = body.get("errors") or []
+        if errors:
+            first_err = errors[0] if isinstance(errors[0], dict) else {"message": str(errors[0])}
+            raise RuntimeError(f"Neo4j Cypher error: {first_err.get('message', first_err)}")
         results = body.get("results", [])
         if not results:
             return []
@@ -478,7 +640,11 @@ class ReverseEngineeringTwin:
     def fileIdentity(self, path: str) -> str:
         """Return read-only cryptographic SHA-256, byte size, and `file` magic description of `path`."""
         import hashlib
-        target = str(path or "").strip()
+        try:
+            safe_p = _enforce_safe_read_path(path)
+        except PermissionError as exc:
+            return f"BLOCKED: {exc}"
+        target = str(safe_p)
         if not os.path.isfile(target):
             return f"File not found: {target}"
         size = os.path.getsize(target)
@@ -488,7 +654,7 @@ class ReverseEngineeringTwin:
                 h.update(chunk)
         sha = h.hexdigest()
         try:
-            magic = subprocess.check_output(["file", "-b", target], timeout=5.0, text=True).strip()
+            magic = subprocess.check_output(["file", "-b", "--", target], timeout=5.0, text=True).strip()
         except Exception:
             magic = "unknown"
         return f"SHA256={sha} | Size={size} bytes | Type={magic}"
@@ -496,7 +662,11 @@ class ReverseEngineeringTwin:
     @actor_query
     def inspectEntropy(self, path: str) -> str:
         """Run REA `inspect-byte-entropy` on `path` and return overall entropy and high-entropy block ratio."""
-        target = str(path or "").strip()
+        try:
+            safe_p = _enforce_safe_read_path(path)
+        except PermissionError as exc:
+            return f"BLOCKED: {exc}"
+        target = str(safe_p)
         if not os.path.isfile(target):
             return f"File not found: {target}"
         cpath = self._to_container_path(target)
@@ -517,11 +687,19 @@ class ReverseEngineeringTwin:
     @actor_query
     def staticAudit(self, path: str, procedures_csv: str = "") -> str:
         """Run persistent REA+Ghidra batch audit (`rea-ghidra-batch`) on `path` and return procedure/import/string summary."""
-        target = str(path or "").strip()
+        try:
+            safe_p = _enforce_safe_read_path(path)
+        except PermissionError as exc:
+            return f"BLOCKED: {exc}"
+        target = str(safe_p)
         if not os.path.isfile(target):
             return f"File not found: {target}"
         cmd = [self._rea_batch, target]
-        procs = [p.strip() for p in str(procedures_csv or "").split(",") if p.strip()]
+        procs = [
+            p.strip()
+            for p in str(procedures_csv or "").split(",")
+            if p.strip() and not p.strip().startswith("-")
+        ]
         if procs:
             cmd.extend(["--decompile"] + procs)
         try:
@@ -541,8 +719,14 @@ class ReverseEngineeringTwin:
     @actor_query
     def decompileFunction(self, path: str, procedure: str) -> str:
         """Decompile a single procedure or address in `path` via REA+Ghidra and return C pseudocode."""
-        target = str(path or "").strip()
+        try:
+            safe_p = _enforce_safe_read_path(path)
+        except PermissionError as exc:
+            return f"BLOCKED: {exc}"
+        target = str(safe_p)
         proc_sel = str(procedure or "entry").lstrip("#").strip()
+        if not proc_sel or proc_sel.startswith("-"):
+            return f"Invalid procedure selector: {procedure!r}"
         if not os.path.isfile(target):
             return f"File not found: {target}"
         try:
@@ -563,12 +747,17 @@ class ReverseEngineeringTwin:
     @actor_command
     def detonateSandbox(self, path: str, duration_sec: int = 10, run_as: str = "sample.exe") -> str:
         """Detonate `path` inside the air-gapped VT-Sandbox (CAPA + Speakeasy + Wine64/Xvfb + strace) and return behavioral summary."""
-        target = str(path or "").strip()
+        try:
+            safe_p = _enforce_safe_read_path(path)
+        except PermissionError as exc:
+            return f"BLOCKED: {exc}"
+        target = str(safe_p)
         if not os.path.isfile(target):
             return f"File not found: {target}"
         dur = max(4, min(30, int(duration_sec or 10)))
-        rname = str(run_as or "sample.exe").strip()
-        out_dir = f"/tmp/actor_vtsandbox_{int(os.path.getmtime(target))}"
+        raw_rname = os.path.basename(str(run_as or "sample.exe").strip())
+        rname = re.sub(r"[^A-Za-z0-9._-]", "_", raw_rname).lstrip(".-") or "sample.exe"
+        out_dir = tempfile.mkdtemp(prefix="actor_vtsandbox_")
         try:
             out = subprocess.check_output(
                 [self._vt_sandbox, target, out_dir, "--duration", str(dur), "--run-as", rname],
@@ -657,13 +846,16 @@ def load_telegram_credentials(env_path: Optional[str] = None) -> Dict[str, Any]:
     }
 
 
-def telegram_api_request(
+def _telegram_https_request(
     token: str,
     method: str,
-    payload: Optional[Dict[str, Any]] = None,
-    timeout: float = 15.0,
+    *,
+    http_method: str,
+    body_bytes: Optional[bytes],
+    headers: Dict[str, str],
+    timeout: float,
 ) -> Dict[str, Any]:
-    """Call `api.telegram.org/bot<token>/<method>` with automatic IPv4 SNI fallback (`149.154.166.110`)."""
+    """Shared Telegram HTTPS transport with IPv4 SNI fallback and guaranteed socket cleanup."""
     import http.client
     import ssl
 
@@ -671,26 +863,22 @@ def telegram_api_request(
         return {"ok": False, "description": "Missing TELEGRAM_BOT_TOKEN"}
 
     path = f"/bot{token}/{method}"
-    body_bytes = json.dumps(payload or {}).encode("utf-8") if payload is not None else None
-    headers = {"Host": "api.telegram.org", "Accept": "application/json"}
-    if body_bytes is not None:
-        headers["Content-Type"] = "application/json"
-        headers["Content-Length"] = str(len(body_bytes))
-
     ctx = ssl.create_default_context()
     targets = ["api.telegram.org", *_TELEGRAM_SEED_IPS]
     last_err = "Unknown error"
 
     for target in targets:
+        raw_sock = None
+        conn = None
         try:
             raw_sock = socket.create_connection((target, 443), timeout=timeout)
             tls_sock = ctx.wrap_socket(raw_sock, server_hostname="api.telegram.org")
+            raw_sock = None  # ownership transferred to tls_sock/conn
             conn = http.client.HTTPSConnection("api.telegram.org", 443, timeout=timeout, context=ctx)
             conn.sock = tls_sock
-            conn.request("POST" if body_bytes is not None else "GET", path, body=body_bytes, headers=headers)
+            conn.request(http_method, path, body=body_bytes, headers=headers)
             resp = conn.getresponse()
             raw_data = resp.read().decode("utf-8", errors="replace")
-            conn.close()
             return json.loads(raw_data)
         except Exception as exc:
             err_msg = f"{type(exc).__name__}: {exc}"
@@ -698,8 +886,41 @@ def telegram_api_request(
                 err_msg = err_msg.replace(token, "<REDACTED>")
             last_err = err_msg
             continue
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            elif raw_sock is not None:
+                try:
+                    raw_sock.close()
+                except Exception:
+                    pass
 
     return {"ok": False, "description": last_err}
+
+
+def telegram_api_request(
+    token: str,
+    method: str,
+    payload: Optional[Dict[str, Any]] = None,
+    timeout: float = 15.0,
+) -> Dict[str, Any]:
+    """Call `api.telegram.org/bot<token>/<method>` with automatic IPv4 SNI fallback (`149.154.166.110`)."""
+    body_bytes = json.dumps(payload or {}).encode("utf-8") if payload is not None else None
+    headers = {"Host": "api.telegram.org", "Accept": "application/json"}
+    if body_bytes is not None:
+        headers["Content-Type"] = "application/json"
+        headers["Content-Length"] = str(len(body_bytes))
+    return _telegram_https_request(
+        token,
+        method,
+        http_method="POST" if body_bytes is not None else "GET",
+        body_bytes=body_bytes,
+        headers=headers,
+        timeout=timeout,
+    )
 
 
 TELEGRAM_MEDIA_STAGE_DIR = "/tmp/actorii_media"
@@ -772,13 +993,6 @@ def telegram_multipart_request(
     timeout: float = 35.0,
 ) -> Dict[str, Any]:
     """Upload binary media (`sendPhoto`, `sendDocument`) to `api.telegram.org` via `multipart/form-data` with IPv4 SNI fallback."""
-    import http.client
-    import ssl
-
-    if not token:
-        return {"ok": False, "description": "Missing TELEGRAM_BOT_TOKEN"}
-
-    path = f"/bot{token}/{method}"
     body_bytes, ctype_header = _encode_multipart_formdata(
         fields=fields,
         file_field=file_field,
@@ -792,30 +1006,14 @@ def telegram_multipart_request(
         "Content-Type": ctype_header,
         "Content-Length": str(len(body_bytes)),
     }
-
-    ctx = ssl.create_default_context()
-    targets = ["api.telegram.org", *_TELEGRAM_SEED_IPS]
-    last_err = "Unknown error"
-
-    for target in targets:
-        try:
-            raw_sock = socket.create_connection((target, 443), timeout=timeout)
-            tls_sock = ctx.wrap_socket(raw_sock, server_hostname="api.telegram.org")
-            conn = http.client.HTTPSConnection("api.telegram.org", 443, timeout=timeout, context=ctx)
-            conn.sock = tls_sock
-            conn.request("POST", path, body=body_bytes, headers=headers)
-            resp = conn.getresponse()
-            raw_data = resp.read().decode("utf-8", errors="replace")
-            conn.close()
-            return json.loads(raw_data)
-        except Exception as exc:
-            err_msg = f"{type(exc).__name__}: {exc}"
-            if token:
-                err_msg = err_msg.replace(token, "<REDACTED>")
-            last_err = err_msg
-            continue
-
-    return {"ok": False, "description": last_err}
+    return _telegram_https_request(
+        token,
+        method,
+        http_method="POST",
+        body_bytes=body_bytes,
+        headers=headers,
+        timeout=timeout,
+    )
 
 
 @actor_bridge(name="TelegramBotTwin")
@@ -839,7 +1037,7 @@ class TelegramBotTwin:
         self._active_thread_id: Optional[int] = None
         self._allowed_users: List[int] = list(creds["allowed_users"])
         self._bot_info: Dict[str, Any] = {}
-        self._sent_log: List[Dict[str, Any]] = []
+        self._sent_log: Deque[Dict[str, Any]] = deque(maxlen=200)
         self._api = api_caller or telegram_api_request
         self._multipart_api = multipart_caller or telegram_multipart_request
 
@@ -1020,6 +1218,9 @@ class TelegramBotTwin:
                 file_bytes = fh.read(max_bytes + 1)
         except OSError as exc:
             return f"Telegram {api_method} error: cannot read {real_p!r}: {exc}"
+        if len(file_bytes) > max_bytes:
+            lim_mb = max_bytes // (1024 * 1024)
+            return f"Telegram {api_method} error: file {os.path.basename(real_p)!r} grew past {lim_mb} MB limit during read."
 
         fields: Dict[str, Any] = {"chat_id": int(cid) if cid.lstrip("-").isdigit() else cid}
         clean_cap = str(caption or "").strip()
@@ -1178,6 +1379,8 @@ def _validate_public_http_url(raw_url: str, *, label: str = "URL") -> str:
 
     def _check_ip(ip_str: str) -> None:
         addr = ipaddress.ip_address(ip_str)
+        if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+            addr = addr.ipv4_mapped
         if (
             addr.is_loopback
             or addr.is_private
@@ -1185,6 +1388,7 @@ def _validate_public_http_url(raw_url: str, *, label: str = "URL") -> str:
             or addr.is_multicast
             or addr.is_reserved
             or addr.is_unspecified
+            or not addr.is_global
         ):
             raise PermissionError(
                 f"BLOCKED [SSRF_URL_GUARD]: {label} targeting non-public IP {ip_str} ({host!r}) is forbidden."
@@ -1205,8 +1409,17 @@ def _validate_public_http_url(raw_url: str, *, label: str = "URL") -> str:
     return u
 
 
-def _discover_local_host_ips() -> set[str]:
+_LOCAL_HOST_IPS_CACHE: Tuple[float, set[str]] = (0.0, set())
+
+
+def _discover_local_host_ips(ttl_sec: float = 30.0) -> set[str]:
     """Return all IPv4/IPv6 addresses bound on the local `valkyrie` host so LAN probes never SSRF the host itself."""
+    global _LOCAL_HOST_IPS_CACHE
+    now = time.monotonic()
+    ts, cached = _LOCAL_HOST_IPS_CACHE
+    if cached and (now - ts) < ttl_sec:
+        return set(cached)
+
     local_ips = {"127.0.0.1", "::1", "0.0.0.0"}
     try:
         from actorii.reverse_proxy import discover_host_network_ips
@@ -1223,6 +1436,7 @@ def _discover_local_host_ips() -> set[str]:
                 local_ips.add(str(res[4][0]).split("%", 1)[0])
     except Exception:
         pass
+    _LOCAL_HOST_IPS_CACHE = (now, set(local_ips))
     return local_ips
 
 
@@ -1281,12 +1495,17 @@ def _validate_probe_target_url(
 
     def _check_probe_ip(ip_str: str) -> None:
         addr = ipaddress.ip_address(ip_str)
+        if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
+            addr = addr.ipv4_mapped
+        norm_ip = str(addr)
         if (
             addr.is_loopback
             or addr.is_link_local
             or addr.is_multicast
+            or addr.is_reserved
             or addr.is_unspecified
             or ip_str in local_host_ips
+            or norm_ip in local_host_ips
         ):
             raise PermissionError(
                 f"BLOCKED [SSRF_PROBE_GUARD]: {label} targeting loopback/host/link-local IP {ip_str} ({host!r}) is forbidden."
@@ -1343,17 +1562,8 @@ def _stage_media_sample(raw_bytes: bytes, sample_name: str, default_name: str) -
     raw_base = os.path.basename(str(sample_name or "").strip() or default_name)
     safe_base = re.sub(r"[^A-Za-z0-9._-]", "_", raw_base).lstrip(".") or default_name
     stage_dir = Path(os.environ.get("ACTORII_MEDIA_STAGE_DIR", TELEGRAM_MEDIA_STAGE_DIR))
-    stage_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
     dest_path = stage_dir / safe_base
-    if os.path.islink(dest_path):
-        dest_path.unlink()
-    part_path = stage_dir / f".{safe_base}.{os.getpid()}.part"
-    fd = os.open(str(part_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    try:
-        os.write(fd, raw_bytes)
-    finally:
-        os.close(fd)
-    os.replace(str(part_path), str(dest_path))
+    _write_bytes_atomic(dest_path, raw_bytes, mode=0o600)
     return str(dest_path)
 
 
@@ -1403,10 +1613,11 @@ class NetTransportBridge:
         if self._firecrawl_key:
             headers["Authorization"] = f"Bearer {self._firecrawl_key}"
 
+        last_err = "Firecrawl returned empty markdown content"
         for endpoint in (f"{api_base}/v2/scrape", f"{api_base}/v1/scrape"):
             try:
                 req = urllib.request.Request(endpoint, data=payload, headers=headers, method="POST")
-                with urllib.request.urlopen(req, timeout=15.0) as resp:
+                with _safe_urlopen(req, timeout=15.0, validator=lambda u: _validate_public_http_url(u, label="Firecrawl redirect")) as resp:
                     raw = json.loads(resp.read().decode("utf-8", errors="replace"))
                 data = raw.get("data") if isinstance(raw.get("data"), dict) else raw
                 md = str(data.get("markdown") or data.get("content") or data.get("html") or "").strip()
@@ -1446,7 +1657,7 @@ class NetTransportBridge:
 
         try:
             req = urllib.request.Request(f"{api_base}/v2/search", data=payload, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=15.0) as resp:
+            with _safe_urlopen(req, timeout=15.0, validator=lambda u: _validate_public_http_url(u, label="Firecrawl redirect")) as resp:
                 raw = json.loads(resp.read().decode("utf-8", errors="replace"))
             data = raw.get("data")
             rows_raw = (
@@ -1532,6 +1743,7 @@ class NetTransportBridge:
         except (PermissionError, ValueError) as exc:
             return _to_actor_dict({"ok": False, "provider": Symbol("keyless"), "url": url, "title": "", "content": "", "error": str(exc)})
         limit = max(500, int(max_chars or 8000))
+        last_err = "Keyless ring returned empty content"
 
         # 1. Try Keenable public fetch
         try:
@@ -1539,7 +1751,7 @@ class NetTransportBridge:
 
             k_url = f"https://api.keenable.ai/v1/fetch/public?url={urllib.parse.quote(url, safe='')}"
             req = urllib.request.Request(k_url, headers={"X-Keenable-Title": "hermes-agent", "Accept": "application/json"})
-            with urllib.request.urlopen(req, timeout=15.0) as resp:
+            with _safe_urlopen(req, timeout=15.0, validator=lambda u: _validate_public_http_url(u, label="Keenable redirect")) as resp:
                 data = json.loads(resp.read().decode("utf-8", errors="replace"))
             txt = str(data.get("content") or "").strip()
             if txt:
@@ -1691,6 +1903,7 @@ class NetTransportBridge:
 
         q = str(query or "").strip()
         lim = max(1, min(15, int(limit or 5)))
+        last_err = "DuckDuckGo returned 0 results"
         try:
             from duckduckgo_search import DDGS
 
@@ -1851,10 +2064,17 @@ class NetTransportBridge:
         raw_sock = socket.create_connection((host, port), timeout=timeout_sec)
         raw_sock.settimeout(timeout_sec)
         if scheme in ("https", "wss", "rtsps"):
-            ctx = ssl.create_default_context()
-            sock = ctx.wrap_socket(raw_sock, server_hostname=host)
-            sock.settimeout(timeout_sec)
-            return sock, host, port, path_q
+            try:
+                ctx = ssl.create_default_context()
+                sock = ctx.wrap_socket(raw_sock, server_hostname=host)
+                sock.settimeout(timeout_sec)
+                return sock, host, port, path_q
+            except Exception:
+                try:
+                    raw_sock.close()
+                except Exception:
+                    pass
+                raise
         return raw_sock, host, port, path_q
 
     @staticmethod
@@ -2123,6 +2343,10 @@ class NetTransportBridge:
                         frames.append(jpg)
                         frame_times.append(time.monotonic())
                         continue
+                rem_t = deadline - time.monotonic()
+                if rem_t <= 0:
+                    break
+                sock.settimeout(max(0.1, rem_t))
                 chunk = sock.recv(16384)
                 if not chunk:
                     break
@@ -2476,7 +2700,11 @@ class NetTransportBridge:
                         events.append("\n".join(data_lines))
                 if len(events) >= want_ev:
                     break
+                rem_t = deadline - time.monotonic()
+                if rem_t <= 0:
+                    break
                 try:
+                    sock.settimeout(max(0.1, rem_t))
                     ch = sock.recv(2048)
                     if not ch:
                         break
@@ -2607,15 +2835,32 @@ class NetTransportBridge:
                     offset = 2
                     if plen == 126:
                         while len(fbuf) < 4:
-                            fbuf.extend(sock.recv(1024))
-                        plen = int.from_bytes(fbuf[2:4], "big")
-                        offset = 4
+                            ch = sock.recv(1024)
+                            if not ch:
+                                break
+                            fbuf.extend(ch)
+                        if len(fbuf) >= 4:
+                            plen = int.from_bytes(fbuf[2:4], "big")
+                            offset = 4
+                        else:
+                            plen = 0
+                    elif plen == 127:
+                        while len(fbuf) < 10:
+                            ch = sock.recv(1024)
+                            if not ch:
+                                break
+                            fbuf.extend(ch)
+                        if len(fbuf) >= 10:
+                            plen = int.from_bytes(fbuf[2:10], "big")
+                            offset = 10
+                        else:
+                            plen = 0
                     while len(fbuf) < offset + min(plen, 4096):
                         ch = sock.recv(2048)
                         if not ch:
                             break
                         fbuf.extend(ch)
-                    raw_msg = bytes(fbuf[offset : offset + plen])
+                    raw_msg = bytes(fbuf[offset : offset + min(plen, 4096)])
                     recv_preview = raw_msg.decode("utf-8", errors="replace")[:300] if opcode == 0x1 else f"<opcode={opcode} len={len(raw_msg)}>"
             except socket.timeout:
                 pass
@@ -2671,7 +2916,8 @@ class NetTransportBridge:
                 u,
                 headers={"User-Agent": "ActorII-HLSProbe/4.4", "Accept": "application/vnd.apple.mpegurl,application/x-mpegURL,*/*"},
             )
-            with urllib.request.urlopen(req, timeout=timeout_f) as resp:
+            _hls_val = lambda redir_u: _validate_probe_target_url(redir_u, allowed_schemes=("http", "https"), label="HLS Redirect URL")
+            with _safe_urlopen(req, timeout=timeout_f, validator=_hls_val) as resp:
                 status_code = int(getattr(resp, "status", 200))
                 ctype = resp.headers.get("Content-Type", "")
                 playlist = resp.read(262144).decode("utf-8", errors="replace")
@@ -2704,7 +2950,7 @@ class NetTransportBridge:
             first_uri = urllib.parse.urljoin(u, entries[0])
             _validate_probe_target_url(first_uri, allowed_schemes=("http", "https"), label="HLS Segment URL")
             seg_req = urllib.request.Request(first_uri, headers={"User-Agent": "ActorII-HLSProbe/4.4"})
-            with urllib.request.urlopen(seg_req, timeout=timeout_f) as seg_resp:
+            with _safe_urlopen(seg_req, timeout=timeout_f, validator=_hls_val) as seg_resp:
                 seg_status = int(getattr(seg_resp, "status", 200))
                 seg_head = seg_resp.read(1024)
 
@@ -2758,7 +3004,23 @@ class PDFDocumentTwin:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
         except Exception:
             pass
-        self._url_cache: Dict[str, str] = {}
+        self._url_cache: OrderedDict[str, str] = OrderedDict()
+        self._reader_cache: OrderedDict[Tuple[str, int, int], Any] = OrderedDict()
+
+    def _get_reader(self, local_path: str) -> Any:
+        import pypdf
+
+        st = os.stat(local_path)
+        key = (local_path, st.st_mtime_ns, st.st_size)
+        cached = self._reader_cache.get(key)
+        if cached is not None:
+            self._reader_cache.move_to_end(key)
+            return cached
+        reader = pypdf.PdfReader(local_path)
+        self._reader_cache[key] = reader
+        while len(self._reader_cache) > 3:
+            self._reader_cache.popitem(last=False)
+        return reader
 
     def _resolve_source(self, source: str) -> str:
         import hashlib
@@ -2789,12 +3051,15 @@ class PDFDocumentTwin:
                         "Accept": "application/pdf,*/*",
                     },
                 )
-                with urllib.request.urlopen(req, timeout=45.0) as resp:
+                with _safe_urlopen(req, timeout=45.0, validator=lambda u: _validate_public_http_url(u, label="PDF Redirect URL")) as resp:
                     data = resp.read(50 * 1024 * 1024)  # 50 MB safety cap
                 if not data.startswith(b"%PDF"):
                     raise ValueError(f"Downloaded URL does not appear to be a valid PDF (%PDF header missing): {raw}")
-                dest.write_bytes(data)
+                _write_bytes_atomic(dest, data, mode=0o600)
             self._url_cache[raw] = str(dest)
+            self._url_cache.move_to_end(raw)
+            while len(self._url_cache) > 32:
+                self._url_cache.popitem(last=False)
             return str(dest)
 
         p = Path(raw).expanduser().resolve()
@@ -2836,20 +3101,16 @@ class PDFDocumentTwin:
     @actor_query
     def fetchUrl(self, url: str) -> str:
         """Download a remote PDF URL into `/tmp/actorii_pdf_cache/` and return its local path and page count."""
-        import pypdf
-
         local_path = self._resolve_source(url)
-        reader = pypdf.PdfReader(local_path)
+        reader = self._get_reader(local_path)
         size_kb = os.path.getsize(local_path) // 1024
         return f"[PDF Cached] path={local_path} | pages={len(reader.pages)} | size={size_kb} KB"
 
     @actor_query
     def info(self, path_or_url: str) -> str:
         """Return page count, file size, and PDF metadata for a local path or remote URL."""
-        import pypdf
-
         local_path = self._resolve_source(path_or_url)
-        reader = pypdf.PdfReader(local_path)
+        reader = self._get_reader(local_path)
         meta = reader.metadata or {}
         title = str(meta.get("/Title") or "")
         author = str(meta.get("/Author") or "")
@@ -2862,10 +3123,8 @@ class PDFDocumentTwin:
     @actor_query
     def pageCount(self, path_or_url: str) -> int:
         """Return integer total number of pages in `path_or_url`."""
-        import pypdf
-
         local_path = self._resolve_source(path_or_url)
-        reader = pypdf.PdfReader(local_path)
+        reader = self._get_reader(local_path)
         return len(reader.pages)
 
     @actor_query
@@ -2877,10 +3136,8 @@ class PDFDocumentTwin:
         max_chars: int = 6000,
     ) -> str:
         """Extract clean text from pages `start_page..end_page` (1-based inclusive) of a PDF path or URL."""
-        import pypdf
-
         local_path = self._resolve_source(path_or_url)
-        reader = pypdf.PdfReader(local_path)
+        reader = self._get_reader(local_path)
         total = len(reader.pages)
         if total == 0:
             return f"[{os.path.basename(local_path)}: 0 pages]"
@@ -2913,13 +3170,12 @@ class PDFDocumentTwin:
     ) -> str:
         """Search all pages of a PDF (`path_or_url`) for `query` (case-insensitive substring or regex) and return matching page excerpts."""
         import re as _re
-        import pypdf
 
         local_path = self._resolve_source(path_or_url)
         q = str(query or "").strip()
         if not q:
             return "ERROR: Empty search query"
-        reader = pypdf.PdfReader(local_path)
+        reader = self._get_reader(local_path)
         total = len(reader.pages)
         hit_limit = max(1, min(25, int(max_hits or 8)))
         char_limit = max(500, min(20000, int(max_chars or 6000)))
@@ -3141,7 +3397,9 @@ JETSON_FORBIDDEN_PATTERNS: Tuple[str, ...] = (
     "apt upgrade",
     "apt-get upgrade",
     "apt full-upgrade",
+    "apt-get full-upgrade",
     "apt dist-upgrade",
+    "apt-get dist-upgrade",
     "nvidia-l4t-initrd",
     "nvidia-l4t-bootloader",
     "/boot/initrd",
@@ -3165,6 +3423,8 @@ JETSON_FORBIDDEN_PATTERNS: Tuple[str, ...] = (
     "ufw reset",
 )
 
+_JETSON_WORD_BOUNDARY_PATTERNS = frozenset({"halt", "reboot", "shutdown", "poweroff", "mkfs", "fdisk", "parted", "sfdisk"})
+
 
 @actor_bridge(name="JetsonEdgeTwin")
 class JetsonEdgeTwin:
@@ -3180,6 +3440,7 @@ class JetsonEdgeTwin:
         self._host_file = self._state_dir / "host.json"
         self._key_file = self._state_dir / "id_ed25519"
         self._known_hosts = self._state_dir / "known_hosts"
+        self._last_scan_miss_ts: float = 0.0
 
     def _load_cfg(self) -> Dict[str, Any]:
         default_cfg: Dict[str, Any] = {
@@ -3238,11 +3499,15 @@ class JetsonEdgeTwin:
                 pass
 
         if auto_discover:
-            found_ip, b3 = self._scan_for_jetson_ip(port=port)
-            if found_ip:
-                cfg["host"] = found_ip
-                self._save_cfg(cfg)
-                return found_ip, cfg, b3
+            now = time.monotonic()
+            if (now - self._last_scan_miss_ts) >= 30.0:
+                found_ip, b3 = self._scan_for_jetson_ip(port=port)
+                if found_ip:
+                    self._last_scan_miss_ts = 0.0
+                    cfg["host"] = found_ip
+                    self._save_cfg(cfg)
+                    return found_ip, cfg, b3
+                self._last_scan_miss_ts = now
 
         return cur_host, cfg, None
 
@@ -3261,10 +3526,11 @@ class JetsonEdgeTwin:
                 if item:
                     hits.append(item)
 
+        local_ips = _discover_local_host_ips()
         for ip, banner in hits:
-            if "Ubuntu" in banner or "OpenSSH_7." in banner or "OpenSSH_8." in banner:
+            if ip not in local_ips and ("Ubuntu" in banner or "OpenSSH_7." in banner or "OpenSSH_8." in banner):
                 return ip, banner
-        return (hits[0][0], hits[0][1]) if len(hits) == 1 and hits[0][0] != "192.168.68.56" else (None, None)
+        return (hits[0][0], hits[0][1]) if len(hits) == 1 and hits[0][0] not in local_ips else (None, None)
 
     def _ssh_exec_raw(self, remote_cmd: str, timeout_sec: float = 15.0) -> Dict[str, Any]:
         host, cfg, banner = self._resolve_live_host(auto_discover=True)
@@ -3342,12 +3608,18 @@ class JetsonEdgeTwin:
             }
 
     @staticmethod
-    def _validate_jetson_command(cmd: str) -> Optional[str]:
+    def _validate_jetson_command(cmd: str, *, is_source_file: bool = False) -> Optional[str]:
         low = " ".join((cmd or "").lower().split())
         if not low:
             return "Empty command."
         for pat in JETSON_FORBIDDEN_PATTERNS:
-            if pat in low:
+            if is_source_file and pat in ("halt", "shutdown", "reboot", "poweroff"):
+                continue
+            if pat in _JETSON_WORD_BOUNDARY_PATTERNS:
+                matched = bool(re.search(rf"(?<![a-z0-9_]){re.escape(pat)}(?![a-z0-9_])", low))
+            else:
+                matched = pat in low
+            if matched:
                 return (
                     f"JETSON_GUARDRAIL_BLOCKED: Command matches forbidden pattern `{pat}` "
                     "(protects Tegra L4T R32.7.6 OS, dual-boot SD/eMMC failsafe `/boot/initrd`, and power state)."
@@ -3536,7 +3808,9 @@ class JetsonEdgeTwin:
                 }
             )
         body = str(content if content is not None else "")
-        violation = self._validate_jetson_command(body)
+        _, ext = os.path.splitext(norm_r)
+        is_src = ext.lower() in (".cu", ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".py", ".json", ".txt", ".md", ".yaml", ".yml", ".html", ".js", ".css")
+        violation = self._validate_jetson_command(body, is_source_file=is_src)
         if violation:
             return _to_actor_dict(
                 {
@@ -3642,7 +3916,7 @@ class JetsonEdgeTwin:
                 }
             )
 
-        low_r = r_path.lower()
+        low_r = posixpath.normpath(r_path).lower()
         blocked_remote = (
             "/.ssh/",
             "id_rsa",
@@ -3756,15 +4030,7 @@ class JetsonEdgeTwin:
                     }
                 )
             raw_bytes = proc.stdout or b""
-            if os.path.islink(dest_path):
-                dest_path.unlink()
-            part_path = stage_dir / f".{safe_base}.{os.getpid()}.part"
-            fd = os.open(str(part_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            try:
-                os.write(fd, raw_bytes)
-            finally:
-                os.close(fd)
-            os.replace(str(part_path), str(dest_path))
+            _write_bytes_atomic(dest_path, raw_bytes, mode=0o600)
             return _to_actor_dict(
                 {
                     "ok": True,
@@ -3845,13 +4111,24 @@ class JetsonEdgeTwin:
             if violation:
                 return _to_actor_dict({"ok": False, "host": fallback_host, "service": svc, "stderr": violation})
 
+        if any(ch in wdir_str for ch in (";", "&", "|", "`", "\n", "\r", "$(", ">", "<")):
+            return _to_actor_dict(
+                {"ok": False, "host": fallback_host, "service": svc, "stderr": f"JETSON_GUARDRAIL_BLOCKED: Invalid shell metacharacters in `work_dir` ({wdir_str!r})."}
+            )
+        if wdir_str == "$HOME":
+            work_dir_expr = '"$HOME"'
+        elif wdir_str.startswith("$HOME/"):
+            work_dir_expr = '"$HOME/"' + shlex.quote(wdir_str[len("$HOME/"):])
+        else:
+            work_dir_expr = shlex.quote(wdir_str)
+
         port_num = max(0, min(65535, int(port or 0)))
         runner_script = (
             "#!/usr/bin/env bash\n"
             "set -e\n"
             f"SVC_DIR=\"$HOME/services/{svc}\"\n"
             "mkdir -p \"$SVC_DIR\"\n"
-            f"WORK_DIR={wdir_str if wdir_str.startswith('$HOME') else shlex.quote(wdir_str)}\n"
+            f"WORK_DIR={work_dir_expr}\n"
             "mkdir -p \"$WORK_DIR\"\n"
             "cd \"$WORK_DIR\"\n"
             f"exec {cmd_str}\n"
@@ -3864,7 +4141,7 @@ class JetsonEdgeTwin:
             "if [ -f \"$SVC_DIR/service.pid\" ]; then "
             "  OLD_PID=$(cat \"$SVC_DIR/service.pid\" 2>/dev/null || true); "
             "  if [ -n \"$OLD_PID\" ] && kill -0 \"$OLD_PID\" 2>/dev/null; then "
-            "    kill \"$OLD_PID\" 2>/dev/null || true; sleep 0.6; kill -9 \"$OLD_PID\" 2>/dev/null || true; "
+            "    kill -- -\"$OLD_PID\" 2>/dev/null || kill \"$OLD_PID\" 2>/dev/null || true; sleep 0.6; kill -9 -- -\"$OLD_PID\" 2>/dev/null || kill -9 \"$OLD_PID\" 2>/dev/null || true; "
             "  fi; "
             "fi; "
             f"printf '%s' '{b64_runner}' | base64 -d > \"$SVC_DIR/run.sh\"; "
@@ -3965,7 +4242,7 @@ class JetsonEdgeTwin:
             "if [ -f \"$SVC_DIR/service.pid\" ]; then "
             "  PID=$(cat \"$SVC_DIR/service.pid\" 2>/dev/null || true); "
             "  if [ -n \"$PID\" ] && kill -0 \"$PID\" 2>/dev/null; then "
-            "    kill \"$PID\" 2>/dev/null || true; sleep 0.5; kill -9 \"$PID\" 2>/dev/null || true; "
+            "    kill -- -\"$PID\" 2>/dev/null || kill \"$PID\" 2>/dev/null || true; sleep 0.5; kill -9 -- -\"$PID\" 2>/dev/null || kill -9 \"$PID\" 2>/dev/null || true; "
             "    echo \"STOPPED PID=$PID\"; "
             "  else echo 'ALREADY_STOPPED'; fi; "
             "else echo 'NO_PID_FILE'; fi"
@@ -4009,13 +4286,36 @@ class NetworkTopologyBridge:
         self._registry_file = self._state_dir / "bridges.json"
         self._jetson_twin = jetson_twin
         self._managed_procs: Dict[int, subprocess.Popen[Any]] = {}
+        self._ifaces_cache: Tuple[float, List[Dict[str, Any]]] = (0.0, [])
+        self._peers_cache: Tuple[float, List[Dict[str, Any]]] = (0.0, [])
+
+    def _reap_managed_procs(self) -> None:
+        dead = [lp for lp, p in self._managed_procs.items() if p.poll() is not None]
+        for lp in dead:
+            self._managed_procs.pop(lp, None)
+
+    @staticmethod
+    def _pid_is_socat(pid_n: int) -> bool:
+        try:
+            cmdline = Path(f"/proc/{pid_n}/cmdline").read_bytes()
+            return b"socat" in cmdline.lower()
+        except OSError:
+            return False
 
     @actor_query
     def hostInterfaces(self) -> Any:
         """Return live IPv4 interfaces on `valkyrie` (`ip -j -4 addr show`) as an Actor `Array` of `Dictionary` entries."""
         from actorii.classes.collections import ActorArray
 
-        items: List[Any] = []
+        now = time.monotonic()
+        ts, cached_rows = self._ifaces_cache
+        if cached_rows and (now - ts) < 5.0:
+            arr = ActorArray(len(cached_rows))
+            for i, it in enumerate(cached_rows):
+                arr.atPut(i, _to_actor_dict(it))
+            return arr
+
+        raw_rows: List[Dict[str, Any]] = []
         ip_bin = shutil.which("ip") or "/usr/sbin/ip"
         if os.path.isfile(ip_bin):
             try:
@@ -4038,22 +4338,22 @@ class NetworkTopologyBridge:
                                         else ("docker" if ifname.startswith(("docker", "br-", "veth")) else "lan")
                                     )
                                 )
-                                items.append(
-                                    _to_actor_dict(
-                                        {
-                                            "interface": ifname,
-                                            "ip": local_ip,
-                                            "cidr": f"{local_ip}/{prefix}",
-                                            "kind": kind,
-                                            "state": state,
-                                        }
-                                    )
+                                raw_rows.append(
+                                    {
+                                        "interface": ifname,
+                                        "ip": local_ip,
+                                        "cidr": f"{local_ip}/{prefix}",
+                                        "kind": kind,
+                                        "state": state,
+                                    }
                                 )
             except Exception:
                 pass
-        arr = ActorArray(len(items))
-        for i, it in enumerate(items):
-            arr.atPut(i, it)
+        if raw_rows:
+            self._ifaces_cache = (now, raw_rows)
+        arr = ActorArray(len(raw_rows))
+        for i, it in enumerate(raw_rows):
+            arr.atPut(i, _to_actor_dict(it))
         return arr
 
     @actor_query
@@ -4061,7 +4361,15 @@ class NetworkTopologyBridge:
         """Query `tailscale status --json` (read-only) and return all Tailnet nodes (`Self` + `Peer`s) with hostnames, OS, IPs, and online state."""
         from actorii.classes.collections import ActorArray
 
-        peers: List[Any] = []
+        now = time.monotonic()
+        ts, cached_rows = self._peers_cache
+        if cached_rows and (now - ts) < 5.0:
+            arr = ActorArray(len(cached_rows))
+            for i, it in enumerate(cached_rows):
+                arr.atPut(i, _to_actor_dict(it))
+            return arr
+
+        raw_rows: List[Dict[str, Any]] = []
         ts_bin = shutil.which("tailscale") or "/usr/bin/tailscale"
         if os.path.isfile(ts_bin):
             try:
@@ -4071,46 +4379,46 @@ class NetworkTopologyBridge:
                     self_node = data.get("Self") or {}
                     self_ips = [str(x) for x in (self_node.get("TailscaleIPs") or []) if ":" not in str(x)]
                     if self_node:
-                        peers.append(
-                            _to_actor_dict(
-                                {
-                                    "role": "self",
-                                    "hostname": str(self_node.get("HostName") or "valkyrie"),
-                                    "dnsName": str(self_node.get("DNSName") or "").rstrip("."),
-                                    "os": str(self_node.get("OS") or "linux"),
-                                    "tailscaleIp": self_ips[0] if self_ips else "",
-                                    "online": bool(self_node.get("Online", True)),
-                                }
-                            )
+                        raw_rows.append(
+                            {
+                                "role": "self",
+                                "hostname": str(self_node.get("HostName") or "valkyrie"),
+                                "dnsName": str(self_node.get("DNSName") or "").rstrip("."),
+                                "os": str(self_node.get("OS") or "linux"),
+                                "tailscaleIp": self_ips[0] if self_ips else "",
+                                "online": bool(self_node.get("Online", True)),
+                            }
                         )
                     for _, p in sorted((data.get("Peer") or {}).items()):
                         if not isinstance(p, dict):
                             continue
                         p_ips = [str(x) for x in (p.get("TailscaleIPs") or []) if ":" not in str(x)]
-                        peers.append(
-                            _to_actor_dict(
-                                {
-                                    "role": "peer",
-                                    "hostname": str(p.get("HostName") or "peer"),
-                                    "dnsName": str(p.get("DNSName") or "").rstrip("."),
-                                    "os": str(p.get("OS") or ""),
-                                    "tailscaleIp": p_ips[0] if p_ips else "",
-                                    "online": bool(p.get("Online", False)),
-                                }
-                            )
+                        raw_rows.append(
+                            {
+                                "role": "peer",
+                                "hostname": str(p.get("HostName") or "peer"),
+                                "dnsName": str(p.get("DNSName") or "").rstrip("."),
+                                "os": str(p.get("OS") or ""),
+                                "tailscaleIp": p_ips[0] if p_ips else "",
+                                "online": bool(p.get("Online", False)),
+                            }
                         )
             except Exception:
                 pass
-        arr = ActorArray(len(peers))
-        for i, it in enumerate(peers):
-            arr.atPut(i, it)
+        if raw_rows:
+            self._peers_cache = (now, raw_rows)
+        arr = ActorArray(len(raw_rows))
+        for i, it in enumerate(raw_rows):
+            arr.atPut(i, _to_actor_dict(it))
         return arr
 
     @actor_query
     def identifyIp(self, ip_or_host: str) -> Any:
         """Identify who owns `ip_or_host` across `valkyrie` interfaces, active Tailnet peers, and configured LAN Edge Twins (`Jetson`)."""
         raw = str(ip_or_host or "").strip()
-        host_only = raw.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0].strip()
+        parsed_h = urllib.parse.urlparse(raw if "://" in raw else f"http://{raw}").hostname
+        host_only = (parsed_h or raw.split("://", 1)[-1].split("/", 1)[0]).strip()
+        host_low = host_only.lower()
         if not host_only:
             return _to_actor_dict({"ok": False, "ip": raw, "owner": "unknown", "network": "invalid", "note": "Empty IP/host."})
 
@@ -4123,7 +4431,7 @@ class NetworkTopologyBridge:
             role = str(node.at("role") or "")
             if role == "self" and ts_ip:
                 valkyrie_ts_ip = ts_ip
-            if host_only in (ts_ip, hname.lower(), str(node.at("dnsName") or "").lower()):
+            if host_low in (ts_ip.lower(), hname.lower(), str(node.at("dnsName") or "").lower()):
                 note = (
                     "This is `valkyrie` (local Fedora host). Note: `:8090` on `valkyrie` is ActorII Web Studio, NOT the Jetson! Use a bridge port like `:8091` (`listBridges(Actor[#Network])!!`) to reach Jetson services over Tailscale."
                     if role == "self"
@@ -4163,7 +4471,7 @@ class NetworkTopologyBridge:
         jetson_ip = ""
         if self._jetson_twin is not None:
             jetson_ip = str(self._jetson_twin._load_cfg().get("host") or "")
-        if jetson_ip and host_only in (jetson_ip, "jetson", "jetson.local"):
+        if jetson_ip and host_low in (jetson_ip.lower(), "jetson", "jetson.local"):
             reachable = bool(JetsonEdgeTwin._probe_tcp_banner(jetson_ip, 22, 1.0))
             return _to_actor_dict(
                 {
@@ -4225,6 +4533,7 @@ class NetworkTopologyBridge:
         """Discover both systemd `socat` bridges (like `:8091 -> 192.168.68.57:8090`) and runtime `Actor[#Network]` port relays."""
         from actorii.classes.collections import ActorArray
 
+        self._reap_managed_procs()
         bridges: List[Any] = []
         seen_ports: set[int] = set()
 
@@ -4325,12 +4634,21 @@ class NetworkTopologyBridge:
                     "error": f"Invalid `target_host` {thost!r}: pass an explicit LAN IPv4 address (e.g. '192.168.68.57').",
                 }
             )
-        if not addr.is_private or addr.is_loopback or thost in local_ips:
+        if (
+            not isinstance(addr, ipaddress.IPv4Address)
+            or not addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_multicast
+            or addr.is_reserved
+            or addr.is_unspecified
+            or thost in local_ips
+        ):
             return _to_actor_dict(
                 {
                     "ok": False,
                     "listenPort": lport,
-                    "error": f"BLOCKED [RELAY_SSRF_GUARD]: `exposeLanPort` only bridges to external private LAN edge devices, never loopback or `valkyrie` ({thost}).",
+                    "error": f"BLOCKED [RELAY_SSRF_GUARD]: `exposeLanPort` only bridges to external private RFC1918 IPv4 LAN edge devices, never loopback/link-local/IPv6 or `valkyrie` ({thost}).",
                 }
             )
 
@@ -4431,11 +4749,12 @@ class NetworkTopologyBridge:
             killed = True
         elif entry and int(entry.get("pid") or 0) > 0:
             pid_n = int(entry["pid"])
-            try:
-                os.kill(pid_n, 15)
-                killed = True
-            except OSError:
-                pass
+            if self._pid_is_socat(pid_n):
+                try:
+                    os.kill(pid_n, 15)
+                    killed = True
+                except OSError:
+                    pass
         self._save_bridges_meta(meta)
         return _to_actor_dict({"ok": True, "listenPort": lport, "stopped": killed})
 

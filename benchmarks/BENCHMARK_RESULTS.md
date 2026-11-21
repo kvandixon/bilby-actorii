@@ -7,7 +7,7 @@
 
 - **Host Hardware**: `valkyrie — NVIDIA RTX 5070 Ti (16 GB VRAM), Fedora Linux 44, DDR5-6000 / 32 GB RAM`
 - **Memory Architecture**: `Neo4j :ActorEpisode / :ActorEngram hybrid graph + bge-small-en-v1.5 (:8084, 0 MB GPU VRAM)`
-- **Last Updated**: `2026-11-15`
+- **Last Updated**: `2026-11-18`
 - **Interactive Dark-Theme Dashboard**: `http://127.0.0.1:8090/benchmarks` (or open [`scoreboard.html`](scoreboard.html))
 
 ---
@@ -47,7 +47,7 @@
 | **Industry 8-Track Suite** | `22` | **`81.82% (18 / 22)`** | `77.27%` (`2026-11-10`) | **`+4.55 pp` ▲** | **`81.82%`** (`qwen3.8-27b`) | `2026-11-14` | [`INDUSTRY_8TRACK_2026-11-14_v430.json`](archive/INDUSTRY_8TRACK_2026-11-14_v430.json) |
 | **Next-Gen Post-Cutoff Suite** | `9 (×3)` | **`59.26% avg@3 (16 / 27 trials)`** | `59.26%` (`2026-11-10`) | `0.00 pp (held)` | **`77.78%`** (`qwen3.8-27b`) | `2026-11-14` | [`NEXTGEN_AVG3_2026-11-14_v430.json`](archive/NEXTGEN_AVG3_2026-11-14_v430.json) |
 | **HumanEval-12 + GSM8K-8 Local Model Matrix** | `20` | **`100.00% (20 / 20)`** | `85.00%` (`2026-11-10`) | **`+15.00 pp` ▲** | **`100.00%`** (`qwen3.8-27b`) | `2026-11-14` | [`BENCHMARK_RESULTS_2026-11-14_v430.json`](archive/BENCHMARK_RESULTS_2026-11-14_v430.json) |
-| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `5` | **`80.00% (4 / 5)`** | `80.00%` (`2026-11-14`) | `0.00 pp (held)` | **`80.00%`** (`qwen3.8:latest`) | `2026-11-15` | — |
+| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `5` | **`0.00% (0 / 5)`** | `80.00%` (`2026-11-15`) | `-80.00 pp` ▼ | **`80.00%`** (`qwen3.8:latest`) | `2026-11-18` | — |
 
 ### Memory
 
@@ -130,19 +130,20 @@
 - **Highlights**: 16/17 (94.12%): LongMemEval 11/12 (91.7%) + LoCoMo 5/5 (100.0%). Token footprint dropped 13.1% (9,707 vs 11,171 avg tokens/task) with avg latency 20.3s.
 - **Breakdown**: `LongMemEval`: **91.7% (11/12)** · `LoCoMo`: **100.0% (5/5)** · `Avg Tokens`: **9,707 (-13.1%)** · `Avg Latency`: **20.3s**
 
-### Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.2.0` · `qwen3.8:latest` · `2026-11-15`)
+### Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.2.0` · `qwen3.8:latest` · `2026-11-18`)
 - **Scope**: Multi-generation TDD self-evolution with hidden holdout anti-cheating & fresh-VM reload persistence gates
-- **Highlights**: Canaries=['sensor_window_median', 'harness_step_budget_advisor', 'circuit_breaker_policy', 'ring_buffer_telemetry']; Frontier=['dag_task_scheduler']
+- **Highlights**: Canaries=[]; Frontier=['dag_task_scheduler']
 
 ---
 
 ## 4. Historical Run & Model Progression Ledger
 
 <details>
-<summary><strong>Click to expand all 37 historical benchmark runs (`v4.0.0` → `v4.3.0`)</strong></summary>
+<summary><strong>Click to expand all 38 historical benchmark runs (`v4.0.0` → `v4.3.0`)</strong></summary>
 
 | Date | Benchmark | Version | Model | Mode / Configuration | Score | Raw Artifact |
 | :---: | :--- | :---: | :---: | :--- | :---: | :--- |
+| `2026-11-18` | **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `v4.2.0` | `qwen3.8:latest` | AgentHarness v4.2 (Gate Verified) | **`0.00% (0 / 5)`** | — |
 | `2026-11-15` | **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `v4.2.0` | `qwen3.8:latest` | AgentHarness v4.2 (Gate Verified) | **`80.00% (4 / 5)`** | — |
 | `2026-11-14` | **Red-Team Adversarial Containment Audit** | `v4.3.0` | `qwen3.8-27b` | Live Clean-Room Hardened Sweep (ACTORII_HOST_LOCKDOWN=1) | **`100.00% (6 / 6 Blocked)`** | [`REDTEAM_CONTAINMENT_2026-11-14_v430.json`](archive/REDTEAM_CONTAINMENT_2026-11-14_v430.json) |
 | `2026-11-14` | **Terminal-Bench 2.1 (Hard Tier)** | `v4.3.0` | `qwen3.8-27b` | Zero-Hint Single-Trajectory Clean Container Sweep | **`0.00% (0 / 5)`** | [`TB21_HARD_2026-11-14_v430.json`](archive/TB21_HARD_2026-11-14_v430.json) |

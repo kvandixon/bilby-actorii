@@ -1,0 +1,149 @@
+{
+  "timestamp": "2026-11-18T03:26:30-0500",
+  "model": "qwen3.8:latest",
+  "humaneval": {
+    "n": 6,
+    "single_shot_actor_pass1": "6/6 (100.0%)",
+    "actor_harness_pass": "6/6 (100.0%)",
+    "engram_cold_reboot_pass": "6/6 (100.0%)",
+    "self_corrected_count": 0,
+    "python_reference_pass1": "6/6 (100.0%)",
+    "tasks": [
+      {
+        "task_id": "HumanEval/3",
+        "entry_point": "below_zero",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 653,
+        "actor_elapsed_s": 11.86,
+        "python_pass1": true,
+        "python_elapsed_s": 1.22
+      },
+      {
+        "task_id": "HumanEval/13",
+        "entry_point": "greatest_common_divisor",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 225,
+        "actor_elapsed_s": 6.96,
+        "python_pass1": true,
+        "python_elapsed_s": 1.73
+      },
+      {
+        "task_id": "HumanEval/23",
+        "entry_point": "strlen",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 39,
+        "actor_elapsed_s": 7.91,
+        "python_pass1": true,
+        "python_elapsed_s": 1.13
+      },
+      {
+        "task_id": "HumanEval/24",
+        "entry_point": "largest_divisor",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 260,
+        "actor_elapsed_s": 11.59,
+        "python_pass1": true,
+        "python_elapsed_s": 6.82
+      },
+      {
+        "task_id": "HumanEval/31",
+        "entry_point": "is_prime",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 1706,
+        "actor_elapsed_s": 10.35,
+        "python_pass1": true,
+        "python_elapsed_s": 1.71
+      },
+      {
+        "task_id": "HumanEval/35",
+        "entry_point": "max_element",
+        "single_shot_actor_passed": true,
+        "single_shot_error": null,
+        "actor_harness_passed": true,
+        "actor_harness_steps": 1,
+        "self_corrected": false,
+        "engram_cold_reboot_passed": true,
+        "actor_gas_used": 290,
+        "actor_elapsed_s": 11.28,
+        "python_pass1": true,
+        "python_elapsed_s": 1.09
+      }
+    ]
+  },
+  "gsm8k": {
+    "n": 4,
+    "single_shot_actor_pass1": "4/4 (100.0%)",
+    "actor_harness_pass": "4/4 (100.0%)",
+    "tasks": [
+      {
+        "task_id": "GSM8K/0",
+        "gold": 18,
+        "predicted": 18,
+        "single_shot_actor_passed": true,
+        "actor_harness_passed": true,
+        "self_corrected": false,
+        "steps": 1,
+        "gas_used": 33,
+        "elapsed_s": 10.24
+      },
+      {
+        "task_id": "GSM8K/1",
+        "gold": 3,
+        "predicted": 3,
+        "single_shot_actor_passed": true,
+        "actor_harness_passed": true,
+        "self_corrected": false,
+        "steps": 1,
+        "gas_used": 35,
+        "elapsed_s": 7.13
+      },
+      {
+        "task_id": "GSM8K/2",
+        "gold": 70000,
+        "predicted": 70000,
+        "single_shot_actor_passed": true,
+        "actor_harness_passed": true,
+        "self_corrected": false,
+        "steps": 2,
+        "gas_used": 24,
+        "elapsed_s": 12.63
+      },
+      {
+        "task_id": "GSM8K/3",
+        "gold": 540,
+        "predicted": 540,
+        "single_shot_actor_passed": true,
+        "actor_harness_passed": true,
+        "self_corrected": false,
+        "steps": 1,
+        "gas_used": 30,
+        "elapsed_s": 6.27
+      }
+    ]
+  }
+}

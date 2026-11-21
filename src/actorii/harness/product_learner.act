@@ -66,6 +66,12 @@ Def learnProduct(self, productName, focusTopics | topicStr queryStr hitsTxt urls
 
     hitsTxt := search(self.web, queryStr, 5);
     urls := extractUrls(self.net, hitsTxt, 3);
+    if (startswith(asString(hitsTxt), "ERROR:") == true) then
+        if (size(urls) == 0) then
+            self.lastStatus := #error;
+            ^"ERROR: ProductLearner search failed for " + asString(productName) + " — " + asString(hitsTxt);
+        endif;
+    endif;
     corpus := asString(hitsTxt);
 
     n := size(urls);
@@ -77,7 +83,9 @@ Def learnProduct(self, productName, focusTopics | topicStr queryStr hitsTxt urls
         else
             pageTxt := scrape(self.web, u);
         endif;
-        corpus := corpus + "\n\n" + asString(pageTxt);
+        if (startswith(asString(pageTxt), "ERROR:") == false) then
+            corpus := corpus + "\n\n" + asString(pageTxt);
+        endif;
         i := i + 1;
     endLoop;
 
@@ -121,6 +129,11 @@ Def ingestManual(self, productName, urlOrPdfPath, focusTopics | topicStr src doc
         else
             docTxt := readLocalManual(self.net, src, 14000);
         endif;
+    endif;
+
+    if (startswith(asString(docTxt), "ERROR:") == true) then
+        self.lastStatus := #error;
+        ^"ERROR: ProductLearner ingestManual failed for " + asString(productName) + " — " + asString(docTxt);
     endif;
 
     specJson := distillProductCorpus(self.memory, asString(productName), topicStr, docTxt);

@@ -24,9 +24,15 @@ import tempfile
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
+
+try:
+    import fcntl as _fcntl
+except ImportError:
+    _fcntl = None  # type: ignore[assignment]
 
 
 _LOG_LOCK = threading.Lock()
@@ -67,17 +73,52 @@ def _rotate_if_needed(path: Path, max_bytes: int) -> None:
         pass
 
 
+@contextmanager
+def _cross_process_log_lock(lock_path: Path) -> Iterator[None]:
+    """Acquire both in-process thread lock and POSIX advisory flock for safe multi-process rotation."""
+    with _LOG_LOCK:
+        if _fcntl is None:
+            yield
+            return
+        fh = None
+        try:
+            fh = lock_path.open("a+", encoding="utf-8")
+            _fcntl.flock(fh.fileno(), _fcntl.LOCK_EX)
+        except Exception:
+            if fh is not None:
+                try:
+                    fh.close()
+                except Exception:
+                    pass
+                fh = None
+        try:
+            yield
+        finally:
+            if fh is not None:
+                try:
+                    _fcntl.flock(fh.fileno(), _fcntl.LOCK_UN)
+                except Exception:
+                    pass
+                try:
+                    fh.close()
+                except Exception:
+                    pass
+
+
 class DualChannelLogger:
     """Thread-safe dual writer for `agent_trace.jsonl` (machine/agent) and `verbose_steps.log` (tail -f)."""
 
     def __init__(self, state_dir: Optional[Path] = None) -> None:
         self._explicit_dir = state_dir
+        self._ensured_dir: Optional[Path] = None
 
     @property
     def logs_dir(self) -> Path:
         base = self._explicit_dir if self._explicit_dir is not None else resolve_actorii_state_dir()
         d = base / "logs"
-        d.mkdir(parents=True, exist_ok=True)
+        if self._ensured_dir != d or not d.is_dir():
+            d.mkdir(parents=True, exist_ok=True)
+            self._ensured_dir = d
         return d
 
     @property
@@ -95,14 +136,15 @@ class DualChannelLogger:
         now_iso = datetime.now(timezone.utc).isoformat()
         record = {"ts": now_iso, "event": event_type, **payload}
         try:
-            with _LOG_LOCK:
-                trace_p = self.agent_trace_path
+            ldir = self.logs_dir
+            with _cross_process_log_lock(ldir / ".telemetry.lock"):
+                trace_p = ldir / "agent_trace.jsonl"
                 _rotate_if_needed(trace_p, _MAX_AGENT_TRACE_BYTES)
                 with trace_p.open("a", encoding="utf-8") as fh:
                     fh.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
                 if verbose_block:
-                    verb_p = self.verbose_log_path
+                    verb_p = ldir / "verbose_steps.log"
                     _rotate_if_needed(verb_p, _MAX_VERBOSE_LOG_BYTES)
                     with verb_p.open("a", encoding="utf-8") as vfh:
                         vfh.write(f"[{now_iso}] {verbose_block.rstrip()}\n")
@@ -426,7 +468,7 @@ def markdown_to_telegram_html(text: str) -> str:
         url = html.escape(m.group(2).strip(), quote=True)
         return _stash(f'<a href="{url}">{label}</a>')
 
-    working = re.sub(r"\[([^\]\n]+)\]\((https?://[^\s)]+)\)", _repl_link, working)
+    working = re.sub(r"\[([^\]\n]+)\]\((https?://(?:[^\s()]|\([^\s()]*\))+)\)", _repl_link, working)
 
     # 5. Escape HTML entities in all remaining prose
     working = html.escape(working)
@@ -442,10 +484,10 @@ def markdown_to_telegram_html(text: str) -> str:
 
     # 9. Bold (`**text**` or `__text__`), Strikethrough (`~~text~~`), Italic (`*text*` or `_text_`)
     working = re.sub(r"\*\*([^*\n]+(?:\*(?!\*)[^*\n]+)*)\*\*", r"<b>\1</b>", working)
-    working = re.sub(r"__([^_\n]+)__", r"<b>\1</b>", working)
+    working = re.sub(r"(?<!\w)(?<![/(])__([^_\n<>]+)__(?![/\w)])", r"<b>\1</b>", working)
     working = re.sub(r"~~([^~\n]+)~~", r"<s>\1</s>", working)
     working = re.sub(r"(?<!\w)\*([^*\n]+?)\*(?!\w)", r"<i>\1</i>", working)
-    working = re.sub(r"(?<!\w)_([^_\n]+?)_(?!\w)", r"<i>\1</i>", working)
+    working = re.sub(r"(?<!\w)(?<![/(_])_([^_\n<>]+?)_(?![/\w)_])", r"<i>\1</i>", working)
 
     # 10. Restore stashed `<pre>`, `<code>`, and `<a>` blocks
     for token, fragment in placeholders.items():
@@ -481,12 +523,33 @@ def split_markdown_fence_aware(text: str, max_len: int = 3500) -> List[str]:
             buf_len = len(buf[0]) if buf else 0
 
         if len(ln) > max_len:
-            # Hard slice ultra-long single line safely
+            # Flush any buffered content first so chunk order is strictly preserved
+            if buf:
+                if in_fence and len(buf) == 1 and buf[0] == f"{fence_header}\n":
+                    buf = []
+                    buf_len = 0
+                else:
+                    chunk_str = "".join(buf)
+                    if in_fence:
+                        chunk_str = chunk_str.rstrip("\n") + "\n```"
+                    chunks.append(chunk_str.strip())
+                    buf = []
+                    buf_len = 0
+            # Hard slice ultra-long single line safely, preserving code fences if inside one
+            fence_overhead = (len(fence_header) + 6) if in_fence else 0
+            step_sz = max(64, max_len - 20 - fence_overhead)
             pos = 0
             while pos < len(ln):
-                piece = ln[pos : pos + max_len - 20]
-                chunks.append(piece.strip())
-                pos += max_len - 20
+                piece = ln[pos : pos + step_sz].rstrip("\r\n")
+                if piece:
+                    if in_fence:
+                        chunks.append(f"{fence_header}\n{piece}\n```")
+                    else:
+                        chunks.append(piece.strip())
+                pos += step_sz
+            if in_fence:
+                buf = [f"{fence_header}\n"]
+                buf_len = len(buf[0])
             continue
 
         buf.append(ln)
@@ -507,13 +570,29 @@ def split_markdown_fence_aware(text: str, max_len: int = 3500) -> List[str]:
     return chunks or [raw[:max_len]]
 
 
-def render_telegram_chunks(markdown_text: str, max_md_chunk: int = 3400) -> List[Tuple[str, str]]:
-    """Return `[(html_chunk, plain_fallback_chunk), ...]` with balanced HTML tags per Telegram message."""
+def render_telegram_chunks(
+    markdown_text: str,
+    max_md_chunk: int = 3400,
+    max_html_len: int = 4096,
+) -> List[Tuple[str, str]]:
+    """Return `[(html_chunk, plain_fallback_chunk), ...]` with balanced HTML tags <= `max_html_len` per Telegram message."""
     md_chunks = split_markdown_fence_aware(markdown_text, max_len=max_md_chunk)
     out: List[Tuple[str, str]] = []
     for md_part in md_chunks:
         html_part = markdown_to_telegram_html(md_part)
+        if len(html_part) > max_html_len and max_md_chunk > 400:
+            smaller_cap = max(400, int(max_md_chunk * 0.6))
+            out.extend(
+                render_telegram_chunks(
+                    md_part,
+                    max_md_chunk=smaller_cap,
+                    max_html_len=max_html_len,
+                )
+            )
+            continue
         # Plain fallback converts tables cleanly too, without raw HTML entities
         plain_part = convert_markdown_tables_for_mobile(md_part)
+        if len(plain_part) > max_html_len:
+            plain_part = plain_part[: max_html_len - 16].rstrip() + "\n...(truncated)"
         out.append((html_part, plain_part))
     return out

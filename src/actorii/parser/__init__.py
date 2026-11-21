@@ -3177,10 +3177,22 @@ class BytecodeCompiler:
             else:
                 raise NotImplementedError(f"Unsupported binary operator: {op}")
         elif isinstance(expr, UnaryOp):
-            self.compile_expr(expr.operand)
             if expr.op in ("-", "MINUS"):
                 self.emit(Opcode.PUSH_INT, 0)
+                self.compile_expr(expr.operand)
                 self.emit(Opcode.BINARY_SUB, 0)
+            elif expr.op in ("not", "NOT", "!", "~"):
+                self.compile_expr(expr.operand)
+                j_false = len(self.instructions)
+                self.emit(Opcode.POP_JUMP_IF_FALSE, 0)
+                self.emit(Opcode.LOAD_CONST, self.add_constant(False))
+                j_end = len(self.instructions)
+                self.emit(Opcode.JMP, 0)
+                self.instructions[j_false] = (Opcode.POP_JUMP_IF_FALSE, len(self.instructions))
+                self.emit(Opcode.LOAD_CONST, self.add_constant(True))
+                self.instructions[j_end] = (Opcode.JMP, len(self.instructions))
+            else:
+                self.compile_expr(expr.operand)
         elif isinstance(expr, IndexGetNode):
             self.compile_index_get(expr)
         elif isinstance(expr, IndexSetNode):

@@ -407,44 +407,188 @@ class ActorLinter:
         has_tier2_call = False
         check_singleton_lock = self.protect_system_classes and lock_singletons
 
+        # Lightweight symbolic stack + local type/const tracker for exact receiver/key analysis
+        # (eliminates both 4-op lookback bypasses and false-positive Actor[#X] escalations).
+        sym_stack: List[Tuple[str, Any]] = []
+        local_consts: Dict[int, str] = {}
+        local_types: Dict[int, str] = {}
+        method_params = list(getattr(compiled_method, "params", None) or [])
+        method_locals_list = list(getattr(compiled_method, "locals", None) or [])
+        first_loc_slot = 1 + len(method_params)
+
+        def _local_name_for_slot(slot: int) -> str:
+            if slot == 0:
+                return "self"
+            if 1 <= slot < first_loc_slot:
+                return str(method_params[slot - 1])
+            loc_i = slot - first_loc_slot
+            if 0 <= loc_i < len(method_locals_list):
+                return str(method_locals_list[loc_i])
+            return f"local_{slot}"
+
+        def _pop_sym() -> Tuple[str, Any]:
+            return sym_stack.pop() if sym_stack else ("unknown", None)
+
+        def _resolve_key_sym(tok: Tuple[str, Any]) -> Optional[str]:
+            kind, val = tok
+            if kind == "const" and isinstance(val, str):
+                return val.lstrip("#")
+            if kind == "local" and isinstance(val, int) and val in local_consts:
+                return local_consts[val].lstrip("#")
+            return None
+
+        def _call_arity(c_val: Any) -> int:
+            for attr in ("arg_count", "args", "arity"):
+                v = getattr(c_val, attr, None)
+                if isinstance(v, int):
+                    return max(0, v)
+            if isinstance(c_val, dict):
+                for key in ("arg_count", "args", "arity"):
+                    v = c_val.get(key)
+                    if isinstance(v, int):
+                        return max(0, v)
+            return 0
+
         for idx_op, ((op, arg), consts) in enumerate(all_ops):
             const_val = consts[arg] if 0 <= arg < len(consts) else None
-            if op == Opcode.GET_FIELD and isinstance(const_val, str):
+
+            if op == Opcode.PUSH_GLOBAL and isinstance(const_val, str):
+                sym_stack.append(("global", const_val))
+                if const_val == "pass" and self.strict_ivars and target_cls != "<Chunk>":
+                    issues.append(
+                        LintIssue(
+                            code="LINT_PYTHONISM_PASS",
+                            severity="error",
+                            message=(
+                                f"Method '{target_cls}>>{selector}' uses Python keyword 'pass', which is not valid in 1993 Actor "
+                                "(omit empty else branches or use `nil;`)."
+                            ),
+                            class_name=target_cls,
+                            selector=selector,
+                        )
+                    )
+            elif op == Opcode.LOAD_CONST:
+                sym_stack.append(("const", const_val))
+            elif op == Opcode.PUSH_LOCAL and isinstance(arg, int):
+                sym_stack.append(("local", arg))
+            elif op in (Opcode.PUSH_INT, Opcode.PUSH_NULL, Opcode.PUSH_OBJ, Opcode.PUSH_STR):
+                sym_stack.append(("scalar", arg))
+            elif op == Opcode.POP:
+                _pop_sym()
+            elif op == Opcode.POP_N and isinstance(arg, int):
+                for _ in range(max(0, arg)):
+                    _pop_sym()
+            elif op == Opcode.DUP:
+                sym_stack.append(sym_stack[-1] if sym_stack else ("unknown", None))
+            elif op == Opcode.STORE_LOCAL and isinstance(arg, int):
+                rhs = _pop_sym()
+                if rhs[0] == "const" and isinstance(rhs[1], str):
+                    local_consts[arg] = rhs[1]
+                    local_types.pop(arg, None)
+                elif rhs[0] == "new_instance" and isinstance(rhs[1], str):
+                    local_types[arg] = rhs[1]
+                    local_consts.pop(arg, None)
+                else:
+                    local_consts.pop(arg, None)
+                    local_types.pop(arg, None)
+                if (
+                    self.strict_ivars
+                    and rhs[0] == "atput_result"
+                    and (rhs[1] == ("local", arg) or rhs[1] == ("new_instance", "Dictionary"))
+                ):
+                    loc_nm = _local_name_for_slot(arg)
+                    issues.append(
+                        LintIssue(
+                            code="LINT_ATPUT_REASSIGN_TRAP",
+                            severity="error",
+                            message=(
+                                f"Method '{target_cls}>>{selector}' assigns the return value of `atPut(...)` back to '{loc_nm}'. "
+                                f"`atPut(dict, #key, val)` mutates in-place and returns `val` (NOT the Dictionary) — "
+                                f"call `atPut({loc_nm}, key, val);` as a standalone statement instead."
+                            ),
+                            class_name=target_cls,
+                            selector=selector,
+                        )
+                    )
+            elif op == Opcode.GET_INDEX:
+                key_tok = _pop_sym()
+                recv_tok = _pop_sym()
+                if (
+                    self.strict_ivars
+                    and key_tok[0] == "const"
+                    and isinstance(key_tok[1], str)
+                    and key_tok[1].startswith("#")
+                    and recv_tok[0] == "local"
+                    and local_types.get(recv_tok[1]) in ("Array", "OrderedCollection")
+                ):
+                    loc_nm = _local_name_for_slot(recv_tok[1])
+                    issues.append(
+                        LintIssue(
+                            code="LINT_SYMBOL_ARRAY_INDEX",
+                            severity="error",
+                            message=(
+                                f"Method '{target_cls}>>{selector}' indexes {local_types[recv_tok[1]]} '{loc_nm}' with symbol '{key_tok[1]}'. "
+                                "Arrays/OrderedCollections require 0-based integer indices; use a Dictionary (`at(dict, #key)`) for symbol keys."
+                            ),
+                            class_name=target_cls,
+                            selector=selector,
+                        )
+                    )
+                sym_stack.append(("unknown", None))
+            elif op == Opcode.GET_FIELD and isinstance(const_val, str):
+                _pop_sym()
+                sym_stack.append(("field", const_val))
                 if const_val not in read_fields_set:
                     read_fields_set.add(const_val)
                     read_fields.append(const_val)
             elif op == Opcode.SET_FIELD and isinstance(const_val, str):
+                _pop_sym()
+                _pop_sym()
                 if const_val not in written_fields_set:
                     written_fields_set.add(const_val)
                     written_fields.append(const_val)
             elif op == Opcode.STORE_GLOBAL and isinstance(const_val, str):
+                _pop_sym()
                 if const_val not in globals_written_set:
                     globals_written_set.add(const_val)
                     globals_written.append(const_val)
             elif op == Opcode.SET_INDEX:
+                _val_tok = _pop_sym()
+                key_tok = _pop_sym()
+                recv_tok = _pop_sym()
                 has_index_mutation = True
-                if "Actor" in consts:
+                is_actor_pool = recv_tok == ("global", "Actor")
+                if is_actor_pool:
                     has_global_Actor_mutation = True
                     if check_singleton_lock:
-                        # Inspect recent LOAD_CONST before SET_INDEX to detect Actor[#Singleton] := ...
-                        for back_i in range(max(0, idx_op - 4), idx_op):
-                            prev_op, prev_arg = all_ops[back_i][0]
-                            prev_consts = all_ops[back_i][1]
-                            if prev_op == Opcode.LOAD_CONST and 0 <= prev_arg < len(prev_consts):
-                                sym_c = str(prev_consts[prev_arg]).lstrip("#")
-                                if sym_c in PROTECTED_POOL_SINGLETONS:
-                                    issues.append(
-                                        LintIssue(
-                                            code="SYS_PROTECTED_SINGLETON",
-                                            severity="error",
-                                            message=f"Cannot overwrite protected system singleton 'Actor[#{sym_c}]'.",
-                                            class_name=target_cls,
-                                            selector=selector,
-                                        )
-                                    )
-                                    break
+                        sym_c = _resolve_key_sym(key_tok)
+                        if sym_c is not None and sym_c in PROTECTED_POOL_SINGLETONS:
+                            issues.append(
+                                LintIssue(
+                                    code="SYS_PROTECTED_SINGLETON",
+                                    severity="error",
+                                    message=f"Cannot overwrite protected system singleton 'Actor[#{sym_c}]'.",
+                                    class_name=target_cls,
+                                    selector=selector,
+                                )
+                            )
+                        elif sym_c is None and key_tok[0] != "const":
+                            issues.append(
+                                LintIssue(
+                                    code="SYS_PROTECTED_SINGLETON",
+                                    severity="error",
+                                    message="Cannot dynamically assign to `Actor[...]` with a non-literal key while singleton lock is enabled.",
+                                    class_name=target_cls,
+                                    selector=selector,
+                                )
+                            )
+                sym_stack.append(("unknown", None))
             elif op in _CALL_OPCODES:
                 sel = _extract_method_call_name(const_val)
+                arity = _call_arity(const_val)
+                call_args = [_pop_sym() for _ in range(arity)]
+                call_args.reverse()
+                recv_tok = _pop_sym() if op != Opcode.CALL_GLOBAL else ("global", sel)
                 if sel:
                     if sel not in called_selectors_set:
                         called_selectors_set.add(sel)
@@ -454,7 +598,7 @@ class ActorLinter:
                     if (
                         check_singleton_lock
                         and sel in _POOL_MUTATING_SELECTORS
-                        and "Actor" in consts
+                        and recv_tok == ("global", "Actor")
                     ):
                         has_global_Actor_mutation = True
                         if sel == "clear":
@@ -468,22 +612,52 @@ class ActorLinter:
                                 )
                             )
                         else:
-                            for back_i in range(max(0, idx_op - 4), idx_op):
-                                prev_op, prev_arg = all_ops[back_i][0]
-                                prev_consts = all_ops[back_i][1]
-                                if prev_op == Opcode.LOAD_CONST and 0 <= prev_arg < len(prev_consts):
-                                    sym_c = str(prev_consts[prev_arg]).lstrip("#")
-                                    if sym_c in PROTECTED_POOL_SINGLETONS:
-                                        issues.append(
-                                            LintIssue(
-                                                code="SYS_PROTECTED_SINGLETON",
-                                                severity="error",
-                                                message=f"Cannot mutate protected system singleton 'Actor[#{sym_c}]' via '{sel}'.",
-                                                class_name=target_cls,
-                                                selector=selector,
-                                            )
-                                        )
-                                        break
+                            sym_c = _resolve_key_sym(call_args[0]) if call_args else None
+                            if sym_c is not None and sym_c in PROTECTED_POOL_SINGLETONS:
+                                issues.append(
+                                    LintIssue(
+                                        code="SYS_PROTECTED_SINGLETON",
+                                        severity="error",
+                                        message=f"Cannot mutate protected system singleton 'Actor[#{sym_c}]' via '{sel}'.",
+                                        class_name=target_cls,
+                                        selector=selector,
+                                    )
+                                )
+                if sel == "new" and recv_tok[0] == "global" and isinstance(recv_tok[1], str):
+                    sym_stack.append(("new_instance", recv_tok[1]))
+                elif sel == "atPut":
+                    sym_stack.append(("atput_result", recv_tok))
+                else:
+                    sym_stack.append(("unknown", None))
+            elif op in (
+                Opcode.BINARY_ADD,
+                Opcode.BINARY_SUB,
+                Opcode.BINARY_MUL,
+                Opcode.BINARY_DIV,
+                Opcode.BINARY_MOD,
+                Opcode.BINARY_EQ,
+                Opcode.BINARY_NE,
+                Opcode.BINARY_LT,
+                Opcode.BINARY_LE,
+                Opcode.BINARY_GT,
+                Opcode.BINARY_GE,
+            ):
+                _pop_sym()
+                _pop_sym()
+                sym_stack.append(("unknown", None))
+            elif op in (Opcode.JMP_IF_FALSE, Opcode.JMP_IF_TRUE, Opcode.POP_JUMP_IF_FALSE, Opcode.POP_JUMP_IF_TRUE):
+                _pop_sym()
+            elif op in (Opcode.RETURN_VALUE, Opcode.RETURN_BLOCK):
+                _pop_sym()
+            elif op == Opcode.NEW_ARRAY:
+                cnt = int(arg) if isinstance(arg, int) and arg >= 0 else 0
+                for _ in range(cnt):
+                    _pop_sym()
+                sym_stack.append(("new_instance", "Array"))
+            elif op == Opcode.NEW_OBJ:
+                sym_stack.append(("new_instance", str(const_val or "Object")))
+            elif op == Opcode.MAKE_BLOCK:
+                sym_stack.append(("block", arg))
 
         # 3. Validate declared instance variables (`ivars`) if class declares ivars
         if self.strict_ivars and (read_fields or written_fields):
