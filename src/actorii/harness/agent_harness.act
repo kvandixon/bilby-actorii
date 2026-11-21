@@ -28,7 +28,9 @@ inherit(Agent, #AgentHarness, #(
     #taskContract
     #lastErrorContext
     #tokenBudget
-), 18, nil)!!
+    #cachedEngramCtx
+    #cachedGrammarCtx
+), 20, nil)!!
 
 now(AgentHarness)!!
 
@@ -50,7 +52,9 @@ Def initHarness(self, sandboxObj) {
     self.chatLog := new(OrderedCollection);
     self.taskContract := nil;
     self.lastErrorContext := nil;
-    self.tokenBudget := 28000;
+    self.tokenBudget := 44000;
+    self.cachedEngramCtx := nil;
+    self.cachedGrammarCtx := nil;
     ^self;
 }!!
 
@@ -64,6 +68,8 @@ Def setGoal(self, goalText) {
     self.lastResult := nil;
     self.lastError := "";
     self.lastErrorContext := nil;
+    self.cachedEngramCtx := nil;
+    self.cachedGrammarCtx := nil;
     ^self;
 }!!
 
@@ -176,7 +182,7 @@ Def buildStepPrompt(self, engramCtx, grammarCtx, policyTxt | p turnsTxt stepsTxt
         p := p + "\n\n[HARNESS RUNTIME POLICY OVERRIDE]:\n" + policyTxt;
     endif;
     if engramCtx <> "" then
-        p := p + "\n\n" + engramCtx;
+        p := p + "\n\n" + trimEngramContext(self.sandbox, engramCtx, 2800);
     endif;
     if grammarCtx <> "" then
         p := p + "\n\n" + grammarCtx;
@@ -256,8 +262,14 @@ Def step(self | engramCtx grammarCtx policyTxt promptText rawReply rawAction act
     self.stepCount := self.stepCount + 1;
     self.status := #running;
 
-    engramCtx := selectEngramContext(self, self.goal);
-    grammarCtx := selectGrammarContext(self, self.goal);
+    if self.cachedEngramCtx == nil then
+        self.cachedEngramCtx := selectEngramContext(self, self.goal);
+    endif;
+    if self.cachedGrammarCtx == nil then
+        self.cachedGrammarCtx := selectGrammarContext(self, self.goal);
+    endif;
+    engramCtx := self.cachedEngramCtx;
+    grammarCtx := self.cachedGrammarCtx;
     policyTxt := policyNote(self);
 
     promptText := buildStepPrompt(self, engramCtx, grammarCtx, policyTxt);

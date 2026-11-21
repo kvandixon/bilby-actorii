@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -199,7 +200,11 @@ def test_ask_actorii_peer_cli_bridge() -> None:
     assert "Def evolve(self" in proc_h.stdout
 
 
-def test_live_llm_agent_evolves_its_own_harness() -> None:
+@pytest.mark.skipif(
+    os.environ.get("ACTORII_RUN_LIVE_LLM") != "1",
+    reason="set ACTORII_RUN_LIVE_LLM=1 with a live :8080 endpoint to run the live LLM self-mutation test",
+)
+def test_live_llm_agent_evolves_its_own_harness(monkeypatch) -> None:
     """Verify `Actor[#Harness]` can use `evolve(Actor[#Harness], ...)` with live `qwen3.8:latest` to hot-patch its own `AgentHarness` bytecode."""
     import urllib.request
 
@@ -207,6 +212,15 @@ def test_live_llm_agent_evolves_its_own_harness() -> None:
         urllib.request.urlopen("http://127.0.0.1:8080/v1/models", timeout=2.0).read()
     except Exception:
         return
+
+    monkeypatch.setenv("ACTORII_DISABLE_PERSONA_OVERLAY", "1")
+    try:
+        health_raw = urllib.request.urlopen("http://127.0.0.1:8080/health", timeout=1.5).read().decode("utf-8", errors="replace")
+        if '"service": "strata"' in health_raw or '"service":"strata"' in health_raw:
+            monkeypatch.setenv("ACTORII_ENABLE_THINKING", "1")
+            monkeypatch.setenv("ACTORII_THINKING_MODE", "medium")
+    except Exception:
+        pass
 
     vm, harness, _ = bootstrap_agent_harness(
         model="qwen3.8:latest",

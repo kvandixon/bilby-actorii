@@ -197,7 +197,7 @@ Def buildStandard(self) {
         + "  - Mixing `-I/usr/src/jetson_multimedia_api/include` (Tegra custom `jpeglib.h`, struct=728) with system `-ljpeg` (struct=584) in C++.";
     setBlueprint(self, #python,
         "# Browser-Playable CUDA/Pipe -> HTTP MJPEG Server (`GET /` HTML + `GET /stream` MJPEG):\n"
-        + "import subprocess, threading\n"
+        + "import subprocess, threading, time\n"
         + "from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\n"
         + "LATEST_JPG = b''\n"
         + "# Producer thread reads `FFD8..FFD9` JPEGs from `ffmpeg` piped from your CUDA RGB24 binary:\n"

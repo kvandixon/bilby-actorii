@@ -38,6 +38,8 @@ benchmarks/data/nextgen/repos/
 benchmarks/data/nextgen/polyglot_benchmark/
 benchmarks/data/nextgen/terminal_bench_2_1/
 benchmarks/data/nextgen/*.parquet
+benchmarks/data/agents-last-exam/
+benchmarks/data/ale_inputs/
 
 # Local environment secrets & agent scratchpads
 .env

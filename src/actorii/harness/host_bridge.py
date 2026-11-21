@@ -27,7 +27,10 @@ from __future__ import annotations
 
 import difflib
 import os
+import re
+import signal
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -76,6 +79,10 @@ RING_1_CLASSES: Set[str] = {
     "HlsStreamProtocolSpec",
     "RtspStreamProtocolSpec",
     "ProtocolSuite",
+    "NetworkTopologyBridge",
+    "NetworkNode",
+    "PortRelayRoute",
+    "NetworkTopology",
 }
 
 
@@ -193,6 +200,22 @@ FORBIDDEN_WRITE_PREFIXES: Tuple[str, ...] = tuple(
 )
 
 
+_FORBIDDEN_SHELL_REGEXES: Tuple[Tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(?:^|[;&|(\s])sudo(?:\s|$)"), "sudo"),
+    (re.compile(r"(?:^|[;&|(\s])systemctl(?:\s|$)"), "systemctl"),
+    (
+        re.compile(
+            r"(?:^|[;&|(\s])rm\s+(?:-[a-z]*r[a-z]*f[a-z]*|-[a-z]*f[a-z]*r[a-z]*|-[a-z]*r[a-z]*\s+-[a-z]*f[a-z]*|-[a-z]*f[a-z]*\s+-[a-z]*r[a-z]*|--recursive\s+--force|--force\s+--recursive)\s+(?:/(?:\s|$|\*)|~(?:\s|$|/)|/home(?:\s|$|/)|\*(?:\s|$))"
+        ),
+        "rm -rf /|~|/home|*",
+    ),
+    (
+        re.compile(r"(?:^|[;&|(\s])kill\s+(?:-9|-kill|-sigkill|-s\s+(?:9|kill|sigkill))(?:\s|$)"),
+        "kill -9/KILL",
+    ),
+)
+
+
 def is_host_lockdown() -> bool:
     """Return True when running in production host-lockdown mode (`ACTORII_HOST_LOCKDOWN=1`)."""
     return os.environ.get("ACTORII_HOST_LOCKDOWN") == "1"
@@ -201,9 +224,78 @@ def is_host_lockdown() -> bool:
 def validate_safe_shell_command(cmd_str: str) -> None:
     """Validate that `cmd_str` contains no forbidden host/service/network/cron patterns."""
     lower_cmd = cmd_str.lower()
+    norm_cmd = re.sub(r"\s+", " ", lower_cmd).strip()
     for banned in FORBIDDEN_SHELL_PATTERNS:
-        if banned.lower() in lower_cmd:
+        b_low = banned.lower()
+        if b_low in lower_cmd or b_low in norm_cmd:
             raise PermissionError(f"Blocked unsafe shell command pattern: {banned!r}")
+    for rx, label in _FORBIDDEN_SHELL_REGEXES:
+        if rx.search(norm_cmd):
+            raise PermissionError(f"Blocked unsafe shell command pattern: {label!r}")
+
+
+def _atomic_write_text(target: Path, text: str) -> None:
+    """Atomically write UTF-8 text to `target` using a unique sibling temporary file."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path: Optional[str] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=str(target.parent),
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as fh:
+            tmp_path = fh.name
+            fh.write(text)
+        os.replace(tmp_path, target)
+    except Exception:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+        raise
+
+
+def _run_shell_with_pgkill(cmd_str: str, *, cwd: str, timeout_sec: float) -> Tuple[int, str, str]:
+    """Run a shell command in its own process group and kill the entire group on timeout."""
+    proc = subprocess.Popen(
+        cmd_str,
+        shell=True,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout_raw, stderr_raw = proc.communicate(timeout=timeout_sec)
+        return int(proc.returncode or 0), stdout_raw or "", stderr_raw or ""
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except OSError:
+            try:
+                proc.terminate()
+            except OSError:
+                pass
+        try:
+            stdout_raw, _ = proc.communicate(timeout=1.5)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+            try:
+                stdout_raw, _ = proc.communicate(timeout=1.5)
+            except Exception:
+                stdout_raw = ""
+        return 124, stdout_raw or "", f"TimeoutExpired after {int(timeout_sec)}s"
 
 
 @actor_bridge(name="HostWorkspaceBridge")
@@ -238,7 +330,10 @@ class HostWorkspaceBridge:
         self.allowed_roots: List[Path] = [
             Path(r).expanduser().resolve() for r in (allowed_roots or default_roots)
         ]
+        self._tmp_root: Path = Path("/tmp").resolve()
+        self._ws_root: Path = Path("/workspace").resolve() if Path("/workspace").exists() else Path("/workspace")
         self.max_output_chars = int(max_output_chars)
+        self.max_read_bytes = 8 * 1024 * 1024  # 8 MiB file read safety cap
         # In-memory Copy-on-Write VFS overlay used during `vm._in_shadow_run` (`shadow_only=True`)
         self._shadow_vfs: Dict[str, str] = {}
         self._last_file_backup: Dict[str, str] = {}
@@ -265,6 +360,8 @@ class HostWorkspaceBridge:
         for fp in FORBIDDEN_READ_PREFIXES:
             if p_str == fp or p_str.startswith(fp + "/"):
                 raise PermissionError(f"Access to restricted path '{p_str}' is forbidden by HostWorkspaceBridge.")
+        if p_str.startswith("/proc/") and p_str.endswith("/environ"):
+            raise PermissionError(f"Access to restricted path '{p_str}' is forbidden by HostWorkspaceBridge.")
 
         if for_write and os.environ.get("ACTORII_ALLOW_SELF_EDIT") != "1":
             for wp in FORBIDDEN_WRITE_PREFIXES:
@@ -273,8 +370,8 @@ class HostWorkspaceBridge:
                         f"BLOCKED: Write/edit access to protected host/source path '{p_str}' is strictly forbidden by HostWorkspaceBridge."
                     )
             if is_host_lockdown():
-                tmp_root = Path("/tmp").resolve()
-                ws_root = Path("/workspace").resolve() if Path("/workspace").exists() else Path("/workspace")
+                tmp_root = self._tmp_root
+                ws_root = self._ws_root
                 if not (
                     p == tmp_root
                     or tmp_root in p.parents
@@ -299,6 +396,11 @@ class HostWorkspaceBridge:
             return self._shadow_vfs[key]
         if not target.is_file():
             raise FileNotFoundError(f"File not found: {target}")
+        fsize = target.stat().st_size
+        if fsize > self.max_read_bytes:
+            raise ValueError(
+                f"File '{target.name}' is {fsize} bytes (exceeds {self.max_read_bytes} byte read cap)."
+            )
         return target.read_text(encoding="utf-8", errors="replace")
 
     @actor_query
@@ -313,9 +415,29 @@ class HostWorkspaceBridge:
         if total == 0:
             return f"[{target.name}: empty file]"
         sliced = [f"{ln_no:4d}: {lines[ln_no - 1]}" for ln_no in range(s_idx, e_idx + 1)]
-        body = "\n".join(sliced)
-        if len(body) > self.max_output_chars:
-            body = body[: self.max_output_chars] + "\n... [truncated]"
+        eff_max_chars = (
+            max(self.max_output_chars, 12000)
+            if target.suffix.lower() in (".md", ".txt", ".json", ".yaml", ".yml", ".rst")
+            else self.max_output_chars
+        )
+        kept: List[str] = []
+        used = 0
+        last_shown = s_idx - 1
+        truncated = False
+        for idx_ln, ln_txt in enumerate(sliced, start=s_idx):
+            add_len = len(ln_txt) + (1 if kept else 0)
+            if kept and used + add_len > eff_max_chars:
+                truncated = True
+                break
+            kept.append(ln_txt)
+            used += add_len
+            last_shown = idx_ln
+        body = "\n".join(kept)
+        if len(body) > eff_max_chars:
+            body = body[:eff_max_chars]
+            truncated = True
+        if truncated:
+            body += f"\n... [truncated at line {last_shown}/{total} — read next from line {last_shown + 1}]"
         vfs_tag = " (CoW Shadow VFS)" if (getattr(self.vm, "_in_shadow_run", False) and str(target) in self._shadow_vfs) else ""
         return f"[{target}{vfs_tag} lines {s_idx}-{e_idx} of {total}]\n{body}"
 
@@ -336,16 +458,55 @@ class HostWorkspaceBridge:
         except SyntaxError as exc:
             return f"[{target.name}: syntax error {exc}]"
         found = None
-        for node in _ast.walk(tree):
-            if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef)) and node.name == sym:
-                found = node
-                break
+        if "." in sym:
+            cls_part, meth_part = sym.split(".", 1)
+            for node in tree.body:
+                if isinstance(node, _ast.ClassDef) and node.name == cls_part:
+                    for item in node.body:
+                        if isinstance(item, (_ast.FunctionDef, _ast.AsyncFunctionDef)) and item.name == meth_part:
+                            found = item
+                            break
+                    if found is not None:
+                        break
+        if found is None:
+            for node in tree.body:
+                if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef)) and node.name == sym:
+                    found = node
+                    break
+        if found is None:
+            for node in _ast.walk(tree):
+                if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef)) and node.name == sym:
+                    found = node
+                    break
         if found is None:
             return f"[{target.name}: symbol {sym!r} not found]"
         s_idx = int(found.lineno)
         e_idx = int(getattr(found, "end_lineno", s_idx) or s_idx)
         sliced = [f"{ln_no:4d}: {lines[ln_no - 1]}" for ln_no in range(s_idx, e_idx + 1)]
-        return f"[{target} symbol `{sym}` lines {s_idx}-{e_idx} of {total}]\n" + "\n".join(sliced)
+        eff_max_chars = (
+            max(self.max_output_chars, 12000)
+            if target.suffix.lower() in (".md", ".txt", ".json", ".yaml", ".yml", ".rst")
+            else self.max_output_chars
+        )
+        kept: List[str] = []
+        used = 0
+        last_shown = s_idx - 1
+        truncated = False
+        for idx_ln, ln_txt in enumerate(sliced, start=s_idx):
+            add_len = len(ln_txt) + (1 if kept else 0)
+            if kept and used + add_len > eff_max_chars:
+                truncated = True
+                break
+            kept.append(ln_txt)
+            used += add_len
+            last_shown = idx_ln
+        body = "\n".join(kept)
+        if len(body) > eff_max_chars:
+            body = body[:eff_max_chars]
+            truncated = True
+        if truncated:
+            body += f"\n... [truncated at line {last_shown}/{total} — read next from line {last_shown + 1}]"
+        return f"[{target} symbol `{sym}` lines {s_idx}-{e_idx} of {total}]\n{body}"
 
     @actor_query
     def searchFile(self, path: str, pattern: str, context_lines: int = 12) -> str:
@@ -358,13 +519,37 @@ class HostWorkspaceBridge:
             return f"[{target.name}: empty search pattern]"
 
         if target.is_dir():
-            proc = subprocess.run(
-                ["grep", "-rnI", "--include=*.py", "-E", pat_str, "."],
-                cwd=str(target),
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
+            grep_cmd = [
+                "grep",
+                "-rnI",
+                "--include=*.py",
+                "--include=*.act",
+                "--include=*.md",
+                "--include=*.json",
+                "--include=*.yaml",
+                "--include=*.yml",
+                "--include=*.sh",
+                "--include=*.cu",
+                "--include=*.cpp",
+                "--include=*.c",
+                "--include=*.h",
+                "--include=*.txt",
+                "-E",
+                "-e",
+                pat_str,
+                "--",
+                ".",
+            ]
+            try:
+                proc = subprocess.run(
+                    grep_cmd,
+                    cwd=str(target),
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            except subprocess.TimeoutExpired:
+                return f"[{target}: directory search timed out after 10s for {pat_str!r}]"
             raw_hits = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
             if not raw_hits:
                 return f"[{target}: 0 directory matches for {pat_str!r}]"
@@ -381,7 +566,10 @@ class HostWorkspaceBridge:
                 return is_test * 10 + 2
 
             ranked = sorted(raw_hits, key=_dir_hit_prio)[:35]
-            return f"[{target}: {len(raw_hits)} directory matches for {pat_str!r} (top {len(ranked)})]\n" + "\n".join(ranked)
+            out = f"[{target}: {len(raw_hits)} directory matches for {pat_str!r} (top {len(ranked)})]\n" + "\n".join(ranked)
+            if len(out) > self.max_output_chars:
+                out = out[: self.max_output_chars] + "\n... [truncated]"
+            return out
 
         content = self._read_raw_text(target)
         lines = content.splitlines()
@@ -408,13 +596,6 @@ class HostWorkspaceBridge:
             return (2, i)
 
         ordered_indices = sorted(match_indices, key=_match_priority)
-
-        # Pre-index all `def <func>(` definitions in the file for intra-file helper call-chain hints
-        def_line_map: Dict[str, int] = {}
-        for ln_i, ln_txt in enumerate(lines):
-            dm = _re.match(r"^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", ln_txt)
-            if dm and dm.group(1) not in def_line_map:
-                def_line_map[dm.group(1)] = ln_i + 1
 
         ctx = max(2, min(60, int(context_lines or 20)))
         windows: List[str] = []
@@ -476,13 +657,14 @@ class HostWorkspaceBridge:
     def previewEdit(self, path: str, old_text: str, new_text: str) -> str:
         """Speculatively stage `editFile` in the Copy-on-Write Shadow VFS (`_in_shadow_run=True`), read back the result, and roll back."""
         prev_shadow = getattr(self.vm, "_in_shadow_run", False)
+        prev_vfs = dict(self._shadow_vfs)
         self.vm._in_shadow_run = True
         try:
             diff_out = self.editFile(path, old_text, new_text)
             read_out = self.readFile(path, 1, 120)
             return f"{diff_out}\n{read_out}"
         finally:
-            self.clear_shadow_vfs()
+            self._shadow_vfs = prev_vfs
             self.vm._in_shadow_run = prev_shadow
 
     def _auto_verify_python_edit(self, target: Path) -> str:
@@ -511,13 +693,14 @@ class HostWorkspaceBridge:
         if test_file is None:
             return ""
 
+        pytest_timeout = 6
         try:
             proc = subprocess.run(
                 ["python3", "-m", "pytest", "-q", "--tb=short", "-x", str(test_file)],
                 cwd=str(target.parent),
                 capture_output=True,
                 text=True,
-                timeout=6,
+                timeout=pytest_timeout,
             )
             combined = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
             import re as _re
@@ -545,7 +728,7 @@ class HostWorkspaceBridge:
                 else ""
             )
             return (
-                f"\n[AUTO-TEST FAIL ({test_file.name})]: Pytest timed out after 12s! "
+                f"\n[AUTO-TEST FAIL ({test_file.name})]: Pytest timed out after {pytest_timeout}s! "
                 f"Your code in {target.name} has an infinite loop or self-referential cycle.{reg_msg}"
             )
         except Exception:
@@ -638,10 +821,9 @@ class HostWorkspaceBridge:
             return f"SHADOW_VFS_WRITE: {target} ({len(text)} chars staged in CoW overlay)"
 
         target.parent.mkdir(parents=True, exist_ok=True)
-        if target.is_file(): self._last_file_backup[str(target)] = target.read_text(encoding="utf-8", errors="replace")
-        tmp_path = target.with_suffix(target.suffix + ".tmp")
-        tmp_path.write_text(text, encoding="utf-8")
-        os.replace(tmp_path, target)
+        if target.is_file():
+            self._last_file_backup[str(target)] = target.read_text(encoding="utf-8", errors="replace")
+        _atomic_write_text(target, text)
         auto_check = self._auto_verify_python_edit(target)
         return f"WRITE_OK: {target} ({len(text)} chars){auto_check}"
 
@@ -651,7 +833,7 @@ class HostWorkspaceBridge:
         target = self._resolve_safe_path(path, allow_read_anywhere_in_project=False, for_write=True)
         original = self._read_raw_text(target)
         old_s = str(old_text)
-        new_s = self._sanitize_python_source(target, str(new_text))
+        new_s = str(new_text).replace("\x00", "\\0") if target.suffix == ".py" else str(new_text)
         if not old_s:
             raise ValueError(f"editFile target string not found in {target.name} (empty old_text)")
 
@@ -694,9 +876,7 @@ class HostWorkspaceBridge:
             return f"SHADOW_VFS_EDIT: {target}\n{diff_preview}"
 
         self._last_file_backup[str(target)] = original
-        tmp_path = target.with_suffix(target.suffix + ".tmp")
-        tmp_path.write_text(updated, encoding="utf-8")
-        os.replace(tmp_path, target)
+        _atomic_write_text(target, updated)
         auto_check = self._auto_verify_python_edit(target)
         return f"EDIT_OK: {target}\n{diff_preview}{auto_check}"
 
@@ -706,13 +886,13 @@ class HostWorkspaceBridge:
         prev_text = self._last_file_backup.get(str(target))
         if prev_text is None:
             return f"UNDO_UNAVAILABLE: {target.name}"
-        target.write_text(prev_text, encoding="utf-8")
+        _atomic_write_text(target, prev_text)
         return f"UNDO_OK: {target} ({len(prev_text)} chars restored)"
 
     @actor_command
     def execShell(self, command: str, timeout_sec: int = 15) -> Dictionary:
         """Execute a bounded shell command inside the primary workspace root and return a Dictionary (`#exitCode`, `#stdout`, `#stderr`)."""
-        cmd_str = self._sanitize_python_source(Path("cmd.py"), str(command or "").strip())
+        cmd_str = str(command or "").replace("\x00", "\\0").strip()
         if not cmd_str:
             raise ValueError("execShell requires a non-empty command string.")
 
@@ -730,22 +910,7 @@ class HostWorkspaceBridge:
         existing_roots = [r for r in self.allowed_roots if r.exists()]
         cwd = str(existing_roots[0] if existing_roots else Path.cwd())
         t_before = time.time()
-        try:
-            proc = subprocess.run(
-                cmd_str,
-                shell=True,
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                timeout=t_sec,
-            )
-            exit_code = int(proc.returncode)
-            stdout_raw = proc.stdout or ""
-            stderr_raw = proc.stderr or ""
-        except subprocess.TimeoutExpired as exc:
-            exit_code = 124
-            stdout_raw = (exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or ""))
-            stderr_raw = f"TimeoutExpired after {t_sec}s"
+        exit_code, stdout_raw, stderr_raw = _run_shell_with_pgkill(cmd_str, cwd=cwd, timeout_sec=float(t_sec))
 
         if exit_code == 0 and not stdout_raw.strip():
             try:
@@ -806,14 +971,54 @@ class VMReflectionBridge:
         c_obj = self.vm.hierarchy.get(cname)
         return classify_class_ring(cname, c_obj)
 
+    _BUILTIN_PRIMITIVE_SELECTORS = {
+        "String": [
+            "at", "count", "endswith", "find", "isalnum", "isalpha", "isdigit",
+            "islower", "isspace", "isupper", "join", "lower", "lstrip", "replace",
+            "rfind", "rstrip", "size", "split", "splitlines", "startswith", "strip", "upper",
+        ],
+        "Array": ["add", "at", "atPut", "collect", "do", "includes", "indexOf", "isEmpty", "reject", "remove", "select", "size"],
+        "OrderedCollection": ["add", "at", "atPut", "collect", "do", "includes", "indexOf", "isEmpty", "reject", "remove", "select", "size"],
+        "Dictionary": ["at", "atIfAbsent", "atPut", "includesKey", "keys", "removeKey", "size", "values"],
+    }
+
+    def _resolve_pool_bridge(self, target: Any) -> Any:
+        if hasattr(target, "_bridge_specs"):
+            return target
+        cname = _norm_sym(target)
+        actor_pool = getattr(self.vm, "global_vars", {}).get("Actor")
+        if isinstance(actor_pool, dict) and cname in actor_pool:
+            return actor_pool[cname]
+        return None
+
     @actor_query
     def methodsOf(self, class_symbol: Any) -> ActorArray:
-        """Return an Actor `Array` of method selector strings defined on `class_symbol`."""
+        """Return an Actor `Array` of method selector strings defined on `class_symbol` (including built-in String/Collection primitives and `Actor[#...]` bridge singletons)."""
+        if hasattr(class_symbol, "_bridge_specs"):
+            sels = sorted(getattr(class_symbol, "_bridge_specs", {}).keys())
+            arr = ActorArray(len(sels))
+            for i, s in enumerate(sels):
+                arr[i] = s
+            return arr
         cname = _norm_sym(class_symbol)
+        found: set[str] = set(self._BUILTIN_PRIMITIVE_SELECTORS.get(cname, []))
         c_obj = self.vm.hierarchy.get(cname)
-        if c_obj is None:
-            return ActorArray(0)
-        sels = sorted(set(list(getattr(c_obj, "_methods", {}).keys()) + list(getattr(c_obj, "_class_methods", {}).keys())))
+        if c_obj is not None:
+            found.update(getattr(c_obj, "_methods", {}).keys())
+            found.update(getattr(c_obj, "_class_methods", {}).keys())
+        else:
+            pool_obj = self._resolve_pool_bridge(cname)
+            if pool_obj is not None:
+                if hasattr(pool_obj, "_bridge_specs"):
+                    found.update(getattr(pool_obj, "_bridge_specs", {}).keys())
+                elif hasattr(pool_obj, "_methods"):
+                    found.update(getattr(pool_obj, "_methods", {}).keys())
+                else:
+                    found.update(
+                        m for m in dir(pool_obj)
+                        if not m.startswith("_") and callable(getattr(pool_obj, m, None))
+                    )
+        sels = sorted(found)
         arr = ActorArray(len(sels))
         for i, s in enumerate(sels):
             arr[i] = s
@@ -821,11 +1026,30 @@ class VMReflectionBridge:
 
     @actor_query
     def sourceOf(self, class_symbol: Any, selector_symbol: Any) -> str:
-        """Return the stored `.act` source chunk or bytecode disassembly for `class_symbol>>selector_symbol`."""
+        """Return the stored `.act` source chunk, builtin signature, or bridge docstring for `class_symbol>>selector_symbol`."""
         cname = _norm_sym(class_symbol)
         sel = _norm_sym(selector_symbol)
+        if sel in self._BUILTIN_PRIMITIVE_SELECTORS.get(cname, []):
+            return (
+                f"/* Builtin {cname} primitive `{sel}(receiver, ...)` — callable directly in 1993 Actor 4.1 "
+                f"(e.g. `{sel}(val, ...)`). Note: selector names on String are lowercase (`startswith`, `endswith`, `count`, `strip`). */"
+            )
         c_obj = self.vm.hierarchy.get(cname)
         if c_obj is None:
+            pool_obj = self._resolve_pool_bridge(class_symbol)
+            if pool_obj is not None:
+                specs = getattr(pool_obj, "_bridge_specs", {})
+                target = getattr(pool_obj, "target", pool_obj)
+                if sel in specs:
+                    import inspect
+
+                    spec = specs[sel]
+                    py_attr = getattr(spec, "py_attr", "") or sel
+                    fn = getattr(target, py_attr, None)
+                    sig_s = str(inspect.signature(fn)) if callable(fn) else "(...)"
+                    doc_s = (inspect.getdoc(fn) or "").splitlines()[0] if callable(fn) and inspect.getdoc(fn) else ""
+                    return f"/* Bridge Actor[#{cname}]>>{sel}{sig_s}: {doc_s} */"
+                return f"/* Selector {sel} not found on Actor[#{cname}]; available: {sorted(specs.keys())} */"
             return f"/* Class {cname} not found */"
         m_obj = c_obj._class_methods.get(sel) or c_obj._methods.get(sel) or self.vm.hierarchy.resolve_method(cname, sel)
         if m_obj is None:

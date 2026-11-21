@@ -115,22 +115,47 @@ Def avgColumn(self, rows, colSymbol | n total) {
     ^(total / (n * 1.0));
 }!!
 
-Def maxColumn(self, rows, colSymbol | i n best row val) {
+Def maxColumn(self, rows, colSymbol | i n best found row val) {
     n := size(rows);
     if (n == 0) then
         ^0;
     endif;
-    best := at(rows[0], colSymbol);
-    i := 1;
+    best := 0;
+    found := false;
+    i := 0;
     loop while (i < n) begin
         row := rows[i];
         val := at(row, colSymbol);
-        if (val > best) then
-            best := val;
+        if (val <> nil) then
+            if (found == false) then
+                best := val;
+                found := true;
+            else
+                if (val > best) then
+                    best := val;
+                endif;
+            endif;
         endif;
         i := i + 1;
     endLoop;
     ^best;
+}!!
+
+Def countWhereAbove(self, rows, colSymbol, threshVal | i n cnt row val) {
+    cnt := 0;
+    n := size(rows);
+    i := 0;
+    loop while (i < n) begin
+        row := rows[i];
+        val := at(row, colSymbol);
+        if (val <> nil) then
+            if (val > threshVal) then
+                cnt := cnt + 1;
+            endif;
+        endif;
+        i := i + 1;
+    endLoop;
+    ^cnt;
 }!!
 
 /* -------------------------------------------------------------------------

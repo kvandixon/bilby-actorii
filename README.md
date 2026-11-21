@@ -27,7 +27,7 @@ Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) wit
 | **Red-Team Adversarial Containment Audit** | `Security` | `6` | **`100.00% (6 / 6 Blocked)`** | `0.00 pp (held)` | `2026-11-14` |
 | **HumanEval-12 + GSM8K-8 Local Model Matrix** | `SWE & Coding` | `20` | **`100.00% (20 / 20)`** | **`+15.00 pp` ▲** | `2026-11-14` |
 | **LongMemEval + LoCoMo (Stratified 17-Task)** | `Memory` | `17` | **`94.12% (16 / 17)`** | `0.00 pp (held)` | `2026-11-14` |
-| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `SWE & Coding` | `5` | **`80.00% (4 / 5)`** | `0.00 pp (held)` | `2026-11-15` |
+| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `SWE & Coding` | `5` | **`0.00% (0 / 5)`** | `-80.00 pp` ▼ | `2026-11-18` |
 <!-- BENCHMARK_SCOREBOARD:END -->
 
 👉 **[Full details, run history & live HTML scoreboard (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)**

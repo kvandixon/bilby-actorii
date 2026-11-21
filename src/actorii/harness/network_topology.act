@@ -1,0 +1,200 @@
+/* =========================================================================
+ * NETWORK_TOPOLOGY.ACT
+ * First-Class Network Topology, Tailnet Identity & Port-Relay Objects in
+ * authentic 1993 Whitewater Actor 4.1 (`Actor[#Network]` backed by Ring-0
+ * `Actor[#NetTopo]`).
+ *
+ * Hierarchy:
+ *   Object
+ *    +-- DomainEntity
+ *         +-- NetworkNode       (#ip, #role, #networkKind, #osName, #online)
+ *         +-- PortRelayRoute    (#listenPort, #targetHost, #targetPort, #managedBy)
+ *         +-- NetworkTopology   (#topoBridge, #jetson, #proxy, #lastLookup)
+ * ========================================================================= */
+
+inherit(DomainEntity, #NetworkNode, #(
+    #ip
+    #role
+    #networkKind
+    #osName
+    #online
+), 5, nil)!!
+
+now(NetworkNode)!!
+
+Def initNode(self, hostStr, ipStr, roleStr, netKindStr, osStr, isOnline) {
+    initEntity(self, ipStr, hostStr);
+    self.ip := ipStr;
+    self.role := roleStr;
+    self.networkKind := netKindStr;
+    self.osName := osStr;
+    self.online := isOnline;
+    ^self;
+}!!
+
+Def ip(self) { ^self.ip; }!!
+Def role(self) { ^self.role; }!!
+Def networkKind(self) { ^self.networkKind; }!!
+
+inherit(DomainEntity, #PortRelayRoute, #(
+    #listenPort
+    #targetHost
+    #targetPort
+    #managedBy
+), 4, nil)!!
+
+now(PortRelayRoute)!!
+
+Def initRoute(self, lPort, tHost, tPort, mgrStr) {
+    initEntity(self, asString(lPort), "valkyrie:" + asString(lPort) + "->" + asString(tHost) + ":" + asString(tPort));
+    self.listenPort := lPort;
+    self.targetHost := tHost;
+    self.targetPort := tPort;
+    self.managedBy := mgrStr;
+    ^self;
+}!!
+
+inherit(DomainEntity, #NetworkTopology, #(
+    #topoBridge
+    #jetson
+    #proxy
+    #lastLookup
+), 4, nil)!!
+
+now(NetworkTopology)!!
+
+Def initTopology(self, bridgeObj, jetsonObj, proxyObj) {
+    initEntity(self, #Network, "Valkyrie LAN + Tailscale Network Topology");
+    self.topoBridge := bridgeObj;
+    self.jetson := jetsonObj;
+    self.proxy := proxyObj;
+    self.lastLookup := "";
+    ^self;
+}!!
+
+Def summary(self | peers bridges ifaces tsCount brCount ifCount) {
+    peers := tailnetPeers(self.topoBridge);
+    bridges := listBridges(self.topoBridge);
+    ifaces := hostInterfaces(self.topoBridge);
+    tsCount := size(peers);
+    brCount := size(bridges);
+    ifCount := size(ifaces);
+    ^"NetworkTopology(interfaces=" + asString(ifCount)
+        + " | tailnetNodes=" + asString(tsCount)
+        + " | activePortBridges=" + asString(brCount) + ")";
+}!!
+
+Def boolText(self, flag) {
+    if flag == true then
+        ^"true";
+    endif;
+    ^"false";
+}!!
+
+Def topologyMap(self | ifaces peers bridges out i n row b) {
+    ifaces := hostInterfaces(self.topoBridge);
+    peers := tailnetPeers(self.topoBridge);
+    bridges := listBridges(self.topoBridge);
+
+    out := "=== Network Topology Map (`Actor[#Network]`) ===\n[1] Valkyrie Host Interfaces:\n";
+    n := size(ifaces);
+    i := 0;
+    loop while (i < n) begin
+        row := ifaces[i];
+        out := out + "  • " + asString(at(row, #interface)) + " (" + asString(at(row, #kind)) + "): "
+            + asString(at(row, #cidr)) + " [" + asString(at(row, #state)) + "]\n";
+        i := i + 1;
+    endLoop;
+
+    out := out + "\n[2] Tailscale Tailnet Nodes (`100.64.0.0/10`):\n";
+    n := size(peers);
+    if n == 0 then
+        out := out + "  • (no Tailscale peers detected)\n";
+    else
+        i := 0;
+        loop while (i < n) begin
+            row := peers[i];
+            out := out + "  • " + asString(at(row, #tailscaleIp)) + " -> "
+                + asString(at(row, #hostname)) + " (" + asString(at(row, #os))
+                + ", role=" + asString(at(row, #role))
+                + ", online=" + boolText(self, at(row, #online)) + ")\n";
+            i := i + 1;
+        endLoop;
+    endif;
+
+    out := out + "\n[3] Active Tailscale/Host -> LAN Port Relays (`8091..8999`):\n";
+    n := size(bridges);
+    if n == 0 then
+        out := out + "  • (none — Note: `:8090` on `valkyrie` is ActorII Web Studio! Use `exposeLanPort(Actor[#Network], '192.168.68.57', 8090, 8091)!!` to bridge a LAN edge service onto Tailscale)\n";
+    else
+        i := 0;
+        loop while (i < n) begin
+            b := bridges[i];
+            out := out + "  • valkyrie:" + asString(at(b, #listenPort)) + " -> "
+                + asString(at(b, #targetHost)) + ":" + asString(at(b, #targetPort))
+                + " (pid=" + asString(at(b, #pid)) + ", alive=" + boolText(self, at(b, #alive))
+                + ", managedBy=" + asString(at(b, #managedBy)) + ")\n";
+            i := i + 1;
+        endLoop;
+    endif;
+    ^out;
+}!!
+
+Def whoOwnsIp(self, ipOrUrl) {
+    self.lastLookup := asString(ipOrUrl);
+    ^identifyIp(self.topoBridge, ipOrUrl);
+}!!
+
+Def tailnetStatus(self) {
+    ^tailnetPeers(self.topoBridge);
+}!!
+
+Def listBridges(self) {
+    ^listBridges(self.topoBridge);
+}!!
+
+Def exposeLanPort(self, targetLanIp, targetPort, valkyrieListenPort) {
+    ^exposeLanPort(self.topoBridge, targetLanIp, targetPort, valkyrieListenPort);
+}!!
+
+Def closeLanPort(self, valkyrieListenPort) {
+    ^closeLanPort(self.topoBridge, valkyrieListenPort);
+}!!
+
+Def explainReachability(self, clientNetworkOrIp, targetIp, targetPort | clientInfo targetInfo bridges i n b tsIp matchedBridge) {
+    clientInfo := identifyIp(self.topoBridge, clientNetworkOrIp);
+    targetInfo := identifyIp(self.topoBridge, targetIp);
+    bridges := listBridges(self.topoBridge);
+    tsIp := asString(at(targetInfo, #valkyrieTailscaleIp));
+
+    matchedBridge := nil;
+    n := size(bridges);
+    i := 0;
+    loop while (i < n) begin
+        b := bridges[i];
+        if (asString(at(b, #targetHost)) == asString(at(targetInfo, #ip))) then
+            if (asString(at(b, #targetPort)) == asString(targetPort)) then
+                if (at(b, #alive) == true) then
+                    matchedBridge := b;
+                endif;
+            endif;
+        endif;
+        i := i + 1;
+    endLoop;
+
+    if matchedBridge <> nil then
+        ^"REACHABLE OVER TAILSCALE VIA BRIDGE: `" + asString(targetIp) + ":" + asString(targetPort)
+            + "` (" + asString(at(targetInfo, #owner)) + ") is bridged on `valkyrie` port `:"
+            + asString(at(matchedBridge, #listenPort)) + "` -> Tailscale URL: `http://" + tsIp + ":"
+            + asString(at(matchedBridge, #listenPort)) + "/`";
+    endif;
+
+    ^"DIRECT REACHABILITY CHECK:\n"
+        + "  • Client (`" + asString(clientNetworkOrIp) + "`): owner=" + asString(at(clientInfo, #owner))
+        + " (" + asString(at(clientInfo, #network)) + ") — " + asString(at(clientInfo, #note)) + "\n"
+        + "  • Target (`" + asString(targetIp) + ":" + asString(targetPort) + "`): owner=" + asString(at(targetInfo, #owner))
+        + " (" + asString(at(targetInfo, #network)) + ") — " + asString(at(targetInfo, #note)) + "\n"
+        + "  • Remedy for Tailscale client -> LAN-only target: call `exposeLanPort(Actor[#Network], '"
+        + asString(at(targetInfo, #ip)) + "', " + asString(targetPort) + ", 8091)!!` to expose `http://"
+        + tsIp + ":8091/` immediately without needing Tailscale OAuth on the edge board!";
+}!!

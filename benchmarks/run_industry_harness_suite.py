@@ -135,7 +135,7 @@ class _NormalizingProxyHandler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
-        conn = http.client.HTTPConnection("127.0.0.1", 8080, timeout=360)
+        conn = http.client.HTTPConnection("127.0.0.1", 8080, timeout=600)
         headers = {"Content-Type": "application/json", "Content-Length": str(len(raw_body))}
         conn.request("POST", self.path, body=raw_body, headers=headers)
         resp = conn.getresponse()
@@ -157,11 +157,14 @@ class _NormalizingProxyHandler(BaseHTTPRequestHandler):
                     _PROXY_STATS["total_tokens"] += tt
             except Exception:
                 pass
-            self.send_response(resp.status)
-            self.send_header("Content-Type", resp.getheader("Content-Type", "application/json"))
-            self.send_header("Content-Length", str(len(resp_body)))
-            self.end_headers()
-            self.wfile.write(resp_body)
+            try:
+                self.send_response(resp.status)
+                self.send_header("Content-Type", resp.getheader("Content-Type", "application/json"))
+                self.send_header("Content-Length", str(len(resp_body)))
+                self.end_headers()
+                self.wfile.write(resp_body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             conn.close()
             return
 
@@ -266,7 +269,13 @@ def run_actorii_container(
         "-e",
         "ACTORII_BENCH_STRICT=1",
         "-e",
+        "ACTORII_DISABLE_PERSONA_OVERLAY=1",
+        "-e",
+        f"ACTORII_MEMORY_NAMESPACE=bench_tb_{int(time.time()*1000)}_{os.getpid()}",
+        "-e",
         f"ACTORII_ENABLE_THINKING={os.environ.get('ACTORII_ENABLE_THINKING', '0')}",
+        "-e",
+        f"ACTORII_THINKING_MODE={os.environ.get('ACTORII_THINKING_MODE', '')}",
         "-e",
         f"VALKYRIE_LLM_URL=http://127.0.0.1:{port}/v1/chat/completions",
         "-v",
@@ -281,6 +290,8 @@ def run_actorii_container(
         model,
         "--max-steps",
         str(max_steps),
+        "--max-failures",
+        str(max(6, max_steps // 3)),
         "--usage-file",
         "/workspace/.actorii_usage.json",
         "-c",
@@ -533,6 +544,8 @@ def dispatch_container(
     max_steps: int = 6,
     timeout_s: int = 120,
 ) -> Tuple[int, str, int, int, int, int]:
+    scale = float(os.environ.get("BENCH_TIMEOUT_SCALE", "1.0") or "1.0")
+    timeout_s = max(60, int(timeout_s * scale))
     if harness_name == "actorii":
         return run_actorii_container(workspace_dir, prompt, model=model, max_steps=max_steps, timeout_s=timeout_s)
     if harness_name == "pi":
@@ -578,7 +591,7 @@ def run_swe_bench_lite_task(row: Dict[str, Any], harness_name: str, model: str) 
         os.environ["ACTORII_ENABLE_THINKING"] = "1"
         try:
             _, _, steps, p_tok, c_tok, t_tok = dispatch_container(
-                harness_name, tmp_dir, prompt, model=model, max_steps=16, timeout_s=600
+                harness_name, tmp_dir, prompt, model=model, max_steps=28, timeout_s=900
             )
         finally:
             if prev_think is None:
@@ -1292,13 +1305,37 @@ def main() -> int:
         default=1,
         help="Number of official tasks per benchmark track (default: 1 for quick, 3 for full 12-task suite)",
     )
+    parser.add_argument(
+        "--preset",
+        choices=["", "8track"],
+        default="",
+        help="Preset task mix: '8track' runs the official 22-task 8-Track SWE sweep (SWE-Lite=6, BigCodeBench-Hard=4, others=2)",
+    )
     parser.add_argument("--output-json", default=str(DEFAULT_RESULTS_JSON))
     parser.add_argument("--output-md", default=str(DEFAULT_REPORT_MD))
     args = parser.parse_args()
 
     harnesses = [h.strip() for h in args.harnesses.split(",") if h.strip()]
-    tracks = [t.strip() for t in args.tracks.split(",") if t.strip()]
-    k = max(1, int(args.tasks_per_track))
+    if args.preset == "8track":
+        tracks = [
+            "swe_bench_lite",
+            "humaneval",
+            "mbpp",
+            "gsm8k",
+            "quixbugs",
+            "agentbench_os",
+            "cruxeval",
+            "bigcodebench_hard",
+        ]
+        per_track_limits = {
+            "swe_bench_lite": 6,
+            "bigcodebench_hard": 4,
+        }
+        default_k = 2
+    else:
+        tracks = [t.strip() for t in args.tracks.split(",") if t.strip()]
+        per_track_limits = {}
+        default_k = max(1, int(args.tasks_per_track))
 
     all_metrics: List[TaskMetrics] = []
 
@@ -1316,7 +1353,8 @@ def main() -> int:
         ]
         for t_name, loader_fn, runner_fn in track_runners:
             if t_name in tracks:
-                for row in loader_fn(limit=k):
+                tk = per_track_limits.get(t_name, default_k)
+                for row in loader_fn(limit=tk):
                     m = runner_fn(row, h, args.model)
                     all_metrics.append(m)
                     status = "PASS" if m.passed else "FAIL"
@@ -1324,6 +1362,10 @@ def main() -> int:
                         f"  {status} {m.task_id}\n"
                         f"       {m.steps}st | {m.total_tokens:,}tok | {m.latency_s}s",
                         flush=True,
+                    )
+                    Path(args.output_json).write_text(
+                        json.dumps([asdict(x) for x in all_metrics], indent=2, default=str),
+                        encoding="utf-8",
                     )
 
     print("\n--- MOBILE SUMMARY ---", flush=True)

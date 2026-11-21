@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import inspect
 import time
+from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type
+from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from actorii.core import ActorClass, ActorObject, Symbol
 
@@ -37,6 +38,7 @@ class BridgeMemberSpec:
     arity: Optional[int] = None
     doc: str = ""
     shadow_safe: bool = False
+    py_attr: str = ""
 
 
 @dataclass
@@ -50,6 +52,19 @@ class BridgeAuditEntry:
     tier: int
     args_repr: str
     shadow_blocked: bool = False
+    duration_ms: float = 0.0
+    ok: bool = True
+    error: str = ""
+
+
+def _truncate_args_repr(args: Tuple[Any, ...], limit: int = 256) -> str:
+    try:
+        raw = repr(args)
+    except Exception:
+        raw = "<unrepresentable>"
+    if len(raw) > limit:
+        return raw[: limit - 3] + "..."
+    return raw
 
 
 def actor_query(func_or_prop: Any = None, *, name: Optional[str] = None) -> Any:
@@ -133,6 +148,7 @@ def introspect_bridge_specs(
                         is_property=True,
                         arity=0,
                         doc=inspect.getdoc(fget) or "",
+                        py_attr=attr_name,
                     )
             elif callable(attr_val):
                 tier = getattr(attr_val, "__actor_tier__", None)
@@ -149,6 +165,7 @@ def introspect_bridge_specs(
                         arity=_infer_callable_arity(attr_val, is_bound=False),
                         doc=inspect.getdoc(attr_val) or "",
                         shadow_safe=bool(getattr(attr_val, "__actor_shadow_safe__", False)),
+                        py_attr=attr_name,
                     )
 
     return specs
@@ -177,6 +194,7 @@ class ActorBridgeObject(ActorObject):
             "notNil",
             "bridgeCapabilities",
             "bridgeAuditLog",
+            "recentAuditLog",
         }
     )
 
@@ -200,10 +218,10 @@ class ActorBridgeObject(ActorObject):
         self._bridge_specs: Dict[str, BridgeMemberSpec] = (
             dict(specs) if specs is not None else introspect_bridge_specs(target)
         )
-        self.audit_log: List[BridgeAuditEntry] = []
+        self.audit_log: Deque[BridgeAuditEntry] = deque(maxlen=500)
 
         # Sync initial read-only properties into `_fields` for Actor inspector visibility
-        self._sync_fields_from_target()
+        self._sync_fields_from_target(include_properties=True)
 
         # Register wrapper methods for each exposed spec
         for spec_name, spec in self._bridge_specs.items():
@@ -214,22 +232,23 @@ class ActorBridgeObject(ActorObject):
         """Return the underlying wrapped Python object."""
         return self._target
 
-    def _sync_fields_from_target(self) -> None:
-        """Mirror non-private scalar attributes and `@actor_query` properties into `_fields`."""
+    def _sync_fields_from_target(self, include_properties: bool = False) -> None:
+        """Mirror non-private scalar attributes (and optionally `@actor_query` properties) into `_fields`."""
         if hasattr(self._target, "__dict__"):
             for k, v in self._target.__dict__.items():
                 if not k.startswith("_") and isinstance(
                     v, (int, float, str, bool, Symbol, type(None))
                 ):
                     self._fields[k] = v
-        for spec_name, spec in self._bridge_specs.items():
-            if spec.is_property:
-                try:
-                    val = getattr(self._target, spec_name)
-                    if isinstance(val, (int, float, str, bool, Symbol, type(None))):
-                        self._fields[spec_name] = val
-                except Exception:
-                    pass
+        if include_properties:
+            for spec_name, spec in self._bridge_specs.items():
+                if spec.is_property:
+                    try:
+                        val = getattr(self._target, spec.py_attr or spec_name)
+                        if isinstance(val, (int, float, str, bool, Symbol, type(None))):
+                            self._fields[spec_name] = val
+                    except Exception:
+                        pass
 
     def _register_spec_handler(self, selector: str, spec: BridgeMemberSpec) -> None:
         def _handler(*args: Any) -> Any:
@@ -263,6 +282,7 @@ class ActorBridgeObject(ActorObject):
             active_vm = ActorVM._active_vm
 
         in_shadow = bool(getattr(active_vm, "_in_shadow_run", False))
+        args_repr = _truncate_args_repr(args)
 
         if spec.tier >= 2:
             if not self.allow_commands or not bool(getattr(active_vm, "allow_bridge_commands", True)):
@@ -273,8 +293,10 @@ class ActorBridgeObject(ActorObject):
                         obj_id=self.obj_id,
                         selector=selector,
                         tier=spec.tier,
-                        args_repr=repr(args),
+                        args_repr=args_repr,
                         shadow_blocked=True,
+                        ok=False,
+                        error="bridge commands disabled",
                     )
                 )
                 raise ActorBridgeSecurityError(
@@ -288,33 +310,48 @@ class ActorBridgeObject(ActorObject):
                         obj_id=self.obj_id,
                         selector=selector,
                         tier=spec.tier,
-                        args_repr=repr(args),
+                        args_repr=args_repr,
                         shadow_blocked=True,
+                        ok=False,
+                        error="blocked during shadow run",
                     )
                 )
                 raise ActorBridgeSecurityError(
                     f"Tier 2 side-effecting command '{self._class_name}>>{selector}' blocked during transactional shadow run."
                 )
 
-        self.audit_log.append(
-            BridgeAuditEntry(
-                timestamp=time.time(),
-                class_name=self._class_name,
-                obj_id=self.obj_id,
-                selector=selector,
-                tier=spec.tier,
-                args_repr=repr(args),
-                shadow_blocked=False,
+        py_attr = spec.py_attr or selector
+        t0 = time.monotonic()
+        ok = True
+        err_msg = ""
+        try:
+            if spec.is_property:
+                res = getattr(self._target, py_attr)
+            else:
+                attr = getattr(self._target, py_attr)
+                res = attr(*args)
+        except Exception as exc:
+            ok = False
+            err_msg = f"{type(exc).__name__}: {exc}"[:200]
+            raise
+        finally:
+            self.audit_log.append(
+                BridgeAuditEntry(
+                    timestamp=time.time(),
+                    class_name=self._class_name,
+                    obj_id=self.obj_id,
+                    selector=selector,
+                    tier=spec.tier,
+                    args_repr=args_repr,
+                    shadow_blocked=False,
+                    duration_ms=round((time.monotonic() - t0) * 1000.0, 2),
+                    ok=ok,
+                    error=err_msg,
+                )
             )
-        )
 
-        if spec.is_property:
-            res = getattr(self._target, selector)
-        else:
-            attr = getattr(self._target, selector)
-            res = attr(*args)
-
-        self._sync_fields_from_target()
+        if spec.tier >= 2:
+            self._sync_fields_from_target(include_properties=True)
         return res
 
     def bridgeCapabilities(self, *_args: Any) -> Dict[str, int]:
@@ -322,8 +359,24 @@ class ActorBridgeObject(ActorObject):
         return {k: v.tier for k, v in self._bridge_specs.items()}
 
     def bridgeAuditLog(self, *_args: Any) -> int:
-        """Return the number of audited calls executed on this bridge object."""
+        """Return the number of audited calls retained on this bridge object."""
         return len(self.audit_log)
+
+    def recentAuditLog(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Return the last `limit` structured bridge audit entries with latency and status."""
+        n = max(1, min(200, int(limit or 20)))
+        entries = list(self.audit_log)[-n:]
+        return [
+            {
+                "selector": e.selector,
+                "tier": e.tier,
+                "duration_ms": e.duration_ms,
+                "ok": e.ok,
+                "shadow_blocked": e.shadow_blocked,
+                "error": e.error,
+            }
+            for e in entries
+        ]
 
     def message_not_understood(self, selector: str, *args: Any) -> Any:
         """Explicitly reject unexposed selectors on bridged Python objects."""

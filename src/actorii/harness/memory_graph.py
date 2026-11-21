@@ -18,6 +18,7 @@ Unifies Neo4j graph storage with live 1993 Whitewater Actor 4.1 OOP bytecode ski
 from __future__ import annotations
 
 import base64
+from collections import OrderedDict
 import hashlib
 import json
 import math
@@ -32,7 +33,7 @@ from actorii.classes.collections import ActorArray
 from actorii.classes.dictionary import Dictionary
 from actorii.core import ActorObject, Symbol
 from actorii.guardrails.fileout import ActorFileOutManager
-from actorii.guardrails.linter import PROTECTED_SYSTEM_CLASSES
+from actorii.guardrails.linter import PROTECTED_POOL_SINGLETONS, PROTECTED_SYSTEM_CLASSES
 from actorii.parser import ClassDefNode, MethodDefNode, parse_actor
 from actorii.vm import CompiledMethod
 
@@ -45,7 +46,21 @@ EMBEDDING_API_URL = os.environ.get(
 EMBEDDING_MODEL_NAME = os.environ.get("ACTORII_EMBED_MODEL", "bge-small-en-v1.5")
 
 _SCRATCH_CLASS_PREFIXES = ("Tmp", "Scratch", "TaskContract", "Mock", "Ephemeral")
-_EMBED_LRU: Dict[Tuple[str, str, str], List[float]] = {}
+_EMBED_LRU: "OrderedDict[Tuple[str, str, str], List[float]]" = OrderedDict()
+_EMBED_LRU_MAX = 512
+_INDEXED_NEO4J_URLS: Set[str] = set()
+
+
+def _embed_request_headers() -> Dict[str, str]:
+    headers: Dict[str, str] = {"Content-Type": "application/json"}
+    emb_key = (
+        os.environ.get("ACTORII_EMBED_API_KEY", "").strip()
+        or os.environ.get("ACTORII_LLM_API_KEY", "").strip()
+        or os.environ.get("OPENAI_API_KEY", "").strip()
+    )
+    if emb_key:
+        headers["Authorization"] = f"Bearer {emb_key}"
+    return headers
 
 
 def _compute_embedding(text: str, timeout: float = 0.8) -> Optional[List[float]]:
@@ -61,21 +76,14 @@ def _compute_embedding(text: str, timeout: float = 0.8) -> Optional[List[float]]
     lru_key = (emb_url, emb_model, clipped)
     cached_vec = _EMBED_LRU.get(lru_key)
     if cached_vec is not None:
+        _EMBED_LRU.move_to_end(lru_key)
         return cached_vec
     try:
-        headers: Dict[str, str] = {"Content-Type": "application/json"}
-        emb_key = (
-            os.environ.get("ACTORII_EMBED_API_KEY", "").strip()
-            or os.environ.get("ACTORII_LLM_API_KEY", "").strip()
-            or os.environ.get("OPENAI_API_KEY", "").strip()
-        )
-        if emb_key:
-            headers["Authorization"] = f"Bearer {emb_key}"
         payload = json.dumps({"input": clipped, "model": emb_model}).encode("utf-8")
         req = urllib.request.Request(
             emb_url,
             data=payload,
-            headers=headers,
+            headers=_embed_request_headers(),
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -83,13 +91,83 @@ def _compute_embedding(text: str, timeout: float = 0.8) -> Optional[List[float]]
         emb = data.get("data", [{}])[0].get("embedding") or (data.get("embeddings") or [None])[0]
         if isinstance(emb, list) and emb:
             vec = [float(x) for x in emb]
-            if len(_EMBED_LRU) >= 256:
-                _EMBED_LRU.clear()
             _EMBED_LRU[lru_key] = vec
+            _EMBED_LRU.move_to_end(lru_key)
+            while len(_EMBED_LRU) > _EMBED_LRU_MAX:
+                _EMBED_LRU.popitem(last=False)
             return vec
     except Exception:
         return None
     return None
+
+
+def _compute_embeddings_batch(texts: List[str], timeout: float = 2.0) -> List[Optional[List[float]]]:
+    """Batch-embed multiple strings in a single HTTP request with LRU caching; falls back cleanly if offline."""
+    if not texts:
+        return []
+    emb_url = os.environ.get("ACTORII_EMBED_ENDPOINT", EMBEDDING_API_URL).strip()
+    if not emb_url or emb_url.lower() in ("none", "off", "disabled"):
+        return [None] * len(texts)
+    emb_model = os.environ.get("ACTORII_EMBED_MODEL", EMBEDDING_MODEL_NAME).strip() or EMBEDDING_MODEL_NAME
+
+    results: List[Optional[List[float]]] = [None] * len(texts)
+    missing_indices: List[int] = []
+    missing_inputs: List[str] = []
+    missing_keys: List[Tuple[str, str, str]] = []
+
+    for idx, raw in enumerate(texts):
+        clean = (raw or "").strip()
+        if not clean:
+            continue
+        clipped = clean[:1000]
+        lru_key = (emb_url, emb_model, clipped)
+        cached_vec = _EMBED_LRU.get(lru_key)
+        if cached_vec is not None:
+            _EMBED_LRU.move_to_end(lru_key)
+            results[idx] = cached_vec
+        else:
+            missing_indices.append(idx)
+            missing_inputs.append(clipped)
+            missing_keys.append(lru_key)
+
+    if not missing_inputs:
+        return results
+
+    try:
+        payload = json.dumps({"input": missing_inputs, "model": emb_model}).encode("utf-8")
+        req = urllib.request.Request(
+            emb_url,
+            data=payload,
+            headers=_embed_request_headers(),
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        vecs: List[Optional[List[float]]] = []
+        if isinstance(data.get("data"), list) and len(data["data"]) == len(missing_inputs):
+            ordered = sorted(data["data"], key=lambda item: int(item.get("index", 0)))
+            for item in ordered:
+                emb = item.get("embedding")
+                vecs.append([float(x) for x in emb] if isinstance(emb, list) and emb else None)
+        elif isinstance(data.get("embeddings"), list) and len(data["embeddings"]) == len(missing_inputs):
+            for emb in data["embeddings"]:
+                vecs.append([float(x) for x in emb] if isinstance(emb, list) and emb else None)
+        if len(vecs) == len(missing_inputs):
+            for idx, lru_key, vec in zip(missing_indices, missing_keys, vecs):
+                if vec is not None:
+                    results[idx] = vec
+                    _EMBED_LRU[lru_key] = vec
+                    _EMBED_LRU.move_to_end(lru_key)
+            while len(_EMBED_LRU) > _EMBED_LRU_MAX:
+                _EMBED_LRU.popitem(last=False)
+            return results
+    except Exception:
+        pass
+
+    # Fallback: individual calls if the backend rejects array `input`
+    for idx, clipped in zip(missing_indices, missing_inputs):
+        results[idx] = _compute_embedding(clipped, timeout=0.8)
+    return results
 
 
 def _cosine_similarity(vec_a: Optional[List[float]], vec_b: Optional[List[float]]) -> float:
@@ -154,37 +232,155 @@ def _strip_cypher_strings_and_comments(cypher: str) -> str:
     return _CYPHER_COMMENT_OR_STRING_RE.sub(" ", cypher or "")
 
 
+def _strip_cypher_for_guard(cypher: str) -> str:
+    """Strip comments/string literals AND unwrap backtick-escaped identifiers (e.g. `` `ActorEngram` `` -> `ActorEngram`)."""
+    stripped = _strip_cypher_strings_and_comments(cypher)
+    return re.sub(r"`([^`]+)`", r"\1", stripped)
+
+
+def _split_actor_chunks_safe(src: str) -> List[str]:
+    """Split Actor source on `!!` while ignoring `!!` inside string literals or `/* ... */` / `//` comments."""
+    chunks: List[str] = []
+    buf: List[str] = []
+    i = 0
+    n = len(src)
+    in_dq = False
+    in_sq = False
+    in_triple_dq = False
+    in_line_comment = False
+    in_block_comment = False
+    while i < n:
+        ch = src[i]
+        nxt = src[i + 1] if i + 1 < n else ""
+        if in_line_comment:
+            buf.append(ch)
+            if ch == "\n":
+                in_line_comment = False
+            i += 1
+            continue
+        if in_block_comment:
+            buf.append(ch)
+            if ch == "*" and nxt == "/":
+                buf.append(nxt)
+                in_block_comment = False
+                i += 2
+            else:
+                i += 1
+            continue
+        if in_triple_dq:
+            if src[i : i + 3] == '"""':
+                buf.append('"""')
+                in_triple_dq = False
+                i += 3
+            else:
+                buf.append(ch)
+                i += 1
+            continue
+        if in_dq:
+            buf.append(ch)
+            if ch == "\\" and i + 1 < n:
+                buf.append(nxt)
+                i += 2
+            else:
+                if ch == '"':
+                    in_dq = False
+                i += 1
+            continue
+        if in_sq:
+            buf.append(ch)
+            if ch == "\\" and i + 1 < n:
+                buf.append(nxt)
+                i += 2
+            else:
+                if ch == "'":
+                    in_sq = False
+                i += 1
+            continue
+        if ch == "/" and nxt == "/":
+            buf.append("//")
+            in_line_comment = True
+            i += 2
+            continue
+        if ch == "/" and nxt == "*":
+            buf.append("/*")
+            in_block_comment = True
+            i += 2
+            continue
+        if src[i : i + 3] == '"""':
+            buf.append('"""')
+            in_triple_dq = True
+            i += 3
+            continue
+        if ch == '"':
+            buf.append(ch)
+            in_dq = True
+            i += 1
+            continue
+        if ch == "'":
+            buf.append(ch)
+            in_sq = True
+            i += 1
+            continue
+        if ch == "!" and nxt == "!":
+            piece = "".join(buf).strip()
+            if piece:
+                chunks.append(piece + "!!")
+            buf = []
+            i += 2
+            continue
+        buf.append(ch)
+        i += 1
+    tail = "".join(buf).strip()
+    if tail:
+        chunks.append(tail if tail.endswith("!!") else tail.rstrip("!") + "!!")
+    return chunks
+
+
+def _topological_sort_engram_deps(deps_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Sort Engram dependency dicts so superclasses and prerequisites are hydrated before dependents (handles N-level chains)."""
+    by_name: Dict[str, Dict[str, Any]] = {}
+    for d in deps_list:
+        nm = str(d.get("name") or "").strip()
+        if nm and d.get("actor_source"):
+            by_name[nm] = d
+    if len(by_name) <= 1:
+        return list(by_name.values())
+
+    visited: Set[str] = set()
+    visiting: Set[str] = set()
+    ordered: List[Dict[str, Any]] = []
+
+    def _visit(nm: str) -> None:
+        if nm in visited or nm in visiting:
+            return
+        visiting.add(nm)
+        item = by_name[nm]
+        prereqs: List[str] = []
+        sup = str(item.get("superclass") or "").strip()
+        if sup and sup in by_name and sup != nm:
+            prereqs.append(sup)
+        for dep_nm in item.get("dep_names") or []:
+            dn = str(dep_nm or "").strip()
+            if dn and dn in by_name and dn != nm and dn not in prereqs:
+                prereqs.append(dn)
+        for p in prereqs:
+            _visit(p)
+        visiting.discard(nm)
+        visited.add(nm)
+        ordered.append(item)
+
+    for nm in sorted(by_name.keys()):
+        _visit(nm)
+    return ordered
+
+
 def _compute_engram_source_sha256(name: str, namespace: str, actor_source: str) -> str:
     """Compute a deterministic SHA-256 integrity digest over `(namespace, name, actor_source)`."""
     material = f"actorii-engram-v1|{namespace}|{_norm_sym(name)}|{actor_source}"
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
-_BUILTIN_POOL_KEYS = frozenset(
-    {
-        "Harness",
-        "Bilby",
-        "Sandbox",
-        "Memory",
-        "Grammar",
-        "Bench",
-        "Valkyrie",
-        "System",
-        "Thermometer",
-        "ThermoUI",
-        "Pantry",
-        "ReverseEngineer",
-        "REA",
-        "Telegram",
-        "Web",
-        "Net",
-        "PDF",
-        "Hue",
-        "Sam",
-        "LLM",
-        "Host",
-        "VM",
-    }
-)
+
+_BUILTIN_POOL_KEYS = frozenset(PROTECTED_POOL_SINGLETONS | {"Sam"})
 
 _CYPHER_LABEL_RE = re.compile(r"\(\s*[A-Za-z0-9_]*\s*:\s*([A-Za-z_][A-Za-z0-9_]*)")
 _ACTOR_POOL_REF_RE = re.compile(r"Actor\s*\[\s*#([A-Za-z_][A-Za-z0-9_]*)\s*\]")
@@ -327,7 +523,7 @@ def _extract_engram_metadata(
     signatures: List[str] = []
 
     try:
-        raw_chunks = [c.strip() + "!!" for c in src.split("!!") if c.strip()]
+        raw_chunks = _split_actor_chunks_safe(src)
         for piece in raw_chunks:
             nodes = parse_actor(piece)
             for node in nodes:
@@ -403,6 +599,26 @@ class ActorMemoryGraph:
         self._episode_rows_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
         self._engram_rows_cache: Dict[Tuple[str, int], Tuple[float, List[Dict[str, Any]]]] = {}
         self._product_rows_cache: Dict[Tuple[str, int], Tuple[float, List[Dict[str, Any]]]] = {}
+        self._ensure_neo4j_indexes()
+
+    def _ensure_neo4j_indexes(self) -> None:
+        """Best-effort idempotent Neo4j index creation (runs once per process per `tx_url`)."""
+        if self.tx_url in _INDEXED_NEO4J_URLS:
+            return
+        _INDEXED_NEO4J_URLS.add(self.tx_url)
+        try:
+            self._run_cypher_batch(
+                [
+                    {"statement": "CREATE INDEX actor_engram_ns_name IF NOT EXISTS FOR (e:ActorEngram) ON (e.namespace, e.name)", "parameters": {}},
+                    {"statement": "CREATE INDEX actor_episode_ns_hash IF NOT EXISTS FOR (ep:ActorEpisode) ON (ep.namespace, ep.episode_hash)", "parameters": {}},
+                    {"statement": "CREATE INDEX actor_product_ns_id IF NOT EXISTS FOR (p:Product) ON (p.namespace, p.id)", "parameters": {}},
+                    {"statement": "CREATE INDEX actor_chunk_ns_id IF NOT EXISTS FOR (mc:ProductManualChunk) ON (mc.namespace, mc.chunk_id)", "parameters": {}},
+                ],
+                invalidate_cache=False,
+                timeout=2.0,
+            )
+        except Exception:
+            pass
 
     @actor_query
     def getNamespace(self) -> str:
@@ -456,31 +672,7 @@ class ActorMemoryGraph:
         self._product_rows_cache.clear()
         return f"NAMESPACE_SET:{self.namespace}"
 
-    def _run_cypher(
-        self,
-        statement: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        *,
-        read_only: bool = False,
-    ) -> Tuple[List[str], List[Dict[str, Any]]]:
-        if not read_only:
-            stmt_upper = statement.upper()
-            if any(kw in stmt_upper for kw in ("MERGE ", "MERGE(", "CREATE ", "CREATE(", "DELETE ", "SET ", "REMOVE ")):
-                self._write_epoch += 1
-                self._hydrate_cache.clear()
-                if "MERGE (EP:ACTOREPISODE" not in stmt_upper:
-                    self._engram_epoch += 1
-                    self._episode_rows_cache.clear()
-                    self._engram_rows_cache.clear()
-                    self._product_rows_cache.clear()
-        payload = {
-            "statements": [
-                {
-                    "statement": statement,
-                    "parameters": parameters or {},
-                }
-            ]
-        }
+    def _neo4j_headers(self, *, read_only: bool = False) -> Dict[str, str]:
         headers: Dict[str, str] = {"Content-Type": "application/json"}
         if read_only:
             headers["Access-Mode"] = "READ"
@@ -489,27 +681,64 @@ class ActorMemoryGraph:
         if neo_user and neo_pass:
             token = base64.b64encode(f"{neo_user}:{neo_pass}".encode("utf-8")).decode("ascii")
             headers["Authorization"] = f"Basic {token}"
+        return headers
+
+    def _invalidate_caches_for_statement(self, statement: str) -> None:
+        if _CYPHER_MUTATING_KEYWORD_RE.search(statement or ""):
+            self._write_epoch += 1
+            self._hydrate_cache.clear()
+            stmt_upper = (statement or "").upper()
+            if "MERGE (EP:ACTOREPISODE" not in stmt_upper:
+                self._engram_epoch += 1
+                self._episode_rows_cache.clear()
+                self._engram_rows_cache.clear()
+                self._product_rows_cache.clear()
+
+    def _run_cypher_batch(
+        self,
+        statements: List[Dict[str, Any]],
+        *,
+        read_only: bool = False,
+        invalidate_cache: bool = True,
+        timeout: float = 5.0,
+    ) -> List[Tuple[List[str], List[Dict[str, Any]]]]:
+        if not read_only and invalidate_cache:
+            for st in statements:
+                self._invalidate_caches_for_statement(str(st.get("statement") or ""))
+        payload = {"statements": statements}
         req = urllib.request.Request(
             self.tx_url,
             data=json.dumps(payload).encode("utf-8"),
-            headers=headers,
+            headers=self._neo4j_headers(read_only=read_only),
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=5.0) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8", errors="replace"))
         if body.get("errors"):
             err_items = body["errors"]
             msg = "; ".join(f"{e.get('code', 'CypherError')}: {e.get('message', '')}" for e in err_items)
             raise RuntimeError(f"Neo4j Cypher error: {msg}")
-        results = body.get("results", [])
-        if not results:
-            return [], []
-        cols = results[0].get("columns", [])
-        rows: List[Dict[str, Any]] = []
-        for item in results[0].get("data", []):
-            row_vals = item.get("row", [])
-            rows.append(dict(zip(cols, row_vals)))
-        return cols, rows
+        out: List[Tuple[List[str], List[Dict[str, Any]]]] = []
+        for res in body.get("results", []):
+            cols = res.get("columns", [])
+            rows = [dict(zip(cols, item.get("row", []))) for item in res.get("data", [])]
+            out.append((cols, rows))
+        return out
+
+    def _run_cypher(
+        self,
+        statement: str,
+        parameters: Optional[Dict[str, Any]] = None,
+        *,
+        read_only: bool = False,
+        invalidate_cache: bool = True,
+    ) -> Tuple[List[str], List[Dict[str, Any]]]:
+        res = self._run_cypher_batch(
+            [{"statement": statement, "parameters": parameters or {}}],
+            read_only=read_only,
+            invalidate_cache=invalidate_cache,
+        )
+        return res[0] if res else ([], [])
 
     def _rows_to_actor_array(self, raw_rows: List[Dict[str, Any]]) -> ActorArray:
         arr = ActorArray(len(raw_rows))
@@ -550,7 +779,8 @@ class ActorMemoryGraph:
                 WITH lbl, count(n) AS cnt, collect(keys(n))[0..3] AS key_samples, collect(properties(n))[0] AS sample_props
                 RETURN lbl, cnt, key_samples, sample_props
                 ORDER BY lbl
-                """
+                """,
+                read_only=True,
             )
             domain_labels = [
                 r for r in label_rows if str(r.get("lbl", "")) not in _INTERNAL_LABELS
@@ -564,6 +794,7 @@ class ActorMemoryGraph:
                 ORDER BY src, rel, dst
                 """,
                 {"internal": list(_INTERNAL_LABELS)},
+                read_only=True,
             )
             lines = ["[Neo4j Domain Graph Schema]:"]
             if not domain_labels:
@@ -735,9 +966,9 @@ class ActorMemoryGraph:
 
         return inst
 
-    def _guard_cypher_read(self, q_str: str) -> None:
+    def _guard_cypher_read(self, q_str: str, param_map: Optional[Dict[str, Any]] = None) -> None:
         """Enforce strict read-only Cypher semantics on `cypherQuery` / `cypherQueryWith`."""
-        stripped = _strip_cypher_strings_and_comments(q_str)
+        stripped = _strip_cypher_for_guard(q_str)
         if _CYPHER_DANGEROUS_PROC_OR_LOAD_RE.search(stripped):
             raise PermissionError(
                 "BLOCKED [NEO4J_CYPHER_SECURITY_GUARD]: Administrative/file procedures (`LOAD CSV`, `CALL dbms.*`, `CALL apoc.*`, `DROP/CREATE DATABASE/USER`) are forbidden in `Actor[#Memory]`."
@@ -752,13 +983,29 @@ class ActorMemoryGraph:
         # Prevent cross-namespace snooping on internal `:ActorEpisode` / `:ActorEngram` nodes when live lockdown is active
         if self._is_live_lockdown_protected_namespace():
             if re.search(r":\s*(?:ActorEpisode|ActorEngram|ActorEngramVersion)\b", stripped, re.IGNORECASE):
-                for ns_m in re.finditer(r"\bnamespace\s*:\s*['\"]([^'\"]+)['\"]", q_str, re.IGNORECASE):
+                saw_ns_constraint = False
+                for ns_m in re.finditer(r"\bnamespace\s*(?::|=)\s*['\"]([^'\"]+)['\"]", q_str, re.IGNORECASE):
+                    saw_ns_constraint = True
                     queried_ns = ns_m.group(1).strip()
                     if queried_ns and queried_ns != self.namespace:
                         raise PermissionError(
                             f"BLOCKED [MEMORY_NAMESPACE_ISOLATION_GUARD]: Cross-namespace read of `{queried_ns}` from active namespace "
                             f"`{self.namespace}` is forbidden under `ACTORII_HOST_LOCKDOWN=1`."
                         )
+                for p_m in re.finditer(r"\bnamespace\s*(?::|=)\s*\$([A-Za-z0-9_]+)", stripped, re.IGNORECASE):
+                    saw_ns_constraint = True
+                    pname = p_m.group(1)
+                    pval = str((param_map or {}).get(pname, "")).strip()
+                    if pval != self.namespace:
+                        raise PermissionError(
+                            f"BLOCKED [MEMORY_NAMESPACE_ISOLATION_GUARD]: Cross-namespace parameterized read (`${pname}={pval!r}`) "
+                            f"from active namespace `{self.namespace}` is forbidden under `ACTORII_HOST_LOCKDOWN=1`."
+                        )
+                if not saw_ns_constraint:
+                    raise PermissionError(
+                        f"BLOCKED [MEMORY_NAMESPACE_ISOLATION_GUARD]: Queries touching `:ActorEpisode`/`:ActorEngram` under "
+                        f"`ACTORII_HOST_LOCKDOWN=1` must explicitly filter `namespace: '{self.namespace}'`."
+                    )
 
     @actor_query
     def cypherQuery(self, query: str) -> ActorArray:
@@ -777,9 +1024,9 @@ class ActorMemoryGraph:
         q_str = str(query or "").strip()
         if not q_str:
             return ActorArray(0)
-        self._guard_cypher_read(q_str)
-        self._record_runtime_cypher_domains(q_str)
         param_map = _build_cypher_params(params)
+        self._guard_cypher_read(q_str, param_map=param_map)
+        self._record_runtime_cypher_domains(q_str)
         _, raw_rows = self._run_cypher(q_str, param_map, read_only=True)
         return self._rows_to_actor_array(raw_rows)
 
@@ -792,9 +1039,16 @@ class ActorMemoryGraph:
         _, rows = self._run_cypher(
             """
             MATCH (e:ActorEngram {name: $name, namespace: $ns})
-            OPTIONAL MATCH (e)-[:SUBCLASS_OF|DEPENDS_ON*1..5]->(dep:ActorEngram {namespace: $ns})
             RETURN e.name AS name, e.actor_source AS actor_source, e.source_sha256 AS source_sha256,
-                   collect(DISTINCT {name: dep.name, actor_source: dep.actor_source, source_sha256: dep.source_sha256}) AS deps
+                   [(e)-[:SUBCLASS_OF|DEPENDS_ON*1..5]->(dep:ActorEngram {namespace: $ns}) |
+                       {
+                           name: dep.name,
+                           actor_source: dep.actor_source,
+                           source_sha256: dep.source_sha256,
+                           superclass: coalesce(dep.superclass, 'Object'),
+                           dep_names: [(dep)-[:SUBCLASS_OF|DEPENDS_ON]->(d2:ActorEngram {namespace: $ns}) | d2.name]
+                       }
+                   ] AS deps
             LIMIT 1
             """,
             {"name": norm_name, "ns": self.namespace},
@@ -804,8 +1058,8 @@ class ActorMemoryGraph:
             raise KeyError(f"No `:ActorEngram` named '{norm_name}' found in Neo4j (namespace={self.namespace!r}).")
 
         row = rows[0]
-        # Hydrate prerequisite superclasses and dependencies first
-        for dep in reversed(row.get("deps") or []):
+        # Hydrate prerequisite superclasses and dependencies first in true topological order
+        for dep in _topological_sort_engram_deps(row.get("deps") or []):
             dep_name = dep.get("name")
             dep_src = dep.get("actor_source")
             dep_sha = dep.get("source_sha256")
@@ -824,19 +1078,17 @@ class ActorMemoryGraph:
             _, rows = self._run_cypher(
                 """
                 MATCH (e:ActorEngram {namespace: $ns})
-                OPTIONAL MATCH (e)-[:OPERATES_ON]->(d:ActorGraphDomain {namespace: $ns})
-                OPTIONAL MATCH (e)-[:DEPENDS_ON]->(dep:ActorEngram {namespace: $ns})
-                OPTIONAL MATCH (e)-[:HAS_PREVIOUS_VERSION]->(v:ActorEngramVersion)
                 RETURN e.name AS name, e.description AS description,
                        coalesce(e.superclass, 'Object') AS superclass,
                        coalesce(e.ivars, []) AS ivars,
                        e.signatures AS signatures, coalesce(e.version, 1) AS version,
-                       collect(DISTINCT d.label) AS labels,
-                       collect(DISTINCT dep.name) AS deps,
-                       count(DISTINCT v) AS prev_versions
+                       [(e)-[:OPERATES_ON]->(d:ActorGraphDomain {namespace: $ns}) | d.label] AS labels,
+                       [(e)-[:DEPENDS_ON]->(dep:ActorEngram {namespace: $ns}) | dep.name] AS deps,
+                       size([(e)-[:HAS_PREVIOUS_VERSION]->(v:ActorEngramVersion) | v]) AS prev_versions
                 ORDER BY e.name
                 """,
                 {"ns": self.namespace},
+                read_only=True,
             )
             if not rows:
                 return "No `:ActorEngram` skills saved in Neo4j."
@@ -879,6 +1131,7 @@ class ActorMemoryGraph:
                 ORDER BY superclass, name
                 """,
                 {"ns": self.namespace},
+                read_only=True,
             )
         except Exception:
             rows = []
@@ -962,7 +1215,7 @@ class ActorMemoryGraph:
 
     def _guard_cypher_write(self, q_str: str) -> None:
         """Hard-block tampering with internal kernel/memory labels, unscoped/label-less `DELETE`s, and dangerous admin procedures."""
-        stripped = _strip_cypher_strings_and_comments(q_str)
+        stripped = _strip_cypher_for_guard(q_str)
         if _CYPHER_DANGEROUS_PROC_OR_LOAD_RE.search(stripped):
             raise PermissionError(
                 "BLOCKED [NEO4J_CYPHER_SECURITY_GUARD]: Administrative/file procedures (`LOAD CSV`, `CALL dbms.*`, `CALL apoc.*`, `DROP/CREATE DATABASE/USER`) are forbidden in `Actor[#Memory]`."
@@ -971,8 +1224,8 @@ class ActorMemoryGraph:
         has_delete = bool(self._CORE_MEMORY_DELETE_RE.search(stripped))
         has_mutation = bool(_CYPHER_MUTATING_KEYWORD_RE.search(stripped))
 
-        # 1. Any `DELETE` must explicitly bind at least one allowed domain `:Label` (blocks `MATCH (n) DELETE n`,
-        #    `MATCH (a)-[r]->(b) DETACH DELETE a, b`, `MATCH (n {namespace: 'default'}) DETACH DELETE n`, etc.).
+        # 1. Any `DELETE` must explicitly bind EVERY deleted target variable to an allowed domain `:Label`
+        #    (blocks `MATCH (n) DELETE n`, `MATCH (x:Dummy), (n) DETACH DELETE n`, backtick-escaped labels, etc.).
         if has_delete:
             if self._CORE_PROTECTED_LABELS_RE.search(stripped):
                 raise PermissionError(
@@ -981,12 +1234,33 @@ class ActorMemoryGraph:
                     "is strictly forbidden to protect Bilby's recall and self-correction! "
                     "Use non-destructive soft archiving (`SET e.archived = true, e.salience = coalesce(e.salience, 0.5)`) instead."
                 )
+            # Collect variables explicitly bound to a `:Label` in node or relationship patterns
+            labeled_node_vars = {
+                m.group(1)
+                for m in re.finditer(r"\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*[A-Za-z_][A-Za-z0-9_]*", stripped)
+            }
+            labeled_rel_vars = {
+                m.group(1)
+                for m in re.finditer(r"\[\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*[A-Za-z_][A-Za-z0-9_]*", stripped)
+            }
+            allowed_delete_vars = labeled_node_vars | labeled_rel_vars
             matched_labels = [m.group(1) for m in _CYPHER_LABEL_RE.finditer(stripped)]
             if not matched_labels:
                 raise PermissionError(
                     "BLOCKED [MEMORY_SELF_PRESERVATION_GUARD]: Unscoped or label-less `DELETE` / `DETACH DELETE` queries "
                     "are strictly forbidden in `Actor[#Memory]`! Every `DELETE` must explicitly specify a target domain `:Label`."
                 )
+            for del_m in re.finditer(
+                r"\b(?:DETACH\s+)?DELETE\s+([A-Za-z_][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*)*)",
+                stripped,
+                re.IGNORECASE,
+            ):
+                for var_tok in (v.strip() for v in del_m.group(1).split(",") if v.strip()):
+                    if var_tok not in allowed_delete_vars:
+                        raise PermissionError(
+                            f"BLOCKED [MEMORY_SELF_PRESERVATION_GUARD]: Unlabeled `DELETE` target `{var_tok}` is forbidden! "
+                            "Every variable passed to `DELETE` / `DETACH DELETE` must be bound to an explicit domain `:Label`."
+                        )
             if self._is_live_lockdown_protected_namespace() and self._HOST_PROTECTED_LABELS_RE.search(stripped):
                 raise PermissionError(
                     "BLOCKED [HOST_GRAPH_PROTECTION_GUARD]: Deleting shared host graph nodes (`:Recipe`, `:Ingredient`, `:MealPlan`, `:H2H*`, `:ActionLog`) "
@@ -1057,7 +1331,7 @@ class ActorMemoryGraph:
         elif hasattr(name, "name") and not isinstance(name, Symbol):
             norm_name = _norm_sym(getattr(name, "name"))
 
-        mgr = ActorFileOutManager("/tmp/actorii_engram_fileout")
+        mgr = ActorFileOutManager()
         raw_cls_source = mgr.format_class_source(self.vm, norm_name)
         return self.saveEngram(norm_name, description or f"Engram skill {norm_name}", raw_cls_source)
 
@@ -1075,7 +1349,7 @@ class ActorMemoryGraph:
         desc_str = str(description or f"Engram skill {norm_name}").strip()
         src_arg = str(actor_source or "").strip()
         if not src_arg and self.vm.hierarchy.get(norm_name) is not None:
-            mgr = ActorFileOutManager("/tmp/actorii_engram_fileout")
+            mgr = ActorFileOutManager()
             src_arg = mgr.format_class_source(self.vm, norm_name)
 
         target_cls, signatures, normalized_src = _extract_engram_metadata(norm_name, src_arg)
@@ -1084,14 +1358,14 @@ class ActorMemoryGraph:
         # Compile and execute inside the live VM first so any syntax/lint error is caught immediately
         self._hydrate_engram_source_safely(norm_name, normalized_src)
 
-        # If the Engram class defines `selfTest(self)`, automatically run it as a pre-commit verification gate!
+        # If the Engram class defines `selfTest(self)`, automatically run it as a shadow pre-commit verification gate!
         cls_obj = self.vm.hierarchy.get(target_cls)
         if cls_obj is not None and "selfTest" in getattr(cls_obj, "_class_methods", {}):
             try:
                 test_res = self.vm.eval_transactional(
                     f"selfTest(Actor[#{norm_name}])!!",
                     max_opcodes=25000,
-                    shadow_only=False,
+                    shadow_only=True,
                 )
             except Exception as exc:
                 raise RuntimeError(
@@ -1119,7 +1393,9 @@ class ActorMemoryGraph:
         self._run_cypher(
             """
             MERGE (e:ActorEngram {name: $name, namespace: $ns})
-            WITH e, e.actor_source AS old_src, e.source_sha256 AS old_sha, e.signatures AS old_sigs, coalesce(e.version, 0) AS old_ver
+            WITH e, e.actor_source AS old_src, e.source_sha256 AS old_sha, e.signatures AS old_sigs,
+                 coalesce(e.superclass, 'Object') AS old_sup, coalesce(e.ivars, []) AS old_ivars,
+                 coalesce(e.version, 0) AS old_ver
             FOREACH (_ IN CASE WHEN old_src IS NOT NULL AND old_src <> $src THEN [1] ELSE [] END |
                 CREATE (v:ActorEngramVersion {
                     name: $name,
@@ -1128,6 +1404,8 @@ class ActorMemoryGraph:
                     actor_source: old_src,
                     source_sha256: coalesce(old_sha, ''),
                     signatures: coalesce(old_sigs, []),
+                    superclass: old_sup,
+                    ivars: old_ivars,
                     archived_at: timestamp()
                 })
                 MERGE (e)-[:HAS_PREVIOUS_VERSION]->(v)
@@ -1227,50 +1505,83 @@ class ActorMemoryGraph:
         if not self.enable_engrams:
             raise RuntimeError("Active Engrams are disabled in this harness configuration.")
         norm_name = _norm_sym(name)
+        # Step 1: Read candidate version WITHOUT mutating Neo4j so failed verification/compilation never loses history
         _, rows = self._run_cypher(
             """
             MATCH (e:ActorEngram {name: $name, namespace: $ns})-[:HAS_PREVIOUS_VERSION]->(v:ActorEngramVersion)
-            WITH e, v ORDER BY v.version DESC, v.archived_at DESC LIMIT 1
-            SET e.actor_source = v.actor_source,
-                e.source_sha256 = v.source_sha256,
-                e.signatures = v.signatures,
-                e.version = v.version,
-                e.updated_at = timestamp()
-            WITH e, v, v.actor_source AS restored_src, v.source_sha256 AS restored_sha, v.version AS restored_ver
-            DETACH DELETE v
-            RETURN restored_src, restored_sha, restored_ver
+            RETURN v.actor_source AS restored_src,
+                   v.source_sha256 AS restored_sha,
+                   v.signatures AS restored_sigs,
+                   coalesce(v.superclass, 'Object') AS restored_sup,
+                   coalesce(v.ivars, []) AS restored_ivars,
+                   v.version AS restored_ver,
+                   v.archived_at AS archived_at
+            ORDER BY v.version DESC, v.archived_at DESC
+            LIMIT 1
             """,
             {"name": norm_name, "ns": self.namespace},
+            read_only=True,
         )
         if not rows:
             raise KeyError(f"No previous version found to roll back for `:ActorEngram` '{norm_name}'.")
         restored_src = str(rows[0]["restored_src"])
         restored_sha = rows[0].get("restored_sha") or None
         restored_ver = rows[0]["restored_ver"]
+        archived_at = rows[0].get("archived_at")
+
+        # Step 2: Verify integrity & compile into VM BEFORE committing deletion of `:ActorEngramVersion`
         self._verify_engram_integrity_and_safety(norm_name, restored_src, stored_sha256=restored_sha)
         cls_obj = self.vm.hierarchy.get(norm_name)
-        if cls_obj is not None and not getattr(cls_obj, "is_bridge_class", False):
-            new_ctor = cls_obj._methods.get("new")
-            cls_obj._methods.clear()
-            cls_obj._class_methods.clear()
-            if new_ctor is not None:
-                cls_obj._methods["new"] = new_ctor
-        if norm_name == "AgentHarness":
-            prev_lock = getattr(self.vm, "lock_system_singletons", True)
-            self.vm.lock_system_singletons = False
-            try:
+        saved_methods = dict(cls_obj._methods) if cls_obj is not None else None
+        saved_class_methods = dict(cls_obj._class_methods) if cls_obj is not None else None
+        try:
+            if cls_obj is not None and not getattr(cls_obj, "is_bridge_class", False):
+                new_ctor = cls_obj._methods.get("new")
+                cls_obj._methods.clear()
+                cls_obj._class_methods.clear()
+                if new_ctor is not None:
+                    cls_obj._methods["new"] = new_ctor
+            if norm_name == "AgentHarness":
+                prev_lock = getattr(self.vm, "lock_system_singletons", True)
+                self.vm.lock_system_singletons = False
+                try:
+                    self.vm.eval_chunk(restored_src)
+                finally:
+                    self.vm.lock_system_singletons = prev_lock
+            else:
                 self.vm.eval_chunk(restored_src)
-            finally:
-                self.vm.lock_system_singletons = prev_lock
-        else:
-            self.vm.eval_chunk(restored_src)
-        if norm_name == "AgentHarness":
-            h_obj = self.vm.global_vars.get("Actor", {}).get("Harness")
-            if h_obj is not None and cls_obj is not None:
-                h_obj._methods = {
-                    k: v for k, v in h_obj._methods.items() if k in getattr(h_obj, "_instance_methods", set())
-                }
-                h_obj.inherit_from(cls_obj)
+            if norm_name == "AgentHarness":
+                h_obj = self.vm.global_vars.get("Actor", {}).get("Harness")
+                if h_obj is not None and cls_obj is not None:
+                    h_obj._methods = {
+                        k: v for k, v in h_obj._methods.items() if k in getattr(h_obj, "_instance_methods", set())
+                    }
+                    h_obj.inherit_from(cls_obj)
+        except Exception:
+            if cls_obj is not None and saved_methods is not None and saved_class_methods is not None:
+                cls_obj._methods.clear()
+                cls_obj._methods.update(saved_methods)
+                cls_obj._class_methods.clear()
+                cls_obj._class_methods.update(saved_class_methods)
+            raise
+
+        # Step 3: Commit rollback in Neo4j only after VM hydration succeeded
+        self._run_cypher(
+            """
+            MATCH (e:ActorEngram {name: $name, namespace: $ns})-[:HAS_PREVIOUS_VERSION]->(v:ActorEngramVersion)
+            WHERE v.version = $ver AND ($arch IS NULL OR v.archived_at = $arch)
+            WITH e, v ORDER BY v.archived_at DESC LIMIT 1
+            SET e.actor_source = v.actor_source,
+                e.source_sha256 = v.source_sha256,
+                e.signatures = v.signatures,
+                e.superclass = coalesce(v.superclass, e.superclass, 'Object'),
+                e.ivars = coalesce(v.ivars, e.ivars, []),
+                e.version = v.version,
+                e.updated_at = timestamp()
+            DETACH DELETE v
+            """,
+            {"name": norm_name, "ns": self.namespace, "ver": restored_ver, "arch": archived_at},
+        )
         return f"ENGRAM_ROLLED_BACK: Actor[#{norm_name}] (version={restored_ver})"
 
     @actor_command
@@ -1281,9 +1592,9 @@ class ActorMemoryGraph:
             """
             MATCH (n {namespace: $ns})
             WHERE n:ActorEngram OR n:ActorEngramVersion OR n:ActorGraphDomain
-            WITH n, count(n) AS c
-            DETACH DELETE n
-            RETURN c
+            WITH collect(n) AS nodes
+            FOREACH (x IN nodes | DETACH DELETE x)
+            RETURN size(nodes) AS c
             """,
             {"ns": self.namespace},
         )
@@ -1361,9 +1672,9 @@ class ActorMemoryGraph:
         _, rows = self._run_cypher(
             """
             MATCH (ep:ActorEpisode {namespace: $ns})
-            WITH ep, count(ep) AS c
-            DETACH DELETE ep
-            RETURN c
+            WITH collect(ep) AS eps
+            FOREACH (x IN eps | DETACH DELETE x)
+            RETURN size(eps) AS c
             """,
             {"ns": self.namespace},
         )
@@ -1400,6 +1711,7 @@ class ActorMemoryGraph:
                     ORDER BY created_at ASC
                     """,
                     {"ns": self.namespace},
+                    read_only=True,
                 )
                 self._episode_rows_cache[self.namespace] = (now_mono, list(rows))
             if not rows:
@@ -1478,6 +1790,25 @@ class ActorMemoryGraph:
                 t_rg = item.get("turn_range")
                 hdr = f"Session {s_id} [Date: {s_dt}]" + (f" ({t_rg})" if t_rg else "")
                 lines.append(f"• {hdr} (relevance={score_val:.2f}):\n{item.get('content', '')}")
+            recalled_hashes = [
+                str(item.get("episode_hash") or "").strip()
+                for _, _, item in top_items
+                if str(item.get("episode_hash") or "").strip()
+            ]
+            if recalled_hashes:
+                try:
+                    self._run_cypher(
+                        """
+                        UNWIND $hashes AS h
+                        MATCH (ep:ActorEpisode {namespace: $ns, episode_hash: h})
+                        SET ep.recall_count = coalesce(ep.recall_count, 0) + 1,
+                            ep.last_recalled_at = timestamp()
+                        """,
+                        {"ns": self.namespace, "hashes": recalled_hashes},
+                        invalidate_cache=False,
+                    )
+                except Exception:
+                    pass
             return "\n".join(lines)
         except Exception:
             return ""
@@ -1564,24 +1895,22 @@ class ActorMemoryGraph:
             if cached_eng is not None and (now_mono - cached_eng[0]) <= 90.0:
                 rows = cached_eng[1]
             else:
+                # Stage 1: Fetch lightweight metadata for up to 200 Engrams (NO actor_source / transitive deps yet)
                 _, rows = self._run_cypher(
                     """
                     MATCH (e:ActorEngram {namespace: $ns})
-                    OPTIONAL MATCH (e)-[:OPERATES_ON]->(d:ActorGraphDomain {namespace: $ns})
-                    OPTIONAL MATCH (e)-[:SUBCLASS_OF|DEPENDS_ON*1..5]->(dep:ActorEngram {namespace: $ns})
+                    WHERE e.name <> 'AgentHarness'
                     RETURN e.name AS name, e.description AS description,
                            coalesce(e.superclass, 'Object') AS superclass,
                            coalesce(e.ivars, []) AS ivars,
-                           e.signatures AS signatures, e.actor_source AS actor_source,
-                           e.source_sha256 AS source_sha256,
+                           e.signatures AS signatures,
                            e.embedding AS embedding,
                            coalesce(e.call_count, 0) AS call_count,
                            coalesce(e.success_count, 0) AS success_count,
                            coalesce(e.updated_at, 0) AS updated_at,
-                           collect(DISTINCT d.label) AS domain_labels,
-                           collect(DISTINCT {name: dep.name, actor_source: dep.actor_source, source_sha256: dep.source_sha256, superclass: coalesce(dep.superclass, 'Object')}) AS deps
+                           [(e)-[:OPERATES_ON]->(d:ActorGraphDomain {namespace: $ns}) | d.label] AS domain_labels
                     ORDER BY updated_at DESC
-                    LIMIT 20
+                    LIMIT 200
                     """,
                     {"ns": self.namespace},
                     read_only=True,
@@ -1639,6 +1968,34 @@ class ActorMemoryGraph:
             if not selected:
                 return ""
 
+            # Stage 2: Fetch full `actor_source`, `source_sha256`, and transitive `deps` ONLY for the top-K selected Engrams
+            selected_names = [str(r["name"]) for r in selected if r.get("name")]
+            payload_by_name: Dict[str, Dict[str, Any]] = {}
+            if selected_names:
+                _, src_rows = self._run_cypher(
+                    """
+                    UNWIND $names AS nm
+                    MATCH (e:ActorEngram {name: nm, namespace: $ns})
+                    RETURN e.name AS name,
+                           e.actor_source AS actor_source,
+                           e.source_sha256 AS source_sha256,
+                           [(e)-[:SUBCLASS_OF|DEPENDS_ON*1..5]->(dep:ActorEngram {namespace: $ns}) |
+                               {
+                                   name: dep.name,
+                                   actor_source: dep.actor_source,
+                                   source_sha256: dep.source_sha256,
+                                   superclass: coalesce(dep.superclass, 'Object'),
+                                   dep_names: [(dep)-[:SUBCLASS_OF|DEPENDS_ON]->(d2:ActorEngram {namespace: $ns}) | d2.name]
+                               }
+                           ] AS deps
+                    """,
+                    {"names": selected_names, "ns": self.namespace},
+                    read_only=True,
+                )
+                for sr in src_rows:
+                    if sr.get("name"):
+                        payload_by_name[str(sr["name"])] = sr
+
             lines = [
                 "[NEO4J ACTIVE ENGRAMS & OOP CLASS HIERARCHY (HYDRATED INTO LIVE VM POOL)]:",
                 "• Foundational Base Classes available to subclass (`inherit(SuperClass, #SubClass, #(#ivar), 1, nil)!!`):",
@@ -1649,10 +2006,11 @@ class ActorMemoryGraph:
                 "• Pre-verified Engram Objects (invoke directly in 1 step, OR subclass/compose them via `inherit(ExistingClass, #NewSubClass, ...)`):",
             ]
             for r in selected:
-                # Hydrate prerequisite superclasses and dependencies first (in topological order: Object -> Base -> Child)
-                deps_list = [d for d in (r.get("deps") or []) if d.get("name") and d.get("actor_source")]
-                deps_list.sort(key=lambda d: 0 if d.get("superclass", "Object") in ("Object", "GraphService") else 1)
-                for dep in deps_list:
+                ename = str(r["name"])
+                src_payload = payload_by_name.get(ename, {})
+                # Hydrate prerequisite superclasses and dependencies first in true topological order
+                deps_sorted = _topological_sort_engram_deps(src_payload.get("deps") or r.get("deps") or [])
+                for dep in deps_sorted:
                     dep_name = dep.get("name")
                     dep_src = dep.get("actor_source")
                     if dep_name and dep_src:
@@ -1665,17 +2023,17 @@ class ActorMemoryGraph:
                         except Exception:
                             pass
 
-                ename = str(r["name"])
                 sup_cls = str(r.get("superclass") or "Object")
                 ivs = [f"#{x}" for x in (r.get("ivars") or []) if x]
                 iv_tag = f" ivars:#({' '.join(ivs)})" if ivs else ""
-                src = str(r.get("actor_source") or "")
+                src = str(src_payload.get("actor_source") or r.get("actor_source") or "")
+                sha = src_payload.get("source_sha256") or r.get("source_sha256")
                 if src:
                     try:
                         self._hydrate_engram_source_safely(
                             ename,
                             src,
-                            stored_sha256=r.get("source_sha256"),
+                            stored_sha256=sha,
                         )
                     except Exception:
                         continue
@@ -2048,32 +2406,8 @@ class ActorMemoryGraph:
         keywords = sorted({str(k).strip().lower() for k in raw_kws if str(k).strip()})[:35]
 
         prod_emb_text = f"{canon_name} ({version}) [{category}]: {summary} Keywords: {' '.join(keywords)}"
-        prod_emb = _compute_embedding(prod_emb_text)
 
-        self._run_cypher(
-            """
-            MERGE (p:Product {id: $pid, namespace: $ns})
-            SET p.name = $name,
-                p.category = $category,
-                p.version = CASE WHEN $version <> '' THEN $version ELSE coalesce(p.version, '') END,
-                p.summary = CASE WHEN $summary <> '' THEN $summary ELSE coalesce(p.summary, '') END,
-                p.keywords = reduce(acc = coalesce(p.keywords, []), k IN $keywords | CASE WHEN k IN acc THEN acc ELSE acc + k END),
-                p.embedding = CASE WHEN size($emb) > 0 THEN $emb ELSE coalesce(p.embedding, []) END,
-                p.updated_at = timestamp()
-            """,
-            {
-                "pid": pid,
-                "ns": self.namespace,
-                "name": canon_name,
-                "category": category,
-                "version": version,
-                "summary": summary,
-                "keywords": keywords,
-                "emb": prod_emb or [],
-            },
-        )
-
-        sub_cnt = 0
+        sub_items: List[Dict[str, Any]] = []
         for sub in spec.get("subsystems") or []:
             if not isinstance(sub, dict):
                 continue
@@ -2084,28 +2418,16 @@ class ActorMemoryGraph:
             sdesc = str(sub.get("description") or "").strip()
             scmds_raw = sub.get("commands") or []
             scmds = [str(x).strip() for x in (scmds_raw if isinstance(scmds_raw, list) else [scmds_raw]) if str(x).strip()]
-            self._run_cypher(
-                """
-                MATCH (p:Product {id: $pid, namespace: $ns})
-                MERGE (s:Subsystem {product_id: $pid, name: $sname, namespace: $ns})
-                SET s.driver = $sdriver,
-                    s.description = $sdesc,
-                    s.commands = $scmds,
-                    s.updated_at = timestamp()
-                MERGE (p)-[:HAS_SUBSYSTEM]->(s)
-                """,
+            sub_items.append(
                 {
-                    "pid": pid,
-                    "ns": self.namespace,
                     "sname": sname[:120],
                     "sdriver": sdriver[:160],
                     "sdesc": sdesc[:600],
                     "scmds": scmds[:10],
-                },
+                }
             )
-            sub_cnt += 1
 
-        proc_cnt = 0
+        proc_items: List[Dict[str, Any]] = []
         for pr in spec.get("procedures") or []:
             if not isinstance(pr, dict):
                 continue
@@ -2115,72 +2437,31 @@ class ActorMemoryGraph:
                 continue
             prname = prname or f"Command: {prcmd[:50]}"
             prnotes = str(pr.get("notes") or "").strip()
-            self._run_cypher(
-                """
-                MATCH (p:Product {id: $pid, namespace: $ns})
-                MERGE (proc:Procedure {product_id: $pid, name: $prname, namespace: $ns})
-                SET proc.command = $prcmd,
-                    proc.notes = $prnotes,
-                    proc.updated_at = timestamp()
-                MERGE (p)-[:HAS_PROCEDURE]->(proc)
-                """,
+            proc_items.append(
                 {
-                    "pid": pid,
-                    "ns": self.namespace,
                     "prname": prname[:140],
                     "prcmd": prcmd[:500],
                     "prnotes": prnotes[:500],
-                },
+                }
             )
-            proc_cnt += 1
 
-        gotcha_cnt = 0
+        gotcha_items: List[Dict[str, Any]] = []
         for g in spec.get("gotchas") or []:
             rule_txt = str(g.get("rule") if isinstance(g, dict) else g or "").strip()
             if not rule_txt:
                 continue
             sev = str(g.get("severity", "WARNING") if isinstance(g, dict) else "WARNING").strip().upper()
-            self._run_cypher(
-                """
-                MATCH (p:Product {id: $pid, namespace: $ns})
-                MERGE (gt:Gotcha {product_id: $pid, rule: $rule, namespace: $ns})
-                SET gt.severity = $sev,
-                    gt.updated_at = timestamp()
-                MERGE (p)-[:HAS_GOTCHA]->(gt)
-                """,
-                {
-                    "pid": pid,
-                    "ns": self.namespace,
-                    "rule": rule_txt[:400],
-                    "sev": sev[:32],
-                },
-            )
-            gotcha_cnt += 1
+            gotcha_items.append({"rule": rule_txt[:400], "sev": sev[:32]})
 
-        src_cnt = 0
+        src_items: List[Dict[str, Any]] = []
         for src in spec.get("sources") or []:
             u = str(src.get("url") if isinstance(src, dict) else src or "").strip()
             if not u:
                 continue
             t = str(src.get("title", canon_name) if isinstance(src, dict) else canon_name).strip()
-            self._run_cypher(
-                """
-                MATCH (p:Product {id: $pid, namespace: $ns})
-                MERGE (ds:DocSource {product_id: $pid, url: $url, namespace: $ns})
-                SET ds.title = $title,
-                    ds.updated_at = timestamp()
-                MERGE (p)-[:CITES_SOURCE]->(ds)
-                """,
-                {
-                    "pid": pid,
-                    "ns": self.namespace,
-                    "url": u[:500],
-                    "title": t[:200],
-                },
-            )
-            src_cnt += 1
+            src_items.append({"url": u[:500], "title": t[:200]})
 
-        chunk_cnt = 0
+        chunk_raw: List[Dict[str, Any]] = []
         for ch in spec.get("chunks") or []:
             if not isinstance(ch, dict):
                 continue
@@ -2189,30 +2470,140 @@ class ActorMemoryGraph:
             if not ccontent:
                 continue
             cid = hashlib.sha1(f"{pid}::{ctitle}::{ccontent[:160]}".encode("utf-8")).hexdigest()[:16]
-            c_emb = _compute_embedding(f"{canon_name} — {ctitle}: {ccontent}")
-            self._run_cypher(
-                """
-                MATCH (p:Product {id: $pid, namespace: $ns})
-                MERGE (mc:ProductManualChunk {chunk_id: $cid, namespace: $ns})
-                SET mc.product_id = $pid,
-                    mc.product_name = $pname,
-                    mc.title = $title,
-                    mc.content = $content,
-                    mc.embedding = $emb,
-                    mc.updated_at = timestamp()
-                MERGE (p)-[:HAS_MANUAL_CHUNK]->(mc)
-                """,
+            chunk_raw.append(
                 {
-                    "pid": pid,
-                    "ns": self.namespace,
                     "cid": cid,
-                    "pname": canon_name,
                     "title": ctitle[:160],
                     "content": ccontent[:1800],
-                    "emb": c_emb or [],
-                },
+                    "emb_input": f"{canon_name} — {ctitle}: {ccontent}",
+                }
             )
-            chunk_cnt += 1
+
+        # Single batched embedding request for product + all manual chunks
+        emb_inputs = [prod_emb_text] + [c["emb_input"] for c in chunk_raw]
+        all_embs = _compute_embeddings_batch(emb_inputs)
+        prod_emb = all_embs[0] if all_embs else None
+        chunk_items: List[Dict[str, Any]] = []
+        for idx_c, ch_d in enumerate(chunk_raw):
+            c_emb = all_embs[idx_c + 1] if (idx_c + 1) < len(all_embs) else None
+            chunk_items.append(
+                {
+                    "cid": ch_d["cid"],
+                    "title": ch_d["title"],
+                    "content": ch_d["content"],
+                    "emb": c_emb or [],
+                }
+            )
+
+        # Single multi-statement Neo4j HTTP transaction using UNWIND (replaces N+1 loop queries)
+        tx_statements: List[Dict[str, Any]] = [
+            {
+                "statement": """
+                MERGE (p:Product {id: $pid, namespace: $ns})
+                SET p.name = $name,
+                    p.category = $category,
+                    p.version = CASE WHEN $version <> '' THEN $version ELSE coalesce(p.version, '') END,
+                    p.summary = CASE WHEN $summary <> '' THEN $summary ELSE coalesce(p.summary, '') END,
+                    p.keywords = reduce(acc = coalesce(p.keywords, []), k IN $keywords | CASE WHEN k IN acc THEN acc ELSE acc + k END),
+                    p.embedding = CASE WHEN size($emb) > 0 THEN $emb ELSE coalesce(p.embedding, []) END,
+                    p.updated_at = timestamp()
+                """,
+                "parameters": {
+                    "pid": pid,
+                    "ns": self.namespace,
+                    "name": canon_name,
+                    "category": category,
+                    "version": version,
+                    "summary": summary,
+                    "keywords": keywords,
+                    "emb": prod_emb or [],
+                },
+            }
+        ]
+        if sub_items:
+            tx_statements.append(
+                {
+                    "statement": """
+                    MATCH (p:Product {id: $pid, namespace: $ns})
+                    UNWIND $items AS item
+                    MERGE (s:Subsystem {product_id: $pid, name: item.sname, namespace: $ns})
+                    SET s.driver = item.sdriver,
+                        s.description = item.sdesc,
+                        s.commands = item.scmds,
+                        s.updated_at = timestamp()
+                    MERGE (p)-[:HAS_SUBSYSTEM]->(s)
+                    """,
+                    "parameters": {"pid": pid, "ns": self.namespace, "items": sub_items},
+                }
+            )
+        if proc_items:
+            tx_statements.append(
+                {
+                    "statement": """
+                    MATCH (p:Product {id: $pid, namespace: $ns})
+                    UNWIND $items AS item
+                    MERGE (proc:Procedure {product_id: $pid, name: item.prname, namespace: $ns})
+                    SET proc.command = item.prcmd,
+                        proc.notes = item.prnotes,
+                        proc.updated_at = timestamp()
+                    MERGE (p)-[:HAS_PROCEDURE]->(proc)
+                    """,
+                    "parameters": {"pid": pid, "ns": self.namespace, "items": proc_items},
+                }
+            )
+        if gotcha_items:
+            tx_statements.append(
+                {
+                    "statement": """
+                    MATCH (p:Product {id: $pid, namespace: $ns})
+                    UNWIND $items AS item
+                    MERGE (gt:Gotcha {product_id: $pid, rule: item.rule, namespace: $ns})
+                    SET gt.severity = item.sev,
+                        gt.updated_at = timestamp()
+                    MERGE (p)-[:HAS_GOTCHA]->(gt)
+                    """,
+                    "parameters": {"pid": pid, "ns": self.namespace, "items": gotcha_items},
+                }
+            )
+        if src_items:
+            tx_statements.append(
+                {
+                    "statement": """
+                    MATCH (p:Product {id: $pid, namespace: $ns})
+                    UNWIND $items AS item
+                    MERGE (ds:DocSource {product_id: $pid, url: item.url, namespace: $ns})
+                    SET ds.title = item.title,
+                        ds.updated_at = timestamp()
+                    MERGE (p)-[:CITES_SOURCE]->(ds)
+                    """,
+                    "parameters": {"pid": pid, "ns": self.namespace, "items": src_items},
+                }
+            )
+        if chunk_items:
+            tx_statements.append(
+                {
+                    "statement": """
+                    MATCH (p:Product {id: $pid, namespace: $ns})
+                    UNWIND $items AS item
+                    MERGE (mc:ProductManualChunk {chunk_id: item.cid, namespace: $ns})
+                    SET mc.product_id = $pid,
+                        mc.product_name = $pname,
+                        mc.title = item.title,
+                        mc.content = item.content,
+                        mc.embedding = item.emb,
+                        mc.updated_at = timestamp()
+                    MERGE (p)-[:HAS_MANUAL_CHUNK]->(mc)
+                    """,
+                    "parameters": {"pid": pid, "ns": self.namespace, "pname": canon_name, "items": chunk_items},
+                }
+            )
+
+        self._run_cypher_batch(tx_statements)
+        sub_cnt = len(sub_items)
+        proc_cnt = len(proc_items)
+        gotcha_cnt = len(gotcha_items)
+        chunk_cnt = len(chunk_items)
+        src_cnt = len(src_items)
 
         return (
             f"✔ Learned Product '{canon_name}' [id={pid}]: "
@@ -2240,11 +2631,6 @@ class ActorMemoryGraph:
             _, prod_rows = self._run_cypher(
                 """
                 MATCH (p:Product {namespace: $ns})
-                OPTIONAL MATCH (p)-[:HAS_SUBSYSTEM]->(s:Subsystem {namespace: $ns})
-                OPTIONAL MATCH (p)-[:HAS_PROCEDURE]->(pr:Procedure {namespace: $ns})
-                OPTIONAL MATCH (p)-[:HAS_GOTCHA]->(g:Gotcha {namespace: $ns})
-                OPTIONAL MATCH (p)-[:CITES_SOURCE]->(ds:DocSource {namespace: $ns})
-                OPTIONAL MATCH (p)-[:HAS_MANUAL_CHUNK]->(mc:ProductManualChunk {namespace: $ns})
                 RETURN p.id AS id,
                        p.name AS name,
                        coalesce(p.category, '') AS category,
@@ -2252,13 +2638,14 @@ class ActorMemoryGraph:
                        coalesce(p.summary, '') AS summary,
                        coalesce(p.keywords, []) AS keywords,
                        p.embedding AS embedding,
-                       collect(DISTINCT {name: s.name, driver: s.driver, description: s.description, commands: s.commands}) AS subsystems,
-                       collect(DISTINCT {name: pr.name, command: pr.command, notes: pr.notes}) AS procedures,
-                       collect(DISTINCT {rule: g.rule, severity: g.severity}) AS gotchas,
-                       collect(DISTINCT {url: ds.url, title: ds.title}) AS sources,
-                       collect(DISTINCT {chunk_id: mc.chunk_id, title: mc.title, content: mc.content, embedding: mc.embedding}) AS chunks
+                       [(p)-[:HAS_SUBSYSTEM]->(s:Subsystem {namespace: $ns}) | {name: s.name, driver: s.driver, description: s.description, commands: s.commands}] AS subsystems,
+                       [(p)-[:HAS_PROCEDURE]->(pr:Procedure {namespace: $ns}) | {name: pr.name, command: pr.command, notes: pr.notes}] AS procedures,
+                       [(p)-[:HAS_GOTCHA]->(g:Gotcha {namespace: $ns}) | {rule: g.rule, severity: g.severity}] AS gotchas,
+                       [(p)-[:CITES_SOURCE]->(ds:DocSource {namespace: $ns}) | {url: ds.url, title: ds.title}] AS sources,
+                       [(p)-[:HAS_MANUAL_CHUNK]->(mc:ProductManualChunk {namespace: $ns}) | {chunk_id: mc.chunk_id, title: mc.title, content: mc.content, embedding: mc.embedding}] AS chunks
                 """,
                 {"ns": self.namespace},
+                read_only=True,
             )
             self._product_rows_cache[prod_key] = (now_mono, list(prod_rows))
         if not prod_rows:
@@ -2277,7 +2664,7 @@ class ActorMemoryGraph:
         q_slug = self._slugify_product_id(query_str) if query_str else ""
         q_emb = _compute_embedding(combined_q)
 
-        scored_products: List[Tuple[float, Dict[str, Any], List[Tuple[float, Dict[str, Any]]]]] = []
+        scored_products: List[Tuple[float, Dict[str, Any], List[Tuple[float, Dict[str, Any]]], bool]] = []
         for prow in prod_rows:
             pid = str(prow.get("id") or "")
             pname = str(prow.get("name") or "")
@@ -2436,23 +2823,20 @@ class ActorMemoryGraph:
         _, rows = self._run_cypher(
             """
             MATCH (p:Product {namespace: $ns})
-            OPTIONAL MATCH (p)-[:HAS_SUBSYSTEM]->(s:Subsystem {namespace: $ns})
-            OPTIONAL MATCH (p)-[:HAS_PROCEDURE]->(pr:Procedure {namespace: $ns})
-            OPTIONAL MATCH (p)-[:HAS_GOTCHA]->(g:Gotcha {namespace: $ns})
-            OPTIONAL MATCH (p)-[:HAS_MANUAL_CHUNK]->(mc:ProductManualChunk {namespace: $ns})
             RETURN p.id AS id,
                    p.name AS name,
                    coalesce(p.version, '') AS version,
                    coalesce(p.category, '') AS category,
                    coalesce(p.summary, '') AS summary,
-                   count(DISTINCT s) AS subsystems,
-                   count(DISTINCT pr) AS procedures,
-                   count(DISTINCT g) AS gotchas,
-                   count(DISTINCT mc) AS chunks,
+                   size([(p)-[:HAS_SUBSYSTEM]->(s:Subsystem {namespace: $ns}) | s]) AS subsystems,
+                   size([(p)-[:HAS_PROCEDURE]->(pr:Procedure {namespace: $ns}) | pr]) AS procedures,
+                   size([(p)-[:HAS_GOTCHA]->(g:Gotcha {namespace: $ns}) | g]) AS gotchas,
+                   size([(p)-[:HAS_MANUAL_CHUNK]->(mc:ProductManualChunk {namespace: $ns}) | mc]) AS chunks,
                    coalesce(p.updated_at, 0) AS updated_at
             ORDER BY updated_at DESC
             """,
             {"ns": self.namespace},
+            read_only=True,
         )
         if not rows:
             return f"No learned `:Product` manuals in namespace '{self.namespace}' yet. Use `learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")!!`."

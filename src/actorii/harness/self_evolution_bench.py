@@ -412,15 +412,19 @@ def make_live_provider(
 
     def provider(prompt: str, system_prompt: str, opts: dict) -> str:
         sys_txt = str(getattr(harness, "system_prompt", "") or system_prompt or "")
+        base_messages = ([{"role": "system", "content": sys_txt}] if sys_txt else []) + [
+            {"role": "user", "content": prompt}
+        ]
         payload = {
             "model": model,
-            "messages": ([{"role": "system", "content": sys_txt}] if sys_txt else [])
-            + [{"role": "user", "content": prompt}],
+            "messages": base_messages,
             "temperature": temperature,
             "seed": seed,
             "max_tokens": max_tokens,
             "stream": False,
             "chat_template_kwargs": {"enable_thinking": False},
+            "force_no_think": True,
+            "reasoning_effort": "low",
         }
         req = urllib.request.Request(
             url,
@@ -441,8 +445,66 @@ def make_live_provider(
         stats["prompt_tokens"] = stats.get("prompt_tokens", 0) + int(usage.get("prompt_tokens") or 0)
         stats["completion_tokens"] = stats.get("completion_tokens", 0) + int(usage.get("completion_tokens") or 0)
         choices = parsed.get("choices") or []
-        content = ((choices[0].get("message") or {}).get("content") or "") if choices else ""
-        return _strip_thinking(str(content))
+        first_choice = choices[0] if choices else {}
+        msg = first_choice.get("message") or {}
+        finish_reason = str(first_choice.get("finish_reason") or "").lower()
+        content = _strip_thinking(str(msg.get("content") or ""))
+        reasoning = str(msg.get("reasoning_content") or "").strip()
+
+        # Recover when a thinking-by-default server (e.g. Strata/Qwen3) spends its tokens in
+        # `reasoning_content` or truncates mid-chunk without emitting executable `!!` / `COMPLETE:`.
+        needs_cont = (not content and bool(reasoning)) or (
+            finish_reason == "length"
+            and bool(content)
+            and not content.endswith("!!")
+            and not content.upper().startswith("COMPLETE:")
+        )
+        if needs_cont:
+            draft = content or reasoning[-1500:]
+            cont_payload = {
+                "model": model,
+                "messages": base_messages
+                + [
+                    {"role": "assistant", "content": draft},
+                    {
+                        "role": "user",
+                        "content": (
+                            "Emit ONLY the executable 1993 Actor 4.1 code chunks ending in `!!` "
+                            "(or `COMPLETE: <summary>`). No markdown fences, no prose."
+                        ),
+                    },
+                ],
+                "temperature": temperature,
+                "seed": seed,
+                "max_tokens": max_tokens,
+                "stream": False,
+                "chat_template_kwargs": {"enable_thinking": False},
+                "force_no_think": True,
+                "reasoning_effort": "low",
+            }
+            cont_req = urllib.request.Request(
+                url,
+                data=json.dumps(cont_payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            t1 = time.perf_counter()
+            try:
+                with urllib.request.urlopen(cont_req, timeout=timeout) as resp2:
+                    parsed2 = json.loads(resp2.read().decode("utf-8", errors="replace"))
+                stats["llm_calls"] = stats.get("llm_calls", 0) + 1
+                stats["llm_latency_s"] = stats.get("llm_latency_s", 0.0) + (time.perf_counter() - t1)
+                usage2 = parsed2.get("usage") or {}
+                stats["prompt_tokens"] = stats.get("prompt_tokens", 0) + int(usage2.get("prompt_tokens") or 0)
+                stats["completion_tokens"] = stats.get("completion_tokens", 0) + int(usage2.get("completion_tokens") or 0)
+                choices2 = parsed2.get("choices") or []
+                msg2 = (choices2[0].get("message") or {}) if choices2 else {}
+                cont_content = _strip_thinking(str(msg2.get("content") or ""))
+                if cont_content:
+                    content = cont_content
+            except Exception:
+                pass
+        return content
 
     return provider
 
@@ -483,7 +545,7 @@ class SelfEvolutionRunner:
         host_lockdown: bool = True,
         persistence_backend: str = "fileout",
         llm_timeout: float = 300.0,
-        llm_max_tokens: int = 2048,
+        llm_max_tokens: int = 4096,
         on_event: Optional[Callable[[str], None]] = None,
     ) -> None:
         if mode not in ("scripted", "live"):
@@ -721,6 +783,8 @@ class SelfEvolutionRunner:
             definitional_chunks=len(gen_chunks),
             llm=llm_stats or None,
         )
+        if step_errors:
+            rec["step_error_samples"] = [e[:240] for e in step_errors[-4:]]
         if llm_stats.get("llm_error"):
             rec["llm_error"] = llm_stats["llm_error"]
 
@@ -757,7 +821,7 @@ class SelfEvolutionRunner:
         reason = ""
         if violations:
             reason = "invariant_violation"
-        elif not any(re.match(r"\s*(?:/\*.*?\*/\s*)*Def\s", c, re.DOTALL) for c in gen_chunks):
+        elif not any(re.match(r"\s*(?:/\*.*?\*/\s*)*Def\s", c, re.DOTALL | re.IGNORECASE) for c in gen_chunks):
             reason = "no_definitions"
         elif passes < best_passes:
             reason = "regression"
@@ -840,6 +904,56 @@ class SelfEvolutionRunner:
         ok = _pass_count(vis) == len(vis) and _pass_count(hold) == len(hold)
         return ok, "" if ok else "engram-reloaded VM failed tests", scores
 
+    @staticmethod
+    def _snapshot_committed_chunks(
+        spec: EvolutionSpec,
+        vm: Any,
+        base_class_names: set[str],
+        fallback: List[str],
+    ) -> List[str]:
+        """Snapshot accepted evolved classes canonically via `ActorFileOutManager` (`inherit` + `now` + `Def`).
+
+        Prevents cross-generation replay crashes when `inherit(...)` / `now(...)` ran inside a
+        multi-chunk step whose later statement errored (so `ok_actions` dropped `inherit`/`now`
+        while subsequent `Def` steps compiled onto the new class in the live VM).
+        """
+        from actorii.guardrails.fileout import ActorFileOutManager
+        from actorii.guardrails.linter import PROTECTED_SYSTEM_CLASSES
+
+        cls_map = getattr(vm.hierarchy, "_classes", {}) or {}
+        protected = set(PROTECTED_SYSTEM_CLASSES) | {"AgentHarness"}
+        targets: List[str] = []
+        seen: set[str] = set()
+
+        def _add_with_bases(cname: str) -> None:
+            if cname in seen or cname in protected or cname not in cls_map:
+                return
+            c_obj = cls_map[cname]
+            for base in getattr(c_obj, "_bases", ()) or ():
+                if base not in base_class_names and base in cls_map:
+                    _add_with_bases(base)
+            seen.add(cname)
+            targets.append(cname)
+
+        for cname in spec.required_classes:
+            _add_with_bases(cname)
+        for cname in sorted(cls_map.keys()):
+            if cname not in base_class_names:
+                _add_with_bases(cname)
+
+        if not targets:
+            return fallback
+
+        mgr = ActorFileOutManager()
+        snapped: List[str] = []
+        for cname in targets:
+            try:
+                src = mgr.format_class_source(vm, cname)
+                snapped.extend(definitional_chunks(src))
+            except Exception:
+                return fallback
+        return snapped if snapped else fallback
+
     # -- spec driver ------------------------------------------------------
 
     def run_spec(self, spec: EvolutionSpec) -> Dict[str, Any]:
@@ -879,6 +993,7 @@ class SelfEvolutionRunner:
             # ---- Phase 0: pre-flight baseline oracle --------------------
             base_vm, _, _ = self._boot_vm(spec, "baseline")
             baseline_fp = vm_fingerprint(base_vm)
+            base_class_names = set((getattr(base_vm.hierarchy, "_classes", {}) or {}).keys())
             bvis, bhold = self._score(base_vm, spec)
             result["baseline"] = {
                 "visible_passed": _pass_count(bvis),
@@ -906,8 +1021,11 @@ class SelfEvolutionRunner:
                 result["generations_used"] = g
                 result["steps_used"] += int(rec.get("steps", 0))
                 result["gas_used"] += int(rec.get("gas_used", 0))
+                prev_committed = list(committed)
                 if rec["outcome"] == "accepted":
-                    committed = committed + gen_chunks
+                    committed = self._snapshot_committed_chunks(
+                        spec, vm, base_class_names, committed + gen_chunks
+                    )
                     best_passes = max(best_passes, _pass_count(vis) + _pass_count(hold))
                 else:
                     result["rollbacks"] += 1
@@ -928,7 +1046,7 @@ class SelfEvolutionRunner:
                         rec["outcome"] = "rolled_back"
                         rec["rollback_reason"] = "persistence_failed"
                         result["rollbacks"] += 1
-                        committed = committed[: len(committed) - len(gen_chunks)]
+                        committed = prev_committed
                         all_pass = False
                         diag = self._diagnostics(g, rec, vis, hold, [], [], [])
                     else:

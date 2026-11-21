@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import socket
 import threading
 import time
 import urllib.error
@@ -51,10 +52,15 @@ _RETURN_STMT_RE = re.compile(r"\breturn\s+([^;]+);")
 _LOCAL_VAR_DECL_RE = re.compile(r"\b(?:local|var|let)\s+([A-Za-z_][A-Za-z0-9_]*)\s*:=")
 _DEF_HEADER_RE = re.compile(r"^Def\s+[A-Za-z_][A-Za-z0-9_]*\s*\(")
 
-DEFAULT_VALKYRIE_ENDPOINTS = (
-    os.environ.get("ACTORII_LLM_ENDPOINT", "http://127.0.0.1:8080/v1/chat/completions"),
-    os.environ.get("ACTORII_SPECIALIST_ENDPOINT", "http://127.0.0.1:8082/v1/chat/completions"),
-)
+def _default_valkyrie_endpoints() -> Tuple[str, str]:
+    """Resolve local Valkyrie primary + CPU specialist endpoints dynamically from env."""
+    return (
+        os.environ.get("ACTORII_LLM_ENDPOINT", "http://127.0.0.1:8080/v1/chat/completions"),
+        os.environ.get("ACTORII_SPECIALIST_ENDPOINT", "http://127.0.0.1:8082/v1/chat/completions"),
+    )
+
+
+DEFAULT_VALKYRIE_ENDPOINTS = _default_valkyrie_endpoints()
 
 PROVIDER_DEFAULT_ENDPOINTS: Dict[str, str] = {
     "llamacpp": "http://127.0.0.1:8080/v1/chat/completions",
@@ -80,43 +86,101 @@ def resolve_llm_api_key() -> str:
     return ""
 
 
-THINKING_MODES = ("off", "auto", "high")
+THINKING_MODES = ("off", "auto", "medium", "high")
+_LAST_ENGINE_MODE_MTIME: float = 0.0
+_MANUAL_THINK_SET_AT: float = 0.0
+
+
+def _engine_mode_file_path() -> Optional[str]:
+    """Return host `~/.actorii/engine_mode.json` path when not inside strict/container benchmarks."""
+    if os.environ.get("ACTORII_BENCH_STRICT") == "1" or os.environ.get("ACTORII_IN_DOCKER") == "1":
+        return None
+    override = os.environ.get("ACTORII_ENGINE_MODE_PATH", "").strip()
+    if override:
+        return override
+    return os.path.join(os.path.expanduser("~"), ".actorii", "engine_mode.json")
+
+
+def _maybe_sync_engine_thinking_mode() -> None:
+    """Sync `ACTORII_THINKING_MODE` when host `bilby-engine` writes `engine_mode.json` newer than any manual `/think`."""
+    global _LAST_ENGINE_MODE_MTIME
+    path = _engine_mode_file_path()
+    if not path or not os.path.isfile(path):
+        return
+    try:
+        with _AI_LOCK:
+            st_mtime = os.path.getmtime(path)
+            if st_mtime <= _LAST_ENGINE_MODE_MTIME:
+                return
+            _LAST_ENGINE_MODE_MTIME = st_mtime
+            if _MANUAL_THINK_SET_AT > st_mtime:
+                return
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            tmode = str(data.get("thinking_mode") or "").strip().lower()
+            if tmode in THINKING_MODES:
+                os.environ["ACTORII_THINKING_MODE"] = tmode
+                os.environ["ACTORII_ENABLE_THINKING"] = "0" if tmode == "off" else "1"
+    except Exception:
+        pass
 
 
 def get_thinking_mode() -> str:
-    """Resolve active thinking mode (`off`, `auto`, or `high`) from `ACTORII_THINKING_MODE` / `ACTORII_ENABLE_THINKING`."""
+    """Resolve active thinking mode (`off`, `auto`, `medium`, or `high`) from `ACTORII_THINKING_MODE` / `ACTORII_ENABLE_THINKING`."""
+    _maybe_sync_engine_thinking_mode()
     explicit = os.environ.get("ACTORII_THINKING_MODE", "").strip().lower()
     if explicit in ("high", "always", "full", "deep"):
         return "high"
+    if explicit in ("medium", "med", "balanced"):
+        return "medium"
     if explicit in ("auto", "selective", "smart", "on", "1", "true"):
         return "auto"
     if explicit in ("off", "0", "false", "none", "low"):
         return "off"
-    if os.environ.get("ACTORII_ENABLE_THINKING", "").strip().lower() in ("1", "true", "on", "auto"):
+    en = os.environ.get("ACTORII_ENABLE_THINKING", "").strip().lower()
+    if en in ("1", "true", "on", "auto"):
         return "auto"
-    if os.environ.get("ACTORII_ENABLE_THINKING", "").strip().lower() in ("2", "high", "always", "full"):
+    if en in ("medium", "med"):
+        return "medium"
+    if en in ("2", "high", "always", "full"):
         return "high"
     return "off"
 
 
 def set_thinking_mode(mode: str) -> str:
-    """Update active thinking mode in process environment and return normalized mode (`off`, `auto`, or `high`)."""
-    m = str(mode or "").strip().lower()
-    if m in ("high", "always", "full", "deep", "2"):
-        norm = "high"
-        os.environ["ACTORII_THINKING_MODE"] = "high"
-        os.environ["ACTORII_ENABLE_THINKING"] = "1"
-    elif m in ("auto", "selective", "smart", "on", "1", "true"):
-        norm = "auto"
-        os.environ["ACTORII_THINKING_MODE"] = "auto"
-        os.environ["ACTORII_ENABLE_THINKING"] = "1"
-    elif m in ("off", "0", "false", "none", "low"):
-        norm = "off"
-        os.environ["ACTORII_THINKING_MODE"] = "off"
-        os.environ["ACTORII_ENABLE_THINKING"] = "0"
-    else:
-        raise ValueError(f"Unknown thinking mode {mode!r}; expected one of: off, auto, high")
-    return norm
+    """Update active thinking mode in process environment and return normalized mode (`off`, `auto`, `medium`, or `high`)."""
+    global _LAST_ENGINE_MODE_MTIME, _MANUAL_THINK_SET_AT
+    with _AI_LOCK:
+        now_ts = time.time()
+        path = _engine_mode_file_path()
+        if path and os.path.isfile(path):
+            try:
+                st_m = os.path.getmtime(path)
+                _LAST_ENGINE_MODE_MTIME = max(_LAST_ENGINE_MODE_MTIME, st_m)
+                now_ts = max(now_ts, st_m + 0.001)
+            except Exception:
+                pass
+        _MANUAL_THINK_SET_AT = now_ts
+        m = str(mode or "").strip().lower()
+        if m in ("high", "always", "full", "deep", "2"):
+            norm = "high"
+            os.environ["ACTORII_THINKING_MODE"] = "high"
+            os.environ["ACTORII_ENABLE_THINKING"] = "1"
+        elif m in ("medium", "med", "balanced"):
+            norm = "medium"
+            os.environ["ACTORII_THINKING_MODE"] = "medium"
+            os.environ["ACTORII_ENABLE_THINKING"] = "1"
+        elif m in ("auto", "selective", "smart", "on", "1", "true"):
+            norm = "auto"
+            os.environ["ACTORII_THINKING_MODE"] = "auto"
+            os.environ["ACTORII_ENABLE_THINKING"] = "1"
+        elif m in ("off", "0", "false", "none", "low"):
+            norm = "off"
+            os.environ["ACTORII_THINKING_MODE"] = "off"
+            os.environ["ACTORII_ENABLE_THINKING"] = "0"
+        else:
+            raise ValueError(f"Unknown thinking mode {mode!r}; expected one of: off, auto, medium, high")
+        return norm
 
 
 def _is_local_llamacpp_or_vllm(url: str) -> bool:
@@ -185,7 +249,7 @@ def resolve_default_endpoint_for_model(model: str, explicit_endpoint: Optional[s
     """Route CPU/Ollama specialist models (`qwen2.5-coder*`, `*-cpu*`) to `:11434/api/chat` and GPU/cloud models to `ACTORII_LLM_ENDPOINT` or `ACTORII_LLM_PROVIDER`."""
     if explicit_endpoint:
         return str(explicit_endpoint)
-    env_ep = os.environ.get("ACTORII_LLM_ENDPOINT", "").strip()
+    env_ep = (os.environ.get("ACTORII_LLM_ENDPOINT") or os.environ.get("VALKYRIE_LLM_URL") or "").strip()
     if env_ep:
         return env_ep
     prov = os.environ.get("ACTORII_LLM_PROVIDER", "").strip().lower()
@@ -202,7 +266,7 @@ def resolve_default_endpoint_for_model(model: str, explicit_endpoint: Optional[s
         return PROVIDER_DEFAULT_ENDPOINTS["openrouter"]
     if m.startswith("gemini-") and os.environ.get("GEMINI_API_KEY"):
         return PROVIDER_DEFAULT_ENDPOINTS["gemini"]
-    return DEFAULT_VALKYRIE_ENDPOINTS[0]
+    return _default_valkyrie_endpoints()[0]
 
 
 class ValkyrieLLMClient:
@@ -217,13 +281,14 @@ class ValkyrieLLMClient:
         self,
         endpoint: Optional[str] = None,
         model: str = "default",
-        timeout: float = 360.0,
+        timeout: float = 600.0,
         custom_provider: Optional[Callable[..., str]] = None,
     ) -> None:
         self._explicit_endpoint = endpoint
         self.endpoint = resolve_default_endpoint_for_model(model, endpoint)
         self.model = model
-        self.timeout = timeout
+        env_to = os.environ.get("ACTORII_LLM_TIMEOUT_SEC", "").strip()
+        self.timeout = float(env_to) if env_to else timeout
         self.custom_provider = custom_provider
         self._lock = threading.RLock()
         self._local = threading.local()
@@ -264,6 +329,22 @@ class ValkyrieLLMClient:
         with self._lock:
             return dict(self.last_call_stats)
 
+    @staticmethod
+    def _is_fallback_eligible_error(exc: Exception) -> bool:
+        """Allow fallback to secondary local endpoint only on connection refusal or 502/503/504 gateway errors (never HTTP 4xx or full timeouts)."""
+        if isinstance(exc, (TimeoutError, socket.timeout)):
+            return False
+        if isinstance(exc, urllib.error.HTTPError):
+            return getattr(exc, "code", 0) in (502, 503, 504)
+        if isinstance(exc, urllib.error.URLError):
+            reason = getattr(exc, "reason", None)
+            if isinstance(reason, (TimeoutError, socket.timeout)):
+                return False
+            return True
+        if isinstance(exc, (ConnectionError, ConnectionRefusedError)):
+            return True
+        return False
+
     def complete_messages(
         self,
         messages: List[Dict[str, str]],
@@ -273,12 +354,12 @@ class ValkyrieLLMClient:
         """Execute a chat completion using an explicit KV-cache-aligned `messages` array."""
         endpoints_to_try = [self.endpoint]
         if not self._explicit_endpoint and _is_local_llamacpp_or_vllm(self.endpoint):
-            for ep in DEFAULT_VALKYRIE_ENDPOINTS:
+            for ep in _default_valkyrie_endpoints():
                 if ep not in endpoints_to_try:
                     endpoints_to_try.append(ep)
 
         last_err: Optional[Exception] = None
-        for ep in endpoints_to_try:
+        for idx, ep in enumerate(endpoints_to_try):
             try:
                 return self._call_http_endpoint(
                     ep,
@@ -288,7 +369,9 @@ class ValkyrieLLMClient:
                 )
             except Exception as exc:
                 last_err = exc
-                continue
+                if idx + 1 < len(endpoints_to_try) and self._is_fallback_eligible_error(exc):
+                    continue
+                break
 
         raise RuntimeError(
             f"ValkyrieLLMClient failed to reach LLM endpoints {endpoints_to_try}: {last_err}"
@@ -399,6 +482,12 @@ class ValkyrieLLMClient:
             env_thinking = (
                 (think_mode == "high" and not is_raw_synthesis and not already_verified_pass)
                 or (
+                    think_mode == "medium"
+                    and not is_raw_synthesis
+                    and not already_verified_pass
+                    and (step_num <= 4 or step_num % 3 == 0 or needs_deep_reasoning)
+                )
+                or (
                     think_mode == "auto"
                     and step_num >= 2
                     and needs_deep_reasoning
@@ -406,20 +495,30 @@ class ValkyrieLLMClient:
                 )
             )
             is_thinking = "cascade" in str(self.model).lower() or env_thinking
-            think_budget = 600 if think_mode == "high" else 350
+            think_budget = (
+                1200 if think_mode == "high" else (768 if think_mode == "medium" else 400)
+            )
+            eff_max_tokens = (
+                max(int(max_tokens or 4096), think_budget + 2048) if is_thinking else max_tokens
+            )
+            is_dup_retry = "duplicatestepwarning" in last_user_lower and not is_raw_synthesis
+            eff_temp = 0.6 if is_thinking else (max(float(temperature), 0.55) if is_dup_retry else temperature)
             payload = {
                 "model": self.model,
                 "messages": messages,
-                "max_tokens": think_budget if is_thinking else max_tokens,
-                "temperature": 0.6 if is_thinking else temperature,
+                "max_tokens": eff_max_tokens,
+                "temperature": eff_temp,
                 "stream": False,
             }
+            if is_dup_retry:
+                payload["presence_penalty"] = 0.5
             if is_raw_synthesis:
                 payload["stop"] = ["\nExplanation:", "\nNote:"]
             if is_local_engine:
                 payload["chat_template_kwargs"] = {"enable_thinking": True if is_thinking else False}
                 if is_thinking:
                     payload["top_p"] = 0.95
+                    payload["reasoning_budget_tokens"] = think_budget
                 else:
                     payload["force_no_think"] = True
                     payload["reasoning_effort"] = "low"
@@ -460,28 +559,42 @@ class ValkyrieLLMClient:
                 cont_instruction = "Now emit ONLY the valid JSON object (no markdown fences, no prose):"
             else:
                 needs_continuation = (not content) or (
-                    finish_reason == "length" and not content.endswith("!!") and not content.upper().startswith("COMPLETE:")
+                    finish_reason == "length"
+                    and (content.upper().startswith("COMPLETE:") or not content.endswith("!!"))
                 )
                 cont_instruction = (
                     "Based on your draft analysis above, emit ONLY the single executable 1993 Actor 4.1 expression ending in `!!` "
                     "(or `COMPLETE: ` followed by your concrete final response if the goal is already fully verified — no chain-of-thought):"
                 )
-            if needs_continuation and reasoning and "/api/chat" not in url:
-                # Harmony / gpt-oss:20b or bounded Qwen3.8 thinking pass stopped after `reasoning_content`
-                # before finishing `content`. Perform one non-thinking continuation pass to emit the output.
+            if needs_continuation and "/api/chat" not in url and (reasoning or (content and finish_reason == "length")):
+                is_partial_complete = bool(content) and finish_reason == "length" and content.upper().startswith("COMPLETE:")
                 followup_msgs = [dict(m) for m in messages]
-                if followup_msgs and followup_msgs[-1].get("role") == "user":
-                    followup_msgs[-1]["content"] = (
-                        f"{followup_msgs[-1].get('content', '')}\n\n"
-                        f"[Draft Analysis from Thinking Phase]:\n{reasoning}\n\n"
-                        f"{cont_instruction}"
-                    )
-                else:
+                if is_partial_complete:
+                    followup_msgs.append({"role": "assistant", "content": content})
                     followup_msgs.append(
                         {
                             "role": "user",
                             "content": (
-                                f"[Draft Analysis from Thinking Phase]:\n{reasoning}\n\n"
+                                "Your response above hit the output token limit mid-sentence. "
+                                "Continue seamlessly from the exact point where it stopped "
+                                "(do NOT repeat any text already written and do NOT emit `COMPLETE:` again):"
+                            ),
+                        }
+                    )
+                elif followup_msgs and followup_msgs[-1].get("role") == "user":
+                    clipped_reasoning = reasoning[:4000] + ("..." if len(reasoning) > 4000 else "")
+                    followup_msgs[-1]["content"] = (
+                        f"{followup_msgs[-1].get('content', '')}\n\n"
+                        f"[Draft Analysis from Thinking Phase]:\n{clipped_reasoning}\n\n"
+                        f"{cont_instruction}"
+                    )
+                else:
+                    clipped_reasoning = reasoning[:4000] + ("..." if len(reasoning) > 4000 else "")
+                    followup_msgs.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                f"[Draft Analysis from Thinking Phase]:\n{clipped_reasoning}\n\n"
                                 f"{cont_instruction}"
                             ),
                         }
@@ -489,7 +602,7 @@ class ValkyrieLLMClient:
                 followup_payload: Dict[str, Any] = {
                     "model": self.model,
                     "messages": followup_msgs,
-                    "max_tokens": 2048,
+                    "max_tokens": max(int(max_tokens or 2048), 4096),
                     "temperature": 0.2,
                     "stream": False,
                 }
@@ -513,8 +626,16 @@ class ValkyrieLLMClient:
                         c_tok += c2
                         t_tok += t2
                         self._record_usage_and_stats(p2, c2, t2, calls=1)
-                        msg2 = parsed2.get("choices", [{}])[0].get("message", {})
-                        content = (msg2.get("content") or "").strip()
+                        choices2 = parsed2.get("choices") or []
+                        msg2 = (choices2[0].get("message", {}) if choices2 and isinstance(choices2[0], dict) else {})
+                        cont_text = (msg2.get("content") or "").strip()
+                        if is_partial_complete and cont_text:
+                            if cont_text.upper().startswith("COMPLETE:"):
+                                cont_text = cont_text[len("COMPLETE:"):].lstrip()
+                            sep = "" if content.endswith(("\n", " ", "-", "—")) else " "
+                            content = f"{content}{sep}{cont_text}"
+                        elif cont_text:
+                            content = cont_text
                 except Exception:
                     pass
                 # Never leak raw `reasoning_content` chain-of-thought as user-facing content!
@@ -689,16 +810,73 @@ def _summarize_field_value(val: Any) -> Any:
 # =============================================================================
 
 
+def _extract_def_chunk_balanced(text: str) -> Optional[str]:
+    """Extract a `Def name(...) { ... }!!` chunk with brace-depth tracking (ignoring strings and /* comments */)."""
+    m = re.search(r"\bDef\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)\s*\{", text, flags=re.DOTALL)
+    if not m:
+        return None
+    start = m.start()
+    brace_start = m.end() - 1
+    depth = 0
+    in_str = False
+    in_comment = False
+    i = brace_start
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+        if in_comment:
+            if ch == "*" and nxt == "/":
+                in_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+        if in_str:
+            if ch == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if ch == '"':
+                in_str = False
+            i += 1
+            continue
+        if ch == "/" and nxt == "*":
+            in_comment = True
+            i += 2
+            continue
+        if ch == '"':
+            in_str = True
+            i += 1
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end = i + 1
+                while end < n and text[end] in " \t\r\n":
+                    end += 1
+                if text[end : end + 2] == "!!":
+                    end += 2
+                return text[start:end].strip()
+        i += 1
+    return None
+
+
 def extract_and_normalize_actor_method(
     raw_text: str, selector: str, param_names: List[str]
 ) -> str:
     """Clean and normalize LLM output into a valid 1993 Actor `Def ... !!` chunk."""
     cleaned = _strip_thinking_and_fences(raw_text).strip()
 
-    # Locate `Def <selector>` or any `Def ` header
-    def_match = _DEF_CHUNK_RE.search(cleaned)
-    if def_match:
-        cleaned = def_match.group(1).strip()
+    # Locate `Def <selector>` or any `Def ` header with brace-balanced extraction
+    balanced = _extract_def_chunk_balanced(cleaned)
+    if balanced:
+        cleaned = balanced
+    else:
+        def_match = _DEF_CHUNK_RE.search(cleaned)
+        if def_match:
+            cleaned = def_match.group(1).strip()
 
     # Replace `return expr;` with `^expr;`
     if "return" in cleaned:
@@ -1219,7 +1397,8 @@ class ActorMethodSynthesizer:
         from actorii.parser import MethodDefNode, parse_actor
 
         try:
-            chunks = [c.strip() for c in source.split("!!") if c.strip()]
+            splitter = getattr(self.vm, "_split_chunks_safely", None)
+            chunks = splitter(source) if callable(splitter) else [c.strip() for c in source.split("!!") if c.strip()]
             for chunk in chunks:
                 nodes = parse_actor(chunk)
                 for node in nodes:

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Mechanical Pre-Push DevOps Gate for ActorII & Bilby
 # Installed into .git/hooks/pre-push via scripts/install_hooks.sh
+#
+# Branch Policy:
+# - Pushing to `dev` (or feature branches): requires `--tier fast` stamp (~60s: pytest + scripted self-evo + fast red-team).
+# - Pushing to `main` or `refs/tags/v*` (official releases): requires full scope-based stamp (`--tier live` when core files changed since `origin/main`).
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -12,17 +16,27 @@ if [[ "${ACTORII_ALLOW_UNVERIFIED_PUSH:-0}" == "1" ]]; then
     exit 0
 fi
 
-# Determine remote ref being updated (stdin lines: <local ref> <local sha> <remote ref> <remote sha>)
+IS_RELEASE_REF=0
 BASE_REF=""
+
 while read -r local_ref local_sha remote_ref remote_sha; do
-    if [[ "$remote_sha" != "0000000000000000000000000000000000000000" ]] && git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+    if [[ "$remote_ref" == "refs/heads/main" || "$remote_ref" == refs/tags/v* ]]; then
+        IS_RELEASE_REF=1
+    fi
+    if [[ "$remote_ref" == "refs/heads/main" && "$remote_sha" != "0000000000000000000000000000000000000000" ]] && git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
         BASE_REF="$remote_sha"
-        break
     fi
 done
 
-if [[ -n "$BASE_REF" ]]; then
-    python3 "$REPO_ROOT/scripts/release_gate.py" --verify-stamp --base-ref "$BASE_REF"
+if [[ "$IS_RELEASE_REF" -eq 1 ]]; then
+    if [[ -z "$BASE_REF" ]] && git rev-parse --verify --quiet origin/main >/dev/null; then
+        BASE_REF="origin/main"
+    fi
+    if [[ -n "$BASE_REF" ]]; then
+        python3 "$REPO_ROOT/scripts/release_gate.py" --verify-stamp --base-ref "$BASE_REF"
+    else
+        python3 "$REPO_ROOT/scripts/release_gate.py" --verify-stamp --require-tier live
+    fi
 else
-    python3 "$REPO_ROOT/scripts/release_gate.py" --verify-stamp
+    python3 "$REPO_ROOT/scripts/release_gate.py" --verify-stamp --require-tier fast
 fi

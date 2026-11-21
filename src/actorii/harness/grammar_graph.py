@@ -16,16 +16,20 @@ Connects the ActorII `AgentHarness` to the local Neo4j graph database on `valkyr
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
 import time
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from actorii.bridge import actor_bridge, actor_command, actor_query
 
-NEO4J_HTTP_TX_URL = "http://127.0.0.1:7474/db/neo4j/tx/commit"
+NEO4J_HTTP_TX_URL = os.environ.get(
+    "ACTORII_NEO4J_HTTP_URL", "http://127.0.0.1:7474/db/neo4j/tx/commit"
+)
+_SEEDED_URLS: Set[str] = set()
 
 
 SEED_CONSTRUCTS: List[Dict[str, Any]] = [
@@ -94,7 +98,7 @@ SEED_CONSTRUCTS: List[Dict[str, Any]] = [
         "title": "Assignment, Comparisons, Modulo & Float vs Integer Division",
         "keywords": ["assign", "divide", "float", "real", "area", "modulo", "equal", "math", "triangle", "half"],
         "rule": (
-            "Assignment uses `:=`. Comparisons: `==`, `<>` (not equal), `<`, `<=`, `>`, `>=`. "
+            "Assignment uses `:=`. Comparisons: `==`, `!=` (or `<>` for not equal), `<`, `<=`, `>`, `>=`. "
             "Modulo is `(a % b)`. "
             "CRITICAL DIVISION RULE: Dividing two integers `(a * h) / 2` performs INTEGER FLOOR DIVISION (`15 / 2 == 7`). "
             "Whenever a floating-point result (like `7.5` or area/average) is required, you MUST divide by a float literal `2.0` "
@@ -235,6 +239,38 @@ SEED_CONSTRUCTS: List[Dict[str, Any]] = [
         ),
         "anti_pattern": "/* NEVER send raw `[4-byte length][JPEG]` on TCP without `HTTP/1.1 200 OK` when serving web/browser streams, and NEVER open `rtsp://` directly in a browser without an HTTP MJPEG/HLS bridge! */",
     },
+    {
+        "id": "network_topology_and_tailscale",
+        "title": "Network Topology, Tailscale Identity & LAN Port Relay (`Actor[#Network]`)",
+        "keywords": [
+            "tailscale",
+            "tailnet",
+            "100.",
+            "192.168.",
+            "subnet",
+            "route",
+            "bridge",
+            "forward",
+            "ip",
+            "connect",
+            "phone",
+            "lan",
+            "firewall",
+        ],
+        "rule": (
+            "Whenever a user mentions Tailscale, a `100.x.x.x` or `192.168.x.x` IP, or remote phone/browser connectivity to a LAN device (`Jetson`), "
+            "ALWAYS inspect `Actor[#Network]` FIRST before guessing or installing software: "
+            "(1) `whoOwnsIp(Actor[#Network], \"100.x.x.x\")!!` or `topologyMap(Actor[#Network])!!` — distinguishes `valkyrie`'s Tailscale IP from the user's Android/iOS phone Tailscale IP and checks if the Jetson is LAN-only; "
+            "(2) `explainReachability(Actor[#Network], clientIp, targetIp, port)!!` — checks existing `socat` bridges (`listBridges(Actor[#Network])!!`); "
+            "(3) `exposeLanPort(Actor[#Network], \"192.168.68.57\", 8090, 8091)!!` — instantly bridges any LAN edge port onto `valkyrie:8091..8999` so Tailscale clients can connect immediately without interactive OAuth on the edge board!"
+        ),
+        "canonical_example": (
+            "whoOwnsIp(Actor[#Network], \"100.112.213.15\")!!\n"
+            "topologyMap(Actor[#Network])!!\n"
+            "exposeLanPort(Actor[#Network], \"192.168.68.57\", 8090, 8091)!!"
+        ),
+        "anti_pattern": "/* NEVER guess who owns a `100.x.x.x` Tailscale IP or claim Tailscale is installed without running `whoOwnsIp(Actor[#Network], ip)!!` or `exec(Actor[#Jetson], ...)!!`! */",
+    },
 ]
 
 SEED_PRIMITIVES: List[Dict[str, str]] = [
@@ -290,6 +326,11 @@ SEED_PRIMITIVES: List[Dict[str, str]] = [
     {"cls": "NetTransportBridge", "selector": "probeSse", "syntax": "probeSse(Actor[#Net], \"http://192.168.68.55:8090/events\", 2, 8)", "desc": "Validate HTTP `text/event-stream` SSE headers and read live `data:` events"},
     {"cls": "NetTransportBridge", "selector": "probeWebSocket", "syntax": "probeWebSocket(Actor[#Net], \"ws://192.168.68.55:8765/ws\", \"ping\", 8)", "desc": "Perform RFC 6455 WebSocket `101 Switching Protocols` handshake and frame check"},
     {"cls": "NetTransportBridge", "selector": "probeHls", "syntax": "probeHls(Actor[#Net], \"http://192.168.68.55:8090/index.m3u8\", 10)", "desc": "Validate `#EXTM3U` HLS playlist and verify first `.ts`/`fMP4` segment"},
+    {"cls": "NetworkTopology", "selector": "topologyMap", "syntax": "topologyMap(Actor[#Network])", "desc": "Return full map of `valkyrie` host interfaces, Tailscale tailnet peers (`100.x.x.x`), and active LAN TCP port bridges"},
+    {"cls": "NetworkTopology", "selector": "whoOwnsIp", "syntax": "whoOwnsIp(Actor[#Network], \"100.112.213.15\")", "desc": "Identify whether an IP/hostname belongs to `valkyrie`, a Tailscale client peer (e.g. phone), or `jetson-tx1`"},
+    {"cls": "NetworkTopology", "selector": "explainReachability", "syntax": "explainReachability(Actor[#Network], \"100.112.213.15\", \"192.168.68.57\", 8090)", "desc": "Diagnose Tailscale<->LAN reachability between client and target port and report active bridge URLs"},
+    {"cls": "NetworkTopology", "selector": "exposeLanPort", "syntax": "exposeLanPort(Actor[#Network], \"192.168.68.57\", 8090, 8091)", "desc": "Bridge a LAN edge device port (`192.168.x.x:port`) onto `valkyrie:8091..8999` for instant Tailscale access"},
+    {"cls": "NetworkTopology", "selector": "listBridges", "syntax": "listBridges(Actor[#Network])", "desc": "List active systemd `socat` and runtime TCP port relays on `valkyrie`"},
     {"cls": "TelegramBotTwin", "selector": "sendPhoto", "syntax": "sendPhoto(Actor[#Telegram], \"/tmp/actorii_media/snap.jpg\", \"Caption\")", "desc": "Upload and send a local image (<= 10 MB) to the active Telegram chat/topic via multipart/form-data"},
     {"cls": "TelegramBotTwin", "selector": "sendDocument", "syntax": "sendDocument(Actor[#Telegram], \"/tmp/actorii_media/file.bin\", \"Caption\")", "desc": "Upload and send any local file (<= 50 MB) to the active Telegram chat/topic via multipart/form-data"},
     {"cls": "ProductLearner", "selector": "learnProduct", "syntax": "learnProduct(Actor[#ProductLearner], \"Product Name\", \"focus topics\")", "desc": "Search official web/PDF manuals for a product, distill specs/drivers/commands/gotchas via LLM, and persist Dual-Mode Neo4j `:Product` graph + `:8084` vector `:ProductManualChunk` memory"},
@@ -345,9 +386,24 @@ SEED_ERROR_PATTERNS: List[Dict[str, str]] = [
         "hint": "Ensure all temporary/local variables (like `t` or `r` in GCD/loops) are declared after the pipe `|` in `Def method(self, a, b | t, r)` so they are not `nil`, and in Euclidean GCD `loop while (b != 0) begin r := (a % b); a := b; b := r; endLoop; ^a;` compute `a % b` (NEVER `b % a`).",
     },
     {
-        "pattern": "== ",
+        "pattern": "AssertionError: float",
         "construct_id": "operators_and_math",
         "hint": "If a float equality test failed (e.g. `== 7.5`), remember `/` on two integers in Actor performs floor division (`15 / 2 == 7`). Divide by float `2.0` (`(a * h) / 2.0`) to produce a float!",
+    },
+    {
+        "pattern": "LINT_ATPUT_REASSIGN_TRAP",
+        "construct_id": "collections_and_dispatch",
+        "hint": "`atPut(dict, #key, val)` mutates `dict` in-place and returns `val` (NOT `dict`)! Never write `d := atPut(d, #k, v);` — call `atPut(d, #k, v);` as a standalone statement.",
+    },
+    {
+        "pattern": "LINT_SYMBOL_ARRAY_INDEX",
+        "construct_id": "collections_and_dispatch",
+        "hint": "Use `at(dict, #key)` / `atPut(dict, #key, val)` for symbol-keyed Dictionary lookups; `arr[i]` requires a 0-based integer index on Array/OrderedCollection.",
+    },
+    {
+        "pattern": "Unexpected token ('IDENT', 'pass')",
+        "construct_id": "conditionals",
+        "hint": "1993 Actor has NO Python `pass` keyword! Omit empty `else` branches (`if (cond) then stmt; endif;`) or use a no-op like `nil;`.",
     },
     {
         "pattern": "Expected ')' closing argument list",
@@ -377,7 +433,7 @@ SEED_ERROR_PATTERNS: List[Dict[str, str]] = [
     {
         "pattern": "invalid literal for int() with base 10",
         "construct_id": "collections_and_dispatch",
-        "hint": "CRITICAL: `atPut(dict, #key, val)` mutates `dict` in-place and returns `val` (NOT `dict`)! Never write `d := atPut(new(Dictionary), #k1, v1)!! d := atPut(d, #k2, v2)!!` because `d` becomes `v1` (e.g. an Array, which then fails with `invalid literal for int()` when indexed with `#k2`). Always initialize the Dictionary first: `d := new(Dictionary, 8)!! atPut(d, #k1, v1)!! atPut(d, #k2, v2)!!`.",
+        "hint": "CRITICAL: Two common causes: (1) `atPut(dict, #key, val)` mutates `dict` in-place and returns `val` (NOT `dict`), so `d := atPut(new(Dictionary), #k1, v1)` overwrites `d` with `v1` (e.g. an Array); initialize first (`d := new(Dictionary, 8)!! atPut(d, #k1, v1)!!`). (2) Indexing an Array/OrderedCollection with a `#symbol` instead of an integer — use `at(dict, #key)` for Dictionaries and integer indices `0..size(arr)-1` for Arrays.",
     },
 ]
 
@@ -386,79 +442,117 @@ SEED_ERROR_PATTERNS: List[Dict[str, str]] = [
 class ActorGrammarGraph:
     """Neo4j-backed 1993 Actor syntax, primitive & error-remediation knowledge graph (`Actor[#Grammar]`)."""
 
-    def __init__(self, tx_url: str = NEO4J_HTTP_TX_URL, auto_seed: bool = True) -> None:
-        self.tx_url = tx_url
+    def __init__(self, tx_url: Optional[str] = None, auto_seed: bool = True) -> None:
+        self.tx_url = (tx_url or os.environ.get("ACTORII_NEO4J_HTTP_URL", NEO4J_HTTP_TX_URL)).strip()
         self.online = False
         if auto_seed:
             self.online = self.seed_graph()
 
-    def _run_cypher(self, statement: str, parameters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        payload = {
-            "statements": [
-                {
-                    "statement": statement,
-                    "parameters": parameters or {},
-                }
-            ]
-        }
+    def _build_headers(self, *, read_only: bool = False) -> Dict[str, str]:
+        headers: Dict[str, str] = {"Content-Type": "application/json"}
+        if read_only:
+            headers["Access-Mode"] = "READ"
+        neo_user = os.environ.get("ACTORII_NEO4J_USER", "").strip()
+        neo_pass = os.environ.get("ACTORII_NEO4J_PASSWORD", "").strip()
+        if neo_user and neo_pass:
+            token = base64.b64encode(f"{neo_user}:{neo_pass}".encode("utf-8")).decode("ascii")
+            headers["Authorization"] = f"Basic {token}"
+        return headers
+
+    def _run_cypher_batch(
+        self,
+        statements: List[Dict[str, Any]],
+        *,
+        read_only: bool = False,
+        timeout: float = 3.0,
+    ) -> List[List[Dict[str, Any]]]:
+        payload = {"statements": statements}
         req = urllib.request.Request(
             self.tx_url,
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers=self._build_headers(read_only=read_only),
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=3.0) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8", errors="replace"))
         if body.get("errors"):
             raise RuntimeError(f"Neo4j Cypher error: {body['errors']}")
-        results = body.get("results", [])
-        if not results:
-            return []
-        cols = results[0].get("columns", [])
-        rows = []
-        for item in results[0].get("data", []):
-            row_vals = item.get("row", [])
-            rows.append(dict(zip(cols, row_vals)))
-        return rows
+        all_rows: List[List[Dict[str, Any]]] = []
+        for res in body.get("results", []):
+            cols = res.get("columns", [])
+            rows = [dict(zip(cols, item.get("row", []))) for item in res.get("data", [])]
+            all_rows.append(rows)
+        return all_rows
 
-    def seed_graph(self) -> bool:
+    def _run_cypher(
+        self,
+        statement: str,
+        parameters: Optional[Dict[str, Any]] = None,
+        *,
+        read_only: bool = False,
+    ) -> List[Dict[str, Any]]:
+        res = self._run_cypher_batch(
+            [{"statement": statement, "parameters": parameters or {}}],
+            read_only=read_only,
+        )
+        return res[0] if res else []
+
+    def seed_graph(self, *, force: bool = False) -> bool:
         """Idempotently seed `:ActorSyntaxConstruct`, `:ActorPrimitive`, and `:ActorErrorPattern` nodes in Neo4j."""
+        if not force and self.tx_url in _SEEDED_URLS:
+            return True
         try:
-            self._run_cypher(
-                """
-                UNWIND $constructs AS c
-                MERGE (sc:ActorSyntaxConstruct {id: c.id})
-                SET sc.title = c.title,
-                    sc.keywords = c.keywords,
-                    sc.rule = c.rule,
-                    sc.canonical_example = c.canonical_example,
-                    sc.anti_pattern = c.anti_pattern,
-                    sc.updated_at = timestamp()
-                """,
-                {"constructs": SEED_CONSTRUCTS},
+            # Ensure lookup indexes (best-effort; ignore if Neo4j edition/version rejects syntax)
+            try:
+                self._run_cypher_batch(
+                    [
+                        {"statement": "CREATE INDEX actor_syntax_id IF NOT EXISTS FOR (sc:ActorSyntaxConstruct) ON (sc.id)", "parameters": {}},
+                        {"statement": "CREATE INDEX actor_err_pat IF NOT EXISTS FOR (ep:ActorErrorPattern) ON (ep.pattern)", "parameters": {}},
+                        {"statement": "CREATE INDEX actor_builtin_name IF NOT EXISTS FOR (bc:ActorBuiltinClass) ON (bc.name)", "parameters": {}},
+                    ]
+                )
+            except Exception:
+                pass
+            self._run_cypher_batch(
+                [
+                    {
+                        "statement": """
+                        UNWIND $constructs AS c
+                        MERGE (sc:ActorSyntaxConstruct {id: c.id})
+                        SET sc.title = c.title,
+                            sc.keywords = c.keywords,
+                            sc.rule = c.rule,
+                            sc.canonical_example = c.canonical_example,
+                            sc.anti_pattern = c.anti_pattern,
+                            sc.updated_at = timestamp()
+                        """,
+                        "parameters": {"constructs": SEED_CONSTRUCTS},
+                    },
+                    {
+                        "statement": """
+                        UNWIND $primitives AS p
+                        MERGE (bc:ActorBuiltinClass {name: p.cls})
+                        MERGE (pm:ActorPrimitive {cls: p.cls, selector: p.selector})
+                        SET pm.syntax = p.syntax,
+                            pm.description = p.desc
+                        MERGE (bc)-[:HAS_PRIMITIVE]->(pm)
+                        """,
+                        "parameters": {"primitives": SEED_PRIMITIVES},
+                    },
+                    {
+                        "statement": """
+                        UNWIND $errors AS e
+                        MERGE (ep:ActorErrorPattern {pattern: e.pattern})
+                        SET ep.hint = e.hint
+                        WITH ep, e
+                        MATCH (sc:ActorSyntaxConstruct {id: e.construct_id})
+                        MERGE (ep)-[:REMEDIATED_BY]->(sc)
+                        """,
+                        "parameters": {"errors": SEED_ERROR_PATTERNS},
+                    },
+                ]
             )
-            self._run_cypher(
-                """
-                UNWIND $primitives AS p
-                MERGE (bc:ActorBuiltinClass {name: p.cls})
-                MERGE (pm:ActorPrimitive {cls: p.cls, selector: p.selector})
-                SET pm.syntax = p.syntax,
-                    pm.description = p.desc
-                MERGE (bc)-[:HAS_PRIMITIVE]->(pm)
-                """,
-                {"primitives": SEED_PRIMITIVES},
-            )
-            self._run_cypher(
-                """
-                UNWIND $errors AS e
-                MERGE (ep:ActorErrorPattern {pattern: e.pattern})
-                SET ep.hint = e.hint
-                WITH ep, e
-                MATCH (sc:ActorSyntaxConstruct {id: e.construct_id})
-                MERGE (ep)-[:REMEDIATED_BY]->(sc)
-                """,
-                {"errors": SEED_ERROR_PATTERNS},
-            )
+            _SEEDED_URLS.add(self.tx_url)
             return True
         except Exception:
             return False
@@ -473,12 +567,13 @@ class ActorGrammarGraph:
         try:
             rows = self._run_cypher(
                 """
-                MATCH (sc:ActorSyntaxConstruct) WITH count(sc) AS constructs
-                MATCH (pm:ActorPrimitive) WITH constructs, count(pm) AS primitives
-                MATCH (ep:ActorErrorPattern) WITH constructs, primitives, count(ep) AS error_patterns
-                OPTIONAL MATCH (lf:ActorLearnedFix)
-                RETURN constructs, primitives, error_patterns, count(lf) AS learned_fixes
-                """
+                CALL { MATCH (sc:ActorSyntaxConstruct) RETURN count(sc) AS constructs }
+                CALL { MATCH (pm:ActorPrimitive) RETURN count(pm) AS primitives }
+                CALL { MATCH (ep:ActorErrorPattern) RETURN count(ep) AS error_patterns }
+                CALL { MATCH (lf:ActorLearnedFix) RETURN count(lf) AS learned_fixes }
+                RETURN constructs, primitives, error_patterns, learned_fixes
+                """,
+                read_only=True,
             )
             if rows:
                 r = rows[0]
@@ -593,6 +688,43 @@ class ActorGrammarGraph:
             kw in task_lower
             for kw in ("neo4j", "cypher", "graph", "engram", "memory", "schema", "node", "persist", "actor[#memory]")
         )
+        # Domain-scoped filtering so generic coding/algorithm tasks do not inject ~1.5k tokens of unrelated bridge docs
+        allowed_prim_classes: Set[str] = {
+            "Collection",
+            "Array",
+            "OrderedCollection",
+            "Dictionary",
+            "Number",
+            "Object",
+            "AgentHarness",
+        }
+        if needs_graph_constructs:
+            allowed_prim_classes.add("ActorMemoryGraph")
+        if any(kw in task_lower for kw in ("/workspace", "readfile", "searchfile", "writefile", "editfile", "execshell", "pytest", "repo", "actor[#host]")):
+            allowed_prim_classes.add("HostWorkspaceBridge")
+        needs_protocols = any(
+            kw in task_lower
+            for kw in ("stream", "mjpeg", "rtsp", "hls", "m3u8", "sse", "websocket", "probe", "http", "protocol", "camera", "video", "actor[#protocols]", "actor[#net]")
+        )
+        if needs_protocols:
+            allowed_prim_classes.update({"ProtocolSuite", "NetTransportBridge"})
+        needs_network = any(
+            kw in task_lower
+            for kw in ("tailscale", "tailnet", "100.", "192.168.", "subnet", "relay", "bridge", "lan", "network", "port", "actor[#network]")
+        )
+        if needs_network:
+            allowed_prim_classes.add("NetworkTopology")
+        if any(kw in task_lower for kw in ("jetson", "tx1", "cuda", "nvcc", "ssh", "edge", "deployservice", "pullfile", "actor[#jetson]")):
+            allowed_prim_classes.add("JetsonEdgeTwin")
+        if any(kw in task_lower for kw in ("telegram", "sendphoto", "senddocument", "actor[#telegram]")):
+            allowed_prim_classes.add("TelegramBotTwin")
+        if any(kw in task_lower for kw in ("product", "manual", "datasheet", "pdf", "learnproduct", "ingestmanual", "recallproduct", "actor[#productlearner]")):
+            allowed_prim_classes.add("ProductLearner")
+        if any(kw in task_lower for kw in ("bench", "selfevo", "scoreboard", "self-evol", "actor[#bench]")):
+            allowed_prim_classes.add("ActorBenchSuite")
+        if any(kw in task_lower for kw in ("thread", "parallel", "concurrent", "async", "spawn", "future", "channel", "fiber", "actor[#threads]")):
+            allowed_prim_classes.update({"ThreadPool", "Future", "Channel"})
+
         try:
             constructs = getattr(self, "_cached_constructs", None)
             primitives = getattr(self, "_cached_primitives", None)
@@ -602,23 +734,32 @@ class ActorGrammarGraph:
                     MATCH (sc:ActorSyntaxConstruct)
                     RETURN sc.id AS id, sc.title AS title, sc.rule AS rule, sc.canonical_example AS example
                     ORDER BY sc.id
-                    """
+                    """,
+                    read_only=True,
                 )
                 primitives = self._run_cypher(
                     """
                     MATCH (bc:ActorBuiltinClass)-[:HAS_PRIMITIVE]->(pm:ActorPrimitive)
                     RETURN bc.name AS cls, pm.syntax AS syntax, pm.description AS desc
                     ORDER BY bc.name, pm.selector
-                    """
+                    """,
+                    read_only=True,
                 )
                 self._cached_constructs = list(constructs)
                 self._cached_primitives = list(primitives)
             else:
                 constructs = list(constructs)
                 primitives = list(primitives)
+            excluded_constructs: Set[str] = set()
             if not needs_graph_constructs:
-                constructs = [c for c in constructs if c.get("id") != "neo4j_cypher_and_engrams"]
-                primitives = [p for p in primitives if p.get("cls") != "ActorMemoryGraph"]
+                excluded_constructs.add("neo4j_cypher_and_engrams")
+            if not needs_protocols:
+                excluded_constructs.add("web_and_streaming_protocols")
+            if not needs_network:
+                excluded_constructs.add("network_topology_and_tailscale")
+            if excluded_constructs:
+                constructs = [c for c in constructs if c.get("id") not in excluded_constructs]
+            primitives = [p for p in primitives if p.get("cls") in allowed_prim_classes]
             lines = [
                 "[NEO4J 1993 ACTOR 4.1 GRAMMAR GRAPH (`Actor[#Grammar]` @ :7687)]:",
             ]
@@ -640,7 +781,15 @@ class ActorGrammarGraph:
             lines = ["[1993 Actor Grammar Fallback]:"]
             if entry_point:
                 lines.append(f"Signature: `Def {entry_point}(self, {params_str} | i, n, acc, res) {{ ... }}!!`")
-            for idx, c in enumerate(SEED_CONSTRUCTS, 1):
+            excluded_fb: Set[str] = set()
+            if not needs_graph_constructs:
+                excluded_fb.add("neo4j_cypher_and_engrams")
+            if not needs_protocols:
+                excluded_fb.add("web_and_streaming_protocols")
+            if not needs_network:
+                excluded_fb.add("network_topology_and_tailscale")
+            filtered_fb = [c for c in SEED_CONSTRUCTS if c["id"] not in excluded_fb]
+            for idx, c in enumerate(filtered_fb, 1):
                 lines.append(f"{idx}. {c['title']}: {c['rule']}")
             return "\n".join(lines)
 
@@ -661,8 +810,11 @@ class ActorGrammarGraph:
                        sc.title AS construct_title, sc.rule AS rule,
                        sc.canonical_example AS example,
                        collect(lf.fixed_code)[0..2] AS learned_fixes
+                ORDER BY size(ep.pattern) DESC
+                LIMIT 3
                 """,
                 {"err": err_str},
+                read_only=True,
             )
             if rows:
                 parts = ["[NEO4J ERROR-REMEDIATION GRAPH DIAGNOSIS]:"]
@@ -672,10 +824,27 @@ class ActorGrammarGraph:
                     parts.append(f"  Canonical 1993 Actor Pattern:\n{r['example']}")
                     fixes = [f for f in (r.get("learned_fixes") or []) if f]
                     if fixes:
-                        parts.append(f"  Previously Verified Fix in Neo4j: `{fixes[0][:140]}`")
+                        parts.append(f"  Previously Verified Fix in Neo4j: `{fixes[0][:320]}`")
                 return "\n".join(parts)
         except Exception:
             pass
+        # Offline fallback: match against local SEED_ERROR_PATTERNS (most specific first, up to 3)
+        err_low = err_str.lower()
+        construct_by_id = {c["id"]: c for c in SEED_CONSTRUCTS}
+        local_hits = [
+            ep for ep in SEED_ERROR_PATTERNS
+            if ep["pattern"] in err_str or ep["pattern"].lower() in err_low
+        ]
+        if local_hits:
+            local_hits.sort(key=lambda ep: len(ep["pattern"]), reverse=True)
+            parts = ["[ACTOR ERROR-REMEDIATION DIAGNOSIS (OFFLINE)]:"]
+            for ep in local_hits[:3]:
+                parts.append(f"• Matched Pattern `{ep['pattern']}` -> {ep['hint']}")
+                sc = construct_by_id.get(ep["construct_id"])
+                if sc:
+                    parts.append(f"  Grammar Rule ({sc['title']}): {sc['rule']}")
+                    parts.append(f"  Canonical 1993 Actor Pattern:\n{sc['canonical_example']}")
+            return "\n".join(parts)
         return (
             "[NEO4J GRAMMAR REMINDER]: Declare all local variables after `|` (`Def m(self, x | i, n, acc)`), "
             "use `if (cond) then ... endif;`, end every statement before `endLoop;` with `;`, "

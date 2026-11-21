@@ -1,0 +1,46 @@
+{
+  "model": "qwen3.8:latest",
+  "suite": "ALE v1.1 Stratified 3-Domain Slice",
+  "results": [
+    {
+      "task_id": "ALE/cfr_game_theory_equilibrium",
+      "track": "Agents' Last Exam v1.1 (UC Berkeley RDI)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": false,
+      "steps": 23,
+      "prompt_tokens": 184897,
+      "completion_tokens": 9571,
+      "total_tokens": 194468,
+      "latency_s": 900.34,
+      "details": "ALE score=0.0000 (FAIL) | Missing output/results.json",
+      "short_id": "cfr_game_theory_equilibrium",
+      "domain": "Algorithms / Game Theory (CFR + MCCFR)",
+      "score": 0.0,
+      "grader_info": {
+        "error": "Missing output/results.json"
+      },
+      "stdout_tail": "9a\\xa1 Step 2 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 200, 345) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 3 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 90, 200) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 4 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 145, 200) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 5 \\xc2\\xb7 execShell(Actor[#Host], \"ls -la /workspace/software/ && cat /workspace/soft... (7 ops)\\n  \\xe2\\x9a\\xa1 Step 6 \\xc2\\xb7 execShell(Actor[#Host], \"ls -la /workspace/ && ls -la /workspace/input/ && ... (7 ops)\\n  \\xe2\\x86\\xbb Step 7 self-correcting \\xc2\\xb7 ActorBridgeSecurityError: Receiver for writeFile is not an ActorBridgeObject (strikes=1)\\n  \\xe2\\x86\\xbb Step 8 self-correcting \\xc2\\xb7 ActorGuardrailError: [REASONING_ONLY] You output reasoning prose (\\'Let me check...\\') without an executable 199 (strikes=2)\\n  \\xe2\\x9a\\xa1 Step 9 \\xc2\\xb7 execShell(Actor[#Host], \"mkdir -p /workspace/output && cat > /workspace/sol... (7 ops)\\n  \\xe2\\x9a\\xa1 Step 10 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 15, 90) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 11 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 218, 345) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 12 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 280, 345) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 13 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 40, 90) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 14 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 1, 15) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 15 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 100, 145) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 16 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 168, 218) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 17 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 218, 280) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 18 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 145, 168) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 19 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 184, 218) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 20 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 240, 280) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 21 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 90, 100) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 22 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/solve.py\", 1, 10) (8 ops)\\n  \\xe2\\x9a\\xa1 Step 23 \\xc2\\xb7 readFile(Actor[#Host], \"/workspace/input/problem_spec.md\", 15, 40) (8 ops)\\n'"
+    },
+    {
+      "task_id": "ALE/power_10kv_feeder_reliability_001",
+      "track": "Agents' Last Exam v1.1 (UC Berkeley RDI)",
+      "harness": "actorii",
+      "container_image": "actorii-sandbox:latest",
+      "passed": false,
+      "steps": 32,
+      "prompt_tokens": 641215,
+      "completion_tokens": 7755,
+      "total_tokens": 648970,
+      "latency_s": 548.25,
+      "details": "ALE score=0.0000 (FAIL) | Missing output/reliability_indices.json",
+      "short_id": "power_10kv_feeder_reliability_001",
+      "domain": "Electrical Engineering / CIM-RDF + SVG Reliability",
+      "score": 0.0,
+      "grader_info": {
+        "error": "Missing output/reliability_indices.json"
+      },
+      "stdout_tail": "cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 10 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 11 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 12 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 13 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 14 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 15 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 16 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 17 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 18 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 19 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 20 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 21 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 22 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 23 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 24 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 25 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 26 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 27 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 28 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 29 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 30 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 31 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a1 Step 32 \u00b7 execShell(Actor[#Host], \"cd /workspace && python3 -c \\\"import xml.etree.Ele... (7 ops)\n  \u26a0\ufe0f Bilby (halted): stopped after 32 step(s)\n  \u2514\u2500 32 step(s) \u00b7 226 ops \u00b7 546.9s  (type /last for full Actor trace)"
+    }
+  ]
+}

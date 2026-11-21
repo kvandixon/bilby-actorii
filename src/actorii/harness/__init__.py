@@ -42,6 +42,7 @@ from actorii.harness.telemetry import GLOBAL_TELEMETRY, summarize_actor_action_b
 from actorii.harness.twins import (
     JetsonEdgeTwin,
     NetTransportBridge,
+    NetworkTopologyBridge,
     PDFDocumentTwin,
     PantryGraphTwin,
     ReverseEngineeringTwin,
@@ -57,38 +58,227 @@ HARNESS_ACT_PATH = Path(__file__).resolve().parent / "agent_harness.act"
 WEB_SCRAPER_ACT_PATH = Path(__file__).resolve().parent / "web_scraper.act"
 PRODUCT_LEARNER_ACT_PATH = Path(__file__).resolve().parent / "product_learner.act"
 WEB_PROTOCOLS_ACT_PATH = Path(__file__).resolve().parent / "web_protocols.act"
+NETWORK_TOPOLOGY_ACT_PATH = Path(__file__).resolve().parent / "network_topology.act"
 OOP_FOUNDATION_ACT_PATH = Path(__file__).resolve().parent / "oop_foundation.act"
 DEFAULT_PERSONA_PATH = Path.home() / ".actorii" / "persona.md"
 
 DEFAULT_HARNESS_SYSTEM_PROMPT = (
-    "You are Bilby, a metacircular object-oriented AI Agent (`Actor[#Bilby]` / `Actor[#Harness]`) "
-    "executing inside `ActorII` (a clean-room, Actor-inspired Linux bytecode VM & harness distinct from historical 1993 DOS/Win3.1 Whitewater Actor 4.1).\n"
-    "CAPABILITIES & SHARED OBJECT POOL (`Actor[...]`):\n"
-    "- OOP Base Classes (`inherit(SuperCls, #SubCls, #(#ivar), 1, nil)!! now(SubCls)!! Def m(self) { ... }!!`):\n"
-    "  * `GraphService` (`initService(self, label)`, `queryRows(self, cypher)`, `queryRowsWith(self, cypher, p1)`, `writeGraph(self, cypher)`, `sumColumn`/`avgColumn`/`maxColumn(self, rows, #col)`)\n"
-    "  * `MetricEvaluator` extends `GraphService` (`initEvaluator(self, name, thresh, weight)`, override `evaluateRow(self, row)`, `evaluateAll(self, rows)`, `weightedTotal(self, rows)`)\n"
-    "  * `CompositePipeline` (`initPipeline(self, name)`, `addStage(self, evalObj)`, `runEvaluators(self, rows)`) & `DomainEntity` (`initEntity(self, id, name)`, `setMeta`/`getMeta`, `describe`)\n"
-    "- Digital Twins & Bridges:\n"
-    "  * `Actor[#Valkyrie]` (`#System`): `summary(Actor[#Valkyrie])!!`, `stackHealth(...)!!`, `gpuStatus(...)!!`, `vramFreeMiB(...)!!`, `serviceStatus(..., 8080)!!`, `askSkippy(..., questionOrImagePath)!!` (multimodal Cloud Skippy consult/vision!) (container-only when `isSandboxed`: `listDirectory`, `readTextFile`, `runShell`)\n"
-    "  * `Actor[#Thermometer]`: `summary(Actor[#Thermometer])!!`, `temperatureF(...)!!`, `temperatureC(...)!!`, `humidity(...)!!`, `syncLive(..., 6)!!` | `Actor[#ThermoUI]`: `summary(...)!!`, `addButton(..., label, href)!!`, `draw(...)!!`\n"
-    "  * `Actor[#Jetson]`: `summary(Actor[#Jetson])!!`, `telemetry(...)!!`, `discover(...)!!`, `scanLan(...)!!`, `setHost(..., ip)!!`, `cameraStatus(...)!!`, `exec(..., cmd, 20)!!`, `writeFile(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 45)!!` (supports `.sh`, `.py`, `.cu`, `.cpp`, `.c`!), `deployService(..., name, workDir, startCmd, port, 25)!!`, `serviceStatus(..., name, 25)!!`, `stopService(..., name)!!`, `pullFile(..., remotePath, localName, 30)!!`\n"
-    "  * `Actor[#Protocols]` & `Actor[#Net]`: `listProtocols(Actor[#Protocols])!!`, `spec(Actor[#Protocols], #mjpeg|#rtsp|#http|#sse|#ws|#hls)!!`, `blueprint(Actor[#Protocols], #rtsp, #send|#receive)!!`, `blueprint(Actor[#Protocols], #mjpeg, #python|#cpp)!!`, `recommendFor(Actor[#Protocols], goalDesc)!!`, `verify(Actor[#Protocols], url, #mjpeg|#rtsp|#http|#sse|#ws|#hls)!!` | Wire probes on `Actor[#Net]`: `probeHttp`, `probeMjpeg` (saves frame + checks disconnect survival), `probeRtsp` (RFC 2326 OPTIONS/DESCRIBE + optional 1-frame TCP capture), `probeSse`, `probeWebSocket`, `probeHls`\n"
-    "  * `Actor[#Memory]`: `graphSchema(Actor[#Memory])!!`, `classHierarchyTree(...)!!`, `cypherQuery(..., q)!!`, `cypherQueryWith(..., q, p1)!!`, `cypherWrite(..., q)!!`, `recallEpisodes(..., q, 8)!!`, `persistEngram(..., #Cls, desc)!!`, `rollbackEngram(..., #Cls)!!`\n"
-    "  * `Actor[#ProductLearner]`: `learnProduct(Actor[#ProductLearner], name, focus)!!`, `ingestManual(..., name, urlOrPath, focus)!!`, `recallProduct(..., name, topic)!!`, `listProducts(...)!!` (read/learn manuals before guessing unfamiliar drivers/CLI!)\n"
-    "  * `Actor[#Web]`: `search(Actor[#Web], query, 5)!!`, `scrape(..., url)!!`, `extract(..., url)!!`, `cleanUrl(..., url)!!`, `renderBrowser(..., url)!!`\n"
-    "  * `Actor[#PDF]`: `fetchUrl(Actor[#PDF], url)!!`, `info(..., p)!!`, `pageCount(..., p)!!`, `readPages(..., p, s, e, maxChars)!!`, `searchText(..., p, q, hits, maxChars)!!`\n"
-    "  * `Actor[#Pantry]`: `recipeCount(...)!!`, `listRecipes(..., 5)!!`, `searchByIngredient(..., ing)!!` | `Actor[#Proxy]`: `status(...)!!`, `urls(...)!!`, `setMode(..., mode)!!`, `setAuth(..., bool)!!`, `rotateToken(...)!!`, `recentLogs(..., 10)!!`\n"
-    "  * `Actor[#ReverseEngineer]`: `fileIdentity(..., p)!!`, `inspectEntropy(..., p)!!`, `staticAudit(..., p, fn)!!`, `decompileFunction(..., p, fn)!!`, `detonateSandbox(..., p, 10, name)!!`\n"
-    "  * `Actor[#Telegram]`: `summary(...)!!`, `botInfo(...)!!`, `sendMessage(..., txt)!!`, `sendToChat(..., cid, txt, tid)!!`, `sendPhoto(..., localPath, caption)!!`, `sendDocument(..., localPath, caption)!!` | `Actor[#Bench]`: `scoreboard(Actor[#Bench])!!`, `listTasks(...)!!`, `setupTask(..., #id)!!`, `runTask(..., #id)!!`, `selfEvoSuites(...)!!`, `runSelfEvo(..., #specId, #scripted)!!`, `selfEvoScoreboard(...)!!`\n"
-    "  * `Actor[#Threads]`: `spawn(Actor[#Threads], recv, #sel, argsArray)!!`, `spawnChunk(..., \"expr!!\", gas)!!`, `parallelAll(..., tasksArray, timeoutMs)!!`, `parallelSettle(..., tasksArray, timeoutMs)!!`, `parallelMap(..., itemsArray, recv, #sel)!!`, `newChannel(..., cap)!!`, `await(fut, timeoutMs)!!` (safe in lockdown for concurrent Actor 4.1 / Ring-1 twin calls)\n"
-    "  * `Actor[#VM]` & `Actor[#Sandbox]`: `classes(Actor[#VM])!!`, `methodsOf(Actor[#VM], #Cls)!!`, `sourceOf(Actor[#VM], #Cls, #sel)!!`, `capabilities(Actor[#Sandbox])!!`\n"
-    "  * `Actor[#Host]`: `searchFile`, `readFile`, `writeFile`, `editFile`, `execShell` (locked on host when `ACTORII_HOST_LOCKDOWN=1`; unlocked inside `/workspace` containers).\n"
-    "- SECURITY & OUTPUT GUARDRAILS:\n"
-    "  * Ring 0/1 classes, `AgentHarness` kernel methods, and `Actor[...]` singletons (`#Threads`, `#Memory`, `#Harness`, `#Sandbox`, `#Host`, etc.) are locked (`AgentHarness` cognitive hooks like `policyNote`, `transformAction`, `verifyOutcome`, `buildStepPrompt` ARE safely hot-patchable via `evolve(Actor[#Harness], ...)`). Never stop/disable OS/network/DNS/VPN/desktop services, touch `/etc/resolv.conf` or crontabs, or modify `~/bin/` or `ActorII/src/`.\n"
-    "  * MANDATORY SKIPPY PRE-FLIGHT MONITOR: Before spawning detached `Actor[#Threads]` tasks, hot-patching `AgentHarness` hooks (`evolve`), or bulk-mutating `:ActorEpisode`/`:ActorEngram` memory (`DELETE` on core memory labels is hard-blocked—use `SET e.archived = true` and `coalesce(e.salience, 0.5)`), you MUST first call `askSkippy(Actor[#Valkyrie], \"PREFLIGHT MONITOR: <exact code & rollback plan>\")!!` in the current turn.\n"
-    "  * Casual questions: reply in 1 step (`COMPLETE: <answer>`). Structured domain facts/formulas: persist to Neo4j (`cypherWrite`) + define an Actor class (auto-crystallized as `:ActorEngram`).\n"
-    "  * NEVER emit `<tool_call>` XML wrappers or wrap Actor code in markdown fences—output raw 1993 Actor 4.1 ending in `!!` or `COMPLETE: <answer>`."
+    "You are Bilby, a metacircular OOP AI Agent (`Actor[#Bilby]` / `Actor[#Harness]`) "
+    "running inside `ActorII` (a clean-room, Actor-inspired Linux bytecode VM & harness).\n"
+    "CORE ESSENTIALS (`Actor[...]`):\n"
+    "- `Actor[#Host]`: `searchFile`, `readFile`, `writeFile`, `editFile`, `execShell` (locked on host when `ACTORII_HOST_LOCKDOWN=1`; unlocked in `/workspace` containers).\n"
+    "- `Actor[#Memory]`: `graphSchema`, `cypherQuery`, `cypherQueryWith`, `cypherWrite`, `recallEpisodes`, `persistEngram`, `rollbackEngram`.\n"
+    "- `Actor[#Grammar]`: `diagnoseError`, `queryConstructsForTask`.\n"
+    "- `Actor[#VM]` & `Actor[#Sandbox]`: `classes(Actor[#VM])!!`, `methodsOf(Actor[#VM], #Cls)!!`, `sourceOf(Actor[#VM], #Cls, #sel)!!`, `capabilities(Actor[#Sandbox])!!`, `describe(Actor[#Twin])!!` (call `describe(Actor[#Name])!!` on any live twin for its full method signatures).\n"
+    "SECURITY & OUTPUT GUARDRAILS:\n"
+    "- Ring 0/1 classes, `AgentHarness` kernel methods, and `Actor[...]` singletons are locked (`AgentHarness` cognitive hooks `policyNote`, `transformAction`, `verifyOutcome`, `buildStepPrompt` are safely hot-patchable via `evolve(Actor[#Harness], ...)`). Never stop/disable OS/network/DNS/VPN/desktop services, touch `/etc/resolv.conf` or crontabs, or modify `~/bin/` or `ActorII/src/`.\n"
+    "- MANDATORY SKIPPY PRE-FLIGHT MONITOR: Before spawning detached `Actor[#Threads]` tasks, hot-patching `AgentHarness` hooks (`evolve`), or bulk-mutating `:ActorEpisode`/`:ActorEngram` memory (`DELETE` on core memory labels is blocked—use `SET e.archived = true`), first call `askSkippy(Actor[#Valkyrie], \"PREFLIGHT MONITOR: <code & rollback plan>\")!!` in the current turn.\n"
+    "- Casual questions: reply in 1 step (`COMPLETE: <answer>`). Structured domain facts/formulas: persist via `cypherWrite` + Actor class (`:ActorEngram`).\n"
+    "- Output ONLY raw 1993 Actor 4.1 ending in `!!` OR `COMPLETE: <answer>`. Never emit `<tool_call>` XML wrappers or markdown fences around Actor code."
 )
+
+_OOP_BASE_CLASSES_SCHEMA = (
+    "OOP Base Classes (`inherit(SuperCls, #SubCls, #(#ivar), 1, nil)!! now(SubCls)!! Def m(self) { ... }!!`): "
+    "`GraphService` (`initService`, `queryRows`, `queryRowsWith`, `writeGraph`, `sumColumn`/`avgColumn`/`maxColumn`), "
+    "`MetricEvaluator` extends `GraphService` (`initEvaluator`, `evaluateRow`, `evaluateAll`, `weightedTotal`), "
+    "`CompositePipeline` (`initPipeline`, `addStage`, `runEvaluators`), "
+    "`DomainEntity` (`initEntity`, `setMeta`, `getMeta`, `describe`)."
+)
+
+_TWIN_SCHEMA_REGISTRY: Dict[str, Dict[str, Any]] = {
+    "Valkyrie": {
+        "aliases": ("System",),
+        "keywords": (
+            "valkyrie", "gpu", "vram", "stack", "service", "8080", "8082", "8084", "8818", "11434",
+            "skippy", "askskippy", "vision", "image", "photo", "health", "evolve", "preflight",
+            "ollama", "llama", "nvidia", "system", "host", "honeypot",
+        ),
+        "signature": (
+            "`Actor[#Valkyrie]` (`#System`): `summary(Actor[#Valkyrie])!!`, `stackHealth(...)!!`, `gpuStatus(...)!!`, "
+            "`vramFreeMiB(...)!!`, `serviceStatus(..., 8080)!!`, `askSkippy(..., questionOrImagePath)!!` (multimodal Cloud Skippy consult/vision)"
+        ),
+    },
+    "Jetson": {
+        "aliases": (),
+        "keywords": (
+            "jetson", "tx1", "cuda", "nvcc", "camera", "edge", "remote", "ssh", "lan",
+            "192.168.", "l4t", "tegra", "gst", "gstreamer", "v4l2", "deploy",
+        ),
+        "signature": (
+            "`Actor[#Jetson]`: `summary(Actor[#Jetson])!!`, `telemetry(...)!!`, `discover(...)!!`, `scanLan(...)!!`, "
+            "`setHost(..., ip)!!`, `cameraStatus(...)!!`, `exec(..., cmd, 20)!!`, "
+            "`writeFile(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 45)!!` (.sh/.py/.cu/.cpp/.c), "
+            "`deployService(..., name, workDir, startCmd, port, 25)!!`, `serviceStatus(..., name, 25)!!`, `stopService(..., name)!!`, `pullFile(..., remotePath, localName, 30)!!`"
+        ),
+    },
+    "Thermometer": {
+        "aliases": (),
+        "keywords": ("temp", "temperature", "humidity", "thermo", "tp358", "sensor", "ble", "weather", "room"),
+        "signature": (
+            "`Actor[#Thermometer]`: `summary(Actor[#Thermometer])!!`, `temperatureF(...)!!`, `temperatureC(...)!!`, "
+            "`humidity(...)!!`, `syncLive(..., 6)!!`"
+        ),
+    },
+    "ThermoUI": {
+        "aliases": (),
+        "keywords": ("thermo", "thermoui", "tp358", "ui", "dashboard", "button", "draw"),
+        "signature": "`Actor[#ThermoUI]`: `summary(Actor[#ThermoUI])!!`, `addButton(..., label, href)!!`, `draw(...)!!`",
+    },
+    "Network": {
+        "aliases": ("NetTopo",),
+        "keywords": (
+            "network", "tailscale", "tailnet", "ip", "port", "bridge", "relay", "expose",
+            "100.", "192.168.", "reachability", "topology", "lan", "phone",
+        ),
+        "signature": (
+            "`Actor[#Network]` (`#NetTopo`): `topologyMap(Actor[#Network])!!`, `whoOwnsIp(..., ipOrUrl)!!`, "
+            "`tailnetStatus(...)!!`, `listBridges(...)!!`, `explainReachability(..., clientIp, targetIp, port)!!`, "
+            "`exposeLanPort(..., \"192.168.68.57\", 8090, 8091)!!`, `closeLanPort(..., 8091)!!`"
+        ),
+    },
+    "Protocols": {
+        "aliases": (),
+        "keywords": ("protocol", "mjpeg", "rtsp", "http", "sse", "websocket", "ws", "hls", "stream", "camera", "blueprint"),
+        "signature": (
+            "`Actor[#Protocols]`: `listProtocols(Actor[#Protocols])!!`, `spec(..., #mjpeg|#rtsp|#http|#sse|#ws|#hls)!!`, "
+            "`blueprint(..., #rtsp, #send|#receive)!!`, `blueprint(..., #mjpeg, #python|#cpp)!!`, "
+            "`recommendFor(..., goalDesc)!!`, `verify(..., url, #mjpeg|#rtsp|#http|#sse|#ws|#hls)!!`"
+        ),
+    },
+    "Net": {
+        "aliases": (),
+        "keywords": ("probe", "mjpeg", "rtsp", "http", "sse", "websocket", "hls", "stream", "url", "camera", "network"),
+        "signature": (
+            "`Actor[#Net]`: `probeHttp`, `probeMjpeg`, `probeRtsp`, `probeSse`, `probeWebSocket`, `probeHls`"
+        ),
+    },
+    "ProductLearner": {
+        "aliases": (),
+        "keywords": ("manual", "product", "driver", "learn", "datasheet", "spec", "documentation", "docs", "jetson", "tp358"),
+        "signature": (
+            "`Actor[#ProductLearner]`: `learnProduct(Actor[#ProductLearner], name, focus)!!`, "
+            "`ingestManual(..., name, urlOrPath, focus)!!`, `recallProduct(..., name, topic)!!`, `listProducts(...)!!`"
+        ),
+    },
+    "Web": {
+        "aliases": (),
+        "keywords": ("web", "search", "scrape", "url", "http://", "https://", "browser", "website", "internet", "online"),
+        "signature": (
+            "`Actor[#Web]`: `search(Actor[#Web], query, 5)!!`, `scrape(..., url)!!`, `extract(..., url)!!`, "
+            "`cleanUrl(..., url)!!`, `renderBrowser(..., url)!!`"
+        ),
+    },
+    "PDF": {
+        "aliases": (),
+        "keywords": ("pdf", "paper", "document", "pages", "manual", "arxiv"),
+        "signature": (
+            "`Actor[#PDF]`: `fetchUrl(Actor[#PDF], url)!!`, `info(..., p)!!`, `pageCount(..., p)!!`, "
+            "`readPages(..., p, s, e, maxChars)!!`, `searchText(..., p, q, hits, maxChars)!!`"
+        ),
+    },
+    "Pantry": {
+        "aliases": (),
+        "keywords": ("pantry", "recipe", "recipes", "ingredient", "meal", "food", "cook", "dinner", "grocery", "shopping"),
+        "signature": (
+            "`Actor[#Pantry]`: `recipeCount(Actor[#Pantry])!!`, `listRecipes(..., 5)!!`, `searchByIngredient(..., ing)!!`"
+        ),
+    },
+    "Proxy": {
+        "aliases": (),
+        "keywords": ("proxy", "honeypot", "token", "auth", "reverse proxy", "mode", "rotate"),
+        "signature": (
+            "`Actor[#Proxy]`: `status(Actor[#Proxy])!!`, `urls(...)!!`, `setMode(..., mode)!!`, "
+            "`setAuth(..., bool)!!`, `rotateToken(...)!!`, `recentLogs(..., 10)!!`"
+        ),
+    },
+    "ReverseEngineer": {
+        "aliases": ("REA",),
+        "keywords": (
+            "binary", "elf", "exe", "dll", "ghidra", "decompile", "malware", "reverse",
+            "entropy", "disassembl", "detonate", "capa", "speakeasy", "rea",
+        ),
+        "signature": (
+            "`Actor[#ReverseEngineer]` (`#REA`): `fileIdentity(..., p)!!`, `inspectEntropy(..., p)!!`, "
+            "`staticAudit(..., p, fn)!!`, `decompileFunction(..., p, fn)!!`, `detonateSandbox(..., p, 10, name)!!`"
+        ),
+    },
+    "Telegram": {
+        "aliases": (),
+        "keywords": ("telegram", "bot", "sendphoto", "senddocument", "sendmessage", "photo", "notify", "alert"),
+        "signature": (
+            "`Actor[#Telegram]`: `summary(...)!!`, `botInfo(...)!!`, `sendMessage(..., txt)!!`, "
+            "`sendToChat(..., cid, txt, tid)!!`, `sendPhoto(..., localPath, caption)!!`, `sendDocument(..., localPath, caption)!!`"
+        ),
+    },
+    "Bench": {
+        "aliases": (),
+        "keywords": ("bench", "benchmark", "scoreboard", "selfevo", "self-evo", "longmemeval", "canary"),
+        "signature": (
+            "`Actor[#Bench]`: `scoreboard(Actor[#Bench])!!`, `listTasks(...)!!`, `setupTask(..., #id)!!`, "
+            "`runTask(..., #id)!!`, `selfEvoSuites(...)!!`, `runSelfEvo(..., #specId, #scripted)!!`, `selfEvoScoreboard(...)!!`"
+        ),
+    },
+    "Threads": {
+        "aliases": (),
+        "keywords": ("thread", "parallel", "concurrent", "spawn", "future", "channel", "async", "worker"),
+        "signature": (
+            "`Actor[#Threads]`: `spawn(Actor[#Threads], recv, #sel, argsArray)!!`, `spawnChunk(..., \"expr!!\", gas)!!`, "
+            "`parallelAll(..., tasksArray, timeoutMs)!!`, `parallelSettle(..., tasksArray, timeoutMs)!!`, "
+            "`parallelMap(..., itemsArray, recv, #sel)!!`, `newChannel(..., cap)!!`, `await(fut, timeoutMs)!!`"
+        ),
+    },
+    "Hue": {
+        "aliases": (),
+        "keywords": ("hue", "light", "lights", "lamp", "bulb", "brightness", "scene"),
+        "signature": "`Actor[#Hue]`: `summary(Actor[#Hue])!!`, `turnOn(...)!!`, `turnOff(...)!!`, `setBrightness(..., pct)!!`",
+    },
+}
+
+_CORE_ESSENTIAL_TWINS = frozenset({"Host", "Memory", "Grammar", "VM", "Sandbox", "LLM", "Harness", "Bilby"})
+
+
+def _trim_engram_context(text: str, max_chars: int = 2800) -> str:
+    """Cap Step-1 hydrated Neo4j engram/episode context cleanly at line boundaries to keep Step-1 prompts lean."""
+    s = str(text or "").strip()
+    if not s or max_chars <= 0 or len(s) <= max_chars:
+        return s
+    cutoff = s.rfind("\n", 0, max_chars)
+    if cutoff < max_chars // 2:
+        cutoff = max_chars
+    clipped = s[:cutoff].rstrip()
+    return (
+        f"{clipped}\n... [truncated {len(s) - len(clipped)} chars; "
+        'call `recallEpisodes(Actor[#Memory], "<query>", 8)!!` or `graphSchema(Actor[#Memory])!!` for more]'
+    )
+
+
+_WS_CODING_ACTION_RE = re.compile(
+    r"\b(?:edit|fix|patch|implement|create|write|modify|update|refactor|replace|"
+    r"add\s+(?:a\s+)?(?:function|method|class|test|feature|endpoint|fix|file|support)|"
+    r"resolve\s+(?:the\s+)?(?:bug|issue|error)|debug\s+and\s+fix)\b",
+    re.IGNORECASE,
+)
+_WS_CODING_TARGET_RE = re.compile(
+    r"(?:/workspace\b|"
+    r"(?<!#)\b[\w./-]+\.(?:py|js|ts|tsx|jsx|rs|go|c|cpp|h|hpp|java|sh|yaml|yml|json|toml|md|txt|sql|html|css|cu)\b|"
+    r"\b(?:workspace|repo|repository|codebase|source\s+file|script|file|files)\b)",
+    re.IGNORECASE,
+)
+_WS_READONLY_START_RE = re.compile(
+    r"^\s*(?:explain|describe|summarize|what(?:'s|\s+is|\s+does|\s+are)\b|how\s+(?:does|do|to)\b|"
+    r"why\s+(?:does|is|are)\b|list\b|show\b|check\b|inspect\b|read\b|review\b|audit\b|status\b|tell\s+me\b)",
+    re.IGNORECASE,
+)
+
+
+def _is_workspace_coding_goal(goal: str) -> bool:
+    """Return True only when `goal` clearly requests editing/creating/fixing files or code in a workspace/repo."""
+    g = str(goal or "").strip()
+    if not g or len(g) < 10:
+        return False
+    if _WS_READONLY_START_RE.match(g):
+        return False
+    return bool(_WS_CODING_ACTION_RE.search(g) and _WS_CODING_TARGET_RE.search(g))
 
 
 def load_harness_system_prompt(persona_path: Optional[Path | str] = None) -> str:
@@ -124,6 +314,79 @@ _XML_FUNC_NAME_RE = re.compile(r"<function=([A-Za-z0-9_.-]+)>?", re.IGNORECASE)
 _XML_KV_PARAM_RE = re.compile(r"<parameter=([A-Za-z0-9_]+)>\s*(.*?)\s*(?:</parameter>|(?=<parameter=)|(?=</function>)|(?=</tool_call>)|$)", re.DOTALL | re.IGNORECASE)
 
 
+def _safe_int(val: Any, default: int) -> int:
+    """Parse an integer parameter defensively, returning `default` on non-integer LLM output."""
+    if val is None:
+        return default
+    s = str(val).strip()
+    if not s:
+        return default
+    m = re.match(r"^-?\d+", s)
+    if m:
+        try:
+            return int(m.group(0))
+        except ValueError:
+            return default
+    return default
+
+
+def _append_collection(col: Any, item: Any) -> None:
+    """Append `item` to either an `ActorOrderedCollection` (`.add`) or Python `list` (`.append`)."""
+    if isinstance(col, ActorOrderedCollection):
+        col.add(item)
+    elif isinstance(col, list):
+        col.append(item)
+
+
+def _is_harness_method_overridden(harness_obj: Any, selector: str) -> bool:
+    """Return True if `AgentHarness>>selector` was evolved/patched after `bootstrap_agent_harness`."""
+    defaults = getattr(harness_obj, "_default_harness_methods", None)
+    if not isinstance(defaults, dict) or selector not in defaults:
+        return False
+    cur = getattr(harness_obj, "_methods", {}).get(selector)
+    return cur is not None and cur is not defaults[selector]
+
+
+def _strip_actor_comments_and_strings(source: str) -> str:
+    """Remove `/* ... */` comments and string literals from Actor source for safe structural checks."""
+    s = str(source or "")
+    out: List[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        nxt = s[i + 1] if i + 1 < n else ""
+        if ch == "/" and nxt == "*":
+            end = s.find("*/", i + 2)
+            if end == -1:
+                break
+            out.append(" ")
+            i = end + 2
+            continue
+        if s[i : i + 3] == '"""':
+            end = s.find('"""', i + 3)
+            if end == -1:
+                break
+            out.append('""')
+            i = end + 3
+            continue
+        if ch == '"':
+            i += 1
+            while i < n:
+                if s[i] == "\\" and i + 1 < n:
+                    i += 2
+                    continue
+                if s[i] == '"':
+                    i += 1
+                    break
+                i += 1
+            out.append('""')
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def _transpile_xml_host_tool_call(text: str) -> Optional[str]:
     """Transpile Qwen `<function=writeFile|execShell|readFile|editFile>` XML tool calls into 1993 Actor 4.1 `Actor[#Host]` expressions."""
     fn_m = _XML_FUNC_NAME_RE.search(text)
@@ -141,13 +404,13 @@ def _transpile_xml_host_tool_call(text: str) -> Optional[str]:
             return f"writeFile(Actor[#Host], {json.dumps(path)}, {json.dumps(content)})!!"
     elif fn_name in ("execshell", "exec_shell", "bash", "run_command", "shell", "terminal", "execute_command"):
         cmd = (params.get("command") or params.get("cmd") or "").strip()
-        t_sec = int(params.get("timeout") or params.get("timeout_sec") or params.get("timeoutsec") or 20)
+        t_sec = _safe_int(params.get("timeout") or params.get("timeout_sec") or params.get("timeoutsec"), 20)
         if cmd:
             return f"execShell(Actor[#Host], {json.dumps(cmd)}, {t_sec})!!"
     elif fn_name in ("readfile", "read_file"):
         path = (params.get("path") or params.get("file_path") or "").strip()
-        s_ln = int(params.get("startline") or params.get("start_line") or 1)
-        e_ln = int(params.get("endline") or params.get("end_line") or 120)
+        s_ln = _safe_int(params.get("startline") or params.get("start_line"), 1)
+        e_ln = _safe_int(params.get("endline") or params.get("end_line"), 120)
         if path:
             return f"readFile(Actor[#Host], {json.dumps(path)}, {s_ln}, {e_ln})!!"
     elif fn_name in ("editfile", "edit_file", "replace_in_file"):
@@ -448,13 +711,12 @@ class LLMBridge:
     ) -> List[Dict[str, str]]:
         """Build a strictly append-only multi-message chat array so hybrid Gated-DeltaNet / KV-cache slots hit `f_keep=1.0` across steps."""
         goal = str(harness_obj._fields.get("goal", "") or "")
-        step_num = int(harness_obj._fields.get("stepCount", 1) or 1)
         raw_max_steps = harness_obj._fields.get("maxSteps")
         max_steps = 0 if raw_max_steps is None else int(raw_max_steps)
         max_steps_lbl = f"{max_steps}" if max_steps > 0 else "(unlimited)"
         step_log_obj = harness_obj._fields.get("stepLog")
         chat_hist = sandbox.getChatHistory(harness_obj)
-        turn_key = (id(step_log_obj), goal, len(chat_hist))
+        turn_key = (id(step_log_obj), goal)
 
         cache: Optional[Dict[str, Any]] = getattr(harness_obj, "_kv_turn_cache", None)
         if not isinstance(cache, dict) or cache.get("key") != turn_key:
@@ -465,9 +727,20 @@ class LLMBridge:
                 if grammar_obj is not None and hasattr(grammar_obj, "compactCoreReference")
                 else ""
             )
+            inst_txt = ""
+            if _is_harness_method_overridden(harness_obj, "instructionBlock"):
+                try:
+                    inst_txt = str(self.vm.eval_chunk("instructionBlock(Actor[#Harness])!!") or "").strip()
+                except Exception:
+                    inst_txt = ""
+            if not inst_txt:
+                inst_txt = sandbox.defaultInstructions()
+            static_sys = (str(getattr(harness_obj, "system_prompt", "") or "").strip() or HARNESS_SYSTEM_PROMPT)
+            static_id = f"[Agent Identity]\nName: {harness_obj.name} | Class: {harness_obj.class_name}"
             sys_parts = [
-                harness_obj.buildContextPrompt(),
-                sandbox.defaultInstructions(),
+                static_sys,
+                static_id,
+                inst_txt,
             ]
             if core_grammar:
                 sys_parts.append(core_grammar)
@@ -512,19 +785,32 @@ class LLMBridge:
                     prior_msgs.append({"role": "assistant", "content": f"{act_note}COMPLETE: {r_txt}"})
 
             # 3. Initial user message for this turn (built ONCE at Step 1 and NEVER mutated on Steps 2..N!)
-            mem_obj = getattr(sandbox, "memory_graph", None)
-            hydrated = mem_obj.hydrateContext(goal) if mem_obj is not None else ""
-            task_grammar = (
-                grammar_obj.queryTaskSpecificConstructs(goal)
-                if grammar_obj is not None and hasattr(grammar_obj, "queryTaskSpecificConstructs")
-                else ""
-            )
+            # Reuse `cachedEngramCtx` already fetched by `AgentHarness>>step` (avoids double Neo4j/embedding calls & honors evolved `selectEngramContext`).
+            cached_engram = harness_obj._fields.get("cachedEngramCtx")
+            if cached_engram is not None:
+                hydrated = str(cached_engram).strip()
+            else:
+                mem_obj = getattr(sandbox, "memory_graph", None)
+                hydrated = mem_obj.hydrateContext(goal) if mem_obj is not None else ""
+
+            if _is_harness_method_overridden(harness_obj, "selectGrammarContext"):
+                cached_grammar = harness_obj._fields.get("cachedGrammarCtx")
+                task_grammar = str(cached_grammar or "").strip()
+            else:
+                task_grammar = (
+                    grammar_obj.queryTaskSpecificConstructs(goal)
+                    if grammar_obj is not None and hasattr(grammar_obj, "queryTaskSpecificConstructs")
+                    else ""
+                )
             policy_txt = ""
             try:
                 p_val = self.vm.eval_chunk("policyNote(Actor[#Harness])!!")
                 policy_txt = str(p_val or "").strip()
             except Exception:
                 policy_txt = ""
+
+            if hydrated:
+                hydrated = _trim_engram_context(hydrated, max_chars=2800)
 
             init_lines: List[str] = []
             if policy_txt:
@@ -533,7 +819,7 @@ class LLMBridge:
                 init_lines.append(hydrated)
             if task_grammar:
                 init_lines.append(task_grammar)
-            init_lines.append(f"LIVE POOL SUMMARY: {sandbox.poolSummary()}")
+            init_lines.append(f"LIVE POOL SUMMARY: {sandbox.poolSummary(goal)}")
             init_lines.append(f"SCRATCHPAD (`Actor[#Harness].scratchpad`): {sandbox.formatScratchpad(harness_obj)}")
             init_lines.append(f"GOAL: {goal}")
             init_lines.append(
@@ -546,6 +832,7 @@ class LLMBridge:
                 "key": turn_key,
                 "base_messages": [sys_msg, *prior_msgs, turn_user_msg],
                 "step_pairs": [],  # List[Tuple[int, Dict[str, str], Dict[str, str]]]
+                "pair_offset": 0,
             }
             setattr(harness_obj, "_kv_turn_cache", cache)
 
@@ -564,7 +851,7 @@ class LLMBridge:
             raw_act = str(entry.get("action") or "").strip()
             if "__HALLUCINATED_XML_TOOL_CALL__" in raw_act:
                 asst_act = "<invalid XML tool call>"
-            elif len(raw_act) <= 12000:
+            elif len(raw_act) <= 6000:
                 asst_act = raw_act
             else:
                 asst_act = sandbox._compact_step_action_for_history(raw_act)
@@ -583,8 +870,10 @@ class LLMBridge:
                 )
             else:
                 res_repr = repr(entry.get("result"))
-                if len(res_repr) > 3500:
-                    res_repr = res_repr[:3500] + "...'"
+                is_read_file_act = "readFile(" in str(entry.get("action") or "")
+                max_res_chars = 9500 if is_read_file_act else 3500
+                if len(res_repr) > max_res_chars:
+                    res_repr = res_repr[:max_res_chars] + "...'"
                 unhandled_hint = entry.get("unhandled_selector")
                 hint_line = (
                     f"\n[Warning: `{unhandled_hint}` is not a defined method on that receiver — call `methodsOf(Actor[#VM], #ClassName)!!` to inspect real selectors!]"
@@ -592,9 +881,12 @@ class LLMBridge:
                     else ""
                 )
                 nudge_line = sandbox._step_loop_nudge(step_entries[: idx + 1])
+                midpoint_line = sandbox._midpoint_implementation_nudge(
+                    harness_obj, step_entries[: idx + 1], st_n
+                )
                 obs_body = (
                     f"[Step {st_n} OK | gas={entry.get('gas_used', 0)} ops]\n"
-                    f"LAST RESULT: {res_repr}{hint_line}{nudge_line}\n"
+                    f"LAST RESULT: {res_repr}{hint_line}{nudge_line}{midpoint_line}\n"
                     f"SCRATCHPAD (`Actor[#Harness].scratchpad`): {cur_scratch}\n"
                     f"STEP: {next_st} of {max_steps_lbl}\n"
                     "Execute the next 1993 Actor 4.1 expression ending in `!!`, or if you have enough information to answer the user, reply `COMPLETE: <detailed answer>`."
@@ -602,9 +894,26 @@ class LLMBridge:
             obs_msg = {"role": "user", "content": obs_body}
             cached_pairs.append((st_n, asst_msg, obs_msg))
 
-        for _, a_m, u_m in cached_pairs[-20:]:
-            messages.append(a_m)
-            messages.append(u_m)
+        pair_offset = int(cache.get("pair_offset", 0) or 0)
+        if len(cached_pairs) - pair_offset > 40:
+            pair_offset = len(cached_pairs) - 28
+            cache["pair_offset"] = pair_offset
+
+        def _assemble(offset: int) -> List[Dict[str, str]]:
+            assembled = list(cache["base_messages"])
+            for _, a_m, u_m in cached_pairs[offset:]:
+                assembled.append(a_m)
+                assembled.append(u_m)
+            return assembled
+
+        messages = _assemble(pair_offset)
+        token_budget = int(harness_obj._fields.get("tokenBudget") or 44000)
+        if token_budget > 0 and self.countTokens(messages) > token_budget:
+            while pair_offset < max(0, len(cached_pairs) - 2) and self.countTokens(messages) > token_budget:
+                step_advance = max(2, (len(cached_pairs) - pair_offset) // 4)
+                pair_offset = min(len(cached_pairs) - 2, pair_offset + step_advance)
+                messages = _assemble(pair_offset)
+            cache["pair_offset"] = pair_offset
 
         return messages
 
@@ -649,6 +958,7 @@ class LLMBridge:
                 and getattr(harness_obj, "class_name", "") == "AgentHarness"
                 and isinstance(sandbox_py, VMSandboxBridge)
                 and "GOAL: " in prompt_str
+                and not _is_harness_method_overridden(harness_obj, "buildStepPrompt")
             )
 
             if use_append_only_http:
@@ -660,7 +970,11 @@ class LLMBridge:
                     model=harness_obj.model,
                 )
                 try:
-                    raw_reply = client.complete_messages(messages, temperature=0.2)
+                    raw_reply = client.complete_messages(messages, max_tokens=4096, temperature=0.2)
+                    stats1 = dict(client.last_call_stats or {})
+                    agg_p_tok = int(stats1.get("prompt_tokens") or 0)
+                    agg_c_tok = int(stats1.get("completion_tokens") or 0)
+                    agg_lat_ms = float(stats1.get("latency_ms") or 0.0)
                     cleaned_check = _strip_leading_prose_before_code(
                         _unwrap_xml_tool_call(str(raw_reply or "").strip())
                     )
@@ -689,17 +1003,23 @@ class LLMBridge:
                                 ),
                             },
                         ]
-                        raw_reply = client.complete_messages(cont_msgs, temperature=0.2)
-                    stats = client.last_call_stats or {}
+                        raw_reply = client.complete_messages(cont_msgs, max_tokens=4096, temperature=0.2)
+                        stats2 = dict(client.last_call_stats or {})
+                        agg_p_tok += int(stats2.get("prompt_tokens") or 0)
+                        agg_c_tok += int(stats2.get("completion_tokens") or 0)
+                        agg_lat_ms += float(stats2.get("latency_ms") or 0.0)
+                        stats = stats2 or stats1
+                    else:
+                        stats = stats1
                     GLOBAL_TELEMETRY.log_llm_call(
                         turn_id=turn_id,
                         step=step_num,
                         endpoint=str(stats.get("endpoint") or client.endpoint),
                         model=str(harness_obj.model),
                         message_count=int(stats.get("message_count") or len(messages)),
-                        prompt_tokens=int(stats.get("prompt_tokens") or 0),
-                        completion_tokens=int(stats.get("completion_tokens") or 0),
-                        latency_ms=float(stats.get("latency_ms") or 0.0),
+                        prompt_tokens=agg_p_tok,
+                        completion_tokens=agg_c_tok,
+                        latency_ms=agg_lat_ms,
                         raw_reply=str(raw_reply or ""),
                         extracted_action=extract_actor_action(str(raw_reply or "")),
                     )
@@ -713,6 +1033,7 @@ class LLMBridge:
             else:
                 saved_hist = list(harness_obj._history) if hasattr(harness_obj, "_history") else []
                 harness_obj.clearHistory()
+                t_call0 = time.perf_counter()
                 try:
                     raw_reply = harness_obj.ask(prompt_str)
                     cleaned_check = _strip_leading_prose_before_code(
@@ -745,7 +1066,26 @@ class LLMBridge:
                 finally:
                     if hasattr(harness_obj, "_history") and isinstance(harness_obj._history, (ActorOrderedCollection, list)):
                         harness_obj._history.clear()
-                        harness_obj._history.extend(saved_hist)
+                        for h_item in saved_hist:
+                            _append_collection(harness_obj._history, h_item)
+                if not getattr(self.vm, "_in_shadow_run", False):
+                    try:
+                        step_num = int(harness_obj._fields.get("stepCount", 1) or 1)
+                        turn_id = str(getattr(harness_obj, "_active_turn_id", "") or "live-turn")
+                        GLOBAL_TELEMETRY.log_llm_call(
+                            turn_id=turn_id,
+                            step=step_num,
+                            endpoint=str(getattr(harness_obj, "endpoint", "custom_provider")),
+                            model=str(getattr(harness_obj, "model", "unknown")),
+                            message_count=1,
+                            prompt_tokens=self.countTokens(prompt_str),
+                            completion_tokens=self.countTokens(str(raw_reply or "")),
+                            latency_ms=(time.perf_counter() - t_call0) * 1000.0,
+                            raw_reply=str(raw_reply or ""),
+                            extracted_action=extract_actor_action(str(raw_reply or "")),
+                        )
+                    except Exception:
+                        pass
 
             if raw_reply.startswith(f"[{harness_obj.name} ({harness_obj.class_name})] Processed:"):
                 goal = str(harness_obj._fields.get("goal", "") or "")
@@ -778,15 +1118,161 @@ class VMSandboxBridge:
         self.grammar_graph = grammar_graph
         self.memory_graph = memory_graph
         self.step_callbacks: List[Callable[[Dict[str, Any]], None]] = []
+        self._ws_linecount_cache: Dict[str, Tuple[int, int, int]] = {}
 
     # =========================================================================
     # Tier 0: Read-Only Queries & Speculative Dry-Runs (`@actor_query`)
     # =========================================================================
 
     @actor_query
-    def poolSummary(self) -> str:
-        """Return a structured summary of live objects and user classes in `Actor[...]`."""
+    def trimEngramContext(self, engram_ctx: str = "", max_chars: int = 2800) -> str:
+        """Trim Step-1 hydrated Neo4j engram/episode context cleanly at line boundaries."""
+        return _trim_engram_context(str(engram_ctx or ""), max_chars=int(max_chars or 2800))
+
+    @staticmethod
+    def _select_relevant_twins(goal: str, live_twins: set[str]) -> Tuple[List[str], bool]:
+        """Return `(relevant_canonical_twins, include_oop_schema)` matched against `goal`."""
+        g_low = str(goal or "").lower()
+        if not g_low.strip():
+            return [], False
+        matched: List[str] = []
+        for canonical, meta in _TWIN_SCHEMA_REGISTRY.items():
+            if canonical not in live_twins:
+                continue
+            aliases = meta.get("aliases", ())
+            explicit_names = (f"#{canonical.lower()}", canonical.lower()) + tuple(
+                f"#{a.lower()}" for a in aliases
+            ) + tuple(a.lower() for a in aliases)
+            if any(
+                re.search(rf"(?<![a-z0-9_]){re.escape(tok)}(?![a-z0-9_])", g_low)
+                for tok in explicit_names
+            ):
+                matched.append(canonical)
+                continue
+            for kw in meta.get("keywords", ()):
+                if kw.endswith(".") or "://" in kw or " " in kw:
+                    if kw in g_low:
+                        matched.append(canonical)
+                        break
+                elif re.search(rf"\b{re.escape(kw)}", g_low):
+                    matched.append(canonical)
+                    break
+        include_oop = bool(
+            re.search(
+                r"\b(?:subclass|inherit|oop|graphservice|metricevaluator|compositepipeline|domainentity|engram)\b",
+                g_low,
+            )
+        )
+        return matched, include_oop
+
+    @actor_query
+    def describeBridge(self, target: Any) -> str:
+        """Return full method signatures and docs for any live twin/bridge in `Actor[...]` (by `#Name` or object)."""
+        import inspect as _inspect
+
         actor_dict = self.vm.global_vars.get("Actor", {})
+        resolved_key = ""
+        obj = None
+
+        if isinstance(target, (Symbol, str)):
+            raw_k = target.name if isinstance(target, Symbol) else str(target).strip().lstrip("#")
+            resolved_key = raw_k
+            if isinstance(actor_dict, dict):
+                obj = actor_dict.get(raw_k)
+        else:
+            obj = target
+            if isinstance(actor_dict, dict):
+                for k, v in actor_dict.items():
+                    if v is target:
+                        resolved_key = k.name if isinstance(k, Symbol) else str(k).lstrip("#")
+                        break
+
+        # Map alias -> canonical registry key
+        canonical = resolved_key
+        if canonical not in _TWIN_SCHEMA_REGISTRY:
+            for c_name, meta in _TWIN_SCHEMA_REGISTRY.items():
+                if resolved_key in meta.get("aliases", ()):
+                    canonical = c_name
+                    break
+
+        parts: List[str] = []
+        reg = _TWIN_SCHEMA_REGISTRY.get(canonical)
+        if reg:
+            parts.append(f"Quick Reference: {reg['signature']}")
+
+        if obj is None:
+            if parts:
+                return "\n".join(parts)
+            return f"Twin/bridge `Actor[#{resolved_key}]` not found in live pool."
+
+        cls_name = str(getattr(obj, "class_name", getattr(obj, "_class_name", type(obj).__name__)))
+        header = f"=== `Actor[#{resolved_key or cls_name}]` ({cls_name}) ==="
+        method_lines: List[str] = []
+
+        if hasattr(obj, "_bridge_specs"):
+            specs = getattr(obj, "_bridge_specs", {})
+            py_target = getattr(obj, "_target", getattr(obj, "target", None))
+            for sel in sorted(specs.keys()):
+                spec = specs[sel]
+                tier_tag = "T0" if getattr(spec, "tier", 0) == 0 else "T2"
+                sig_s = "(...)"
+                doc_s = ""
+                if py_target is not None:
+                    py_attr = getattr(spec, "py_attr", "") or sel
+                    fn = getattr(py_target, py_attr, None)
+                    if callable(fn):
+                        try:
+                            sig_s = str(_inspect.signature(fn))
+                        except Exception:
+                            sig_s = "(...)"
+                        doc = (_inspect.getdoc(fn) or "").splitlines()
+                        doc_s = f" — {doc[0][:100]}" if doc else ""
+                method_lines.append(f"  - [{tier_tag}] `{sel}(Actor[#{resolved_key or cls_name}], ...)` {sig_s}{doc_s}")
+        else:
+            cls_obj = self.vm.hierarchy.get(cls_name)
+            seen_m: set[str] = set()
+            all_methods: Dict[str, Any] = {}
+            if cls_obj is not None:
+                all_methods.update(getattr(cls_obj, "_class_methods", {}))
+                all_methods.update(getattr(cls_obj, "_methods", {}))
+            if hasattr(obj, "_methods"):
+                all_methods.update(getattr(obj, "_methods", {}))
+            for sel in sorted(all_methods.keys()):
+                if sel.startswith("_") or sel in seen_m:
+                    continue
+                seen_m.add(sel)
+                m_obj = all_methods[sel]
+                params = getattr(m_obj, "params", None)
+                if isinstance(params, (list, tuple)):
+                    p_str = ", ".join(str(p) for p in params)
+                    method_lines.append(f"  - `{sel}({p_str})`")
+                else:
+                    method_lines.append(f"  - `{sel}(...)`")
+
+        out = [header]
+        out.extend(parts)
+        if method_lines:
+            out.append("Live Methods:")
+            out.extend(method_lines[:45])
+        return "\n".join(out)
+
+    @actor_query
+    def describe(self, target: Any = None) -> str:
+        """Inspect any live twin/bridge in `Actor[...]` (e.g. `describe(Actor[#Sandbox], #Jetson)!!` or `describe(Actor[#Jetson])!!`)."""
+        if target is None:
+            return self.describeBridge("Sandbox")
+        return self.describeBridge(target)
+
+    @actor_query
+    def poolSummary(self, goal: str = "") -> str:
+        """Return a goal-aware summary of live objects, relevant twin schemas, and a compact catalog of other live twins."""
+        actor_dict = self.vm.global_vars.get("Actor", {})
+        active_goal = str(goal or "").strip()
+        if not active_goal and isinstance(actor_dict, dict):
+            h_obj = actor_dict.get("Harness")
+            if h_obj is not None and hasattr(h_obj, "_fields"):
+                active_goal = str(h_obj._fields.get("goal", "") or "").strip()
+
         builtin_classes = set(PROTECTED_SYSTEM_CLASSES) | {
             "Agent",
             "AgentHarness",
@@ -816,14 +1302,24 @@ class VMSandboxBridge:
             "Web",
             "ProductLearner",
             "Protocols",
+            "NetTopo",
+            "Network",
             "Jetson",
             "Proxy",
             "Telegram",
             "ReverseEngineer",
             "REA",
+            "Threads",
+            "Thermometer",
+            "ThermoUI",
         }
+        alias_to_canonical: Dict[str, str] = {}
+        for c_name, meta in _TWIN_SCHEMA_REGISTRY.items():
+            for al in meta.get("aliases", ()):
+                alias_to_canonical[al] = c_name
+
         objs: List[str] = []
-        bridges: List[str] = []
+        live_twins: set[str] = set()
         classes: List[str] = []
         if isinstance(actor_dict, dict):
             seen_keys = set()
@@ -840,14 +1336,36 @@ class VMSandboxBridge:
                 elif not isinstance(v, type):
                     cls_name = str(getattr(v, "class_name", type(v).__name__))
                     if norm_k in builtin_singletons:
-                        bridges.append(f"#{norm_k}")
+                        live_twins.add(norm_k)
                     else:
                         passive_fn = getattr(v, "_passive_summary", None)
                         val_str = passive_fn() if callable(passive_fn) else repr(v)
                         objs.append(f"Actor[#{norm_k}]: {cls_name} = {val_str[:96]}")
-        summary_parts = []
-        if bridges:
-            summary_parts.append("Bridges: " + ", ".join(sorted(bridges)))
+
+        relevant_twins, include_oop = self._select_relevant_twins(active_goal, live_twins)
+        relevant_set = set(relevant_twins)
+        other_twins = sorted(
+            f"#{t}"
+            for t in live_twins
+            if t not in _CORE_ESSENTIAL_TWINS
+            and t not in relevant_set
+            and t not in alias_to_canonical
+        )
+
+        summary_parts: List[str] = []
+        if relevant_twins:
+            rel_sigs = [
+                _TWIN_SCHEMA_REGISTRY[t]["signature"]
+                for t in relevant_twins
+                if t in _TWIN_SCHEMA_REGISTRY
+            ]
+            summary_parts.append("Relevant twin methods: " + " ; ".join(rel_sigs))
+        if include_oop:
+            summary_parts.append(_OOP_BASE_CLASSES_SCHEMA)
+        if other_twins:
+            summary_parts.append(
+                "Other live twins (call describe(Actor[#Name]) for methods): " + ", ".join(other_twins)
+            )
         if objs:
             summary_parts.append("Objects: " + "; ".join(sorted(objs)))
         if classes:
@@ -861,10 +1379,22 @@ class VMSandboxBridge:
                     for p in entries:
                         if p.is_dir():
                             ws_items.append(f"{p.name}/")
-                        elif p.is_file() and p.stat().st_size <= 250_000:
+                        elif p.is_file():
                             try:
-                                lc = len(p.read_text(encoding="utf-8", errors="ignore").splitlines())
-                                ws_items.append(f"{p.name} ({lc}L)")
+                                st = p.stat()
+                                if st.st_size <= 250_000:
+                                    p_key = str(p)
+                                    cached_lc = self._ws_linecount_cache.get(p_key)
+                                    if cached_lc is not None and cached_lc[0] == st.st_mtime_ns and cached_lc[1] == st.st_size:
+                                        lc = cached_lc[2]
+                                    else:
+                                        lc = len(p.read_text(encoding="utf-8", errors="ignore").splitlines())
+                                        if len(self._ws_linecount_cache) >= 64:
+                                            self._ws_linecount_cache.clear()
+                                        self._ws_linecount_cache[p_key] = (st.st_mtime_ns, st.st_size, lc)
+                                    ws_items.append(f"{p.name} ({lc}L)")
+                                else:
+                                    ws_items.append(p.name)
                             except Exception:
                                 ws_items.append(p.name)
                         else:
@@ -1075,6 +1605,8 @@ class VMSandboxBridge:
         target = harness_obj or self.vm.global_vars.get("Actor", {}).get("Harness")
         if target is not None and hasattr(target, "_fields"):
             target._fields["chatLog"] = ActorOrderedCollection()
+            setattr(target, "_kv_turn_cache", None)
+            setattr(target, "_kv_history_anchor", None)
             if hasattr(target, "clearHistory"):
                 target.clearHistory()
         return "CLEARED"
@@ -1285,8 +1817,8 @@ class VMSandboxBridge:
                     acts = t.get("actions") or []
                     if acts:
                         a_txt = f"[Executed: {'; '.join(acts)}] {a_txt}"
-                    harness_obj._history.add({"role": "user", "content": u_txt})
-                    harness_obj._history.add({"role": "assistant", "content": a_txt})
+                    _append_collection(harness_obj._history, {"role": "user", "content": u_txt})
+                    _append_collection(harness_obj._history, {"role": "assistant", "content": a_txt})
         return turn_entry
 
     @actor_query
@@ -1498,6 +2030,9 @@ class VMSandboxBridge:
             cur_step_lines.append(nudge)
         if target is not None and hasattr(target, "_fields"):
             step_cnt = int(target._fields.get("stepCount", 0) or 0)
+            mid_nudge = self._midpoint_implementation_nudge(target, recent_steps, step_cnt)
+            if mid_nudge:
+                cur_step_lines.append(mid_nudge)
             raw_ms = target._fields.get("maxSteps")
             max_st = 0 if raw_ms is None else int(raw_ms)
             if max_st >= 12 and step_cnt >= max_st - 2:
@@ -1509,6 +2044,36 @@ class VMSandboxBridge:
                     "or state honestly what failed in THIS turn and what remains."
                 )
         return "\n".join(cur_step_lines)
+
+    @staticmethod
+    def _midpoint_implementation_nudge(
+        harness_obj: Any, step_entries: List[Any], step_num: int
+    ) -> str:
+        """Nudge at ~50% of maxSteps on coding/deliverable goals if zero files have been written yet."""
+        if harness_obj is None or not hasattr(harness_obj, "_fields"):
+            return ""
+        raw_ms = harness_obj._fields.get("maxSteps")
+        max_st = 0 if raw_ms is None else int(raw_ms)
+        if max_st < 12 or step_num != (max_st // 2):
+            return ""
+        goal = str(harness_obj._fields.get("goal", "") or "")
+        if not _is_workspace_coding_goal(goal):
+            return ""
+        write_tokens = ("writeFile(", "editFile(", "writeAndRun(", "cat >", "cat <<")
+        has_written = any(
+            isinstance(e, dict)
+            and e.get("status") == "ok"
+            and any(tok in str(e.get("action", "")) for tok in write_tokens)
+            for e in step_entries
+        )
+        if has_written:
+            return ""
+        rem = max(0, max_st - step_num)
+        return (
+            f"\n[MIDPOINT IMPLEMENTATION CHECKPOINT — {step_num}/{max_st} steps used, 0 workspace files written yet]: "
+            "Stop running exploratory one-liners! Write your Python solver/implementation script with `writeFile(...)` now, "
+            f"run it to produce the required output file, and verify the deliverable while you still have {rem} steps left."
+        )
 
     @actor_query
     def formatErrorDiagnostic(self, harness_obj: Any = None) -> str:
@@ -1584,39 +2149,23 @@ class VMSandboxBridge:
 
     @actor_query
     def defaultInstructions(self) -> str:
-        """Return environment-aware Actor 4.1 generation instructions for `AgentHarness>>instructionBlock`."""
+        """Return compact, environment-aware Actor 4.1 execution instructions for `AgentHarness>>instructionBlock`."""
         in_docker = os.environ.get("ACTORII_IN_DOCKER") == "1" or Path("/.dockerenv").exists()
         lockdown = is_host_lockdown() and not in_docker
         lines = [
             "INSTRUCTIONS:",
-            "1. Output ONLY a single raw 1993 Actor 4.1 code chunk ending in `!!` OR `COMPLETE: <answer>`. Never emit `<tool_call>` XML tags, markdown fences around Actor code, or prose before/after Actor code!",
-            "2. For pure conversational greetings/follow-ups requiring NO math, NO file I/O, and NO fresh telemetry (or once `LAST RESULT` already has verified output), reply immediately with:",
-            "   COMPLETE: <clear, well-structured human answer>",
-            "   (Inside `COMPLETE: ...`, clean Markdown and ```bash / ```python blocks for the user are welcome. Never guess arithmetic in prose—compute in Actor bytecode first!)",
-            "3. For live system/sensor/edge checks, run ONE concise expression ending in `!!` (e.g. `summary(Actor[#Valkyrie])!!`, `stackHealth(Actor[#Valkyrie])!!`, `summary(Actor[#Thermometer])!!`, `summary(Actor[#Jetson])!!`, `scoreboard(Actor[#Bench])!!`) and reply `COMPLETE: ...` on the next step.",
-            "4. When writing Actor 4.1 code (`!!`):",
-            "   - Save values via `storeScratch(Actor[#Harness], #key, value)!!` or `Actor[#Key] := value!!` (use `setMaxSteps`/`setMaxFailures` for step limits).",
+            "1. Emit ONE raw Actor 4.1 chunk ending in `!!` OR `COMPLETE: <answer>` (Markdown/code fences allowed inside `COMPLETE:`; compute arithmetic in bytecode, never guess).",
+            "2. Save intermediate values with `storeScratch(Actor[#Harness], #key, val)!!` or `Actor[#Key] := val!!`; call `describe(Actor[#Twin])!!` to inspect any unlisted twin's methods.",
         ]
         if lockdown:
-            lines.extend(
-                [
-                    "   - [HOST LOCKDOWN ACTIVE (`ACTORII_HOST_LOCKDOWN=1`)]: `execShell(Actor[#Host], ...)` and host writes outside `/tmp` are locked, and `/workspace` is NOT mounted. NEVER call `execShell(Actor[#Host], ...)` or search `/workspace`! Use Digital Twins (`Actor[#Valkyrie]`, `Actor[#Jetson]`, `Actor[#Thermometer]`, `Actor[#Pantry]`, `Actor[#Web]`, `Actor[#PDF]`, `Actor[#ProductLearner]`, `Actor[#Memory]`, `Actor[#Bench]`, `Actor[#Threads]`). `Actor[#Threads]` (`spawn`, `spawnChunk`, `parallelAll`, `parallelMap`, `Future`, `Channel`) allows concurrent Actor 4.1 / Ring-1 twin calls while keeping raw host shell locked down.",
-                    "   - For remote commands/scripts/CUDA/files on Jetson (`Actor[#Jetson]`): use `telemetry(Actor[#Jetson])!!`, `exec(Actor[#Jetson], \"cmd\", 20)!!`, `writeFile(Actor[#Jetson], \"/tmp/prog.cu\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(Actor[#Jetson], \"/tmp/prog.cu\", \"\"\"...\"\"\", 45)!!` (natively compiles & runs `.cu` via `nvcc -arch=sm_53 -ccbin /usr/bin/gcc-7`, `.cpp`/`.c`, `.py`, and `.sh` — ALWAYS wrap multi-line code in triple quotes `\"\"\"...\"\"\"` and NEVER generate raw base64 in Actor code!), or `pullFile(Actor[#Jetson], \"/tmp/snap.jpg\", \"snap.jpg\", 30)!!` (stages into `/tmp/actorii_media/`; upload via `sendPhoto(Actor[#Telegram], at(res, #localPath), \"caption\")!!` or `sendDocument(...)!!`).",
-                ]
+            lines.append(
+                "3. [HOST LOCKDOWN ACTIVE (`ACTORII_HOST_LOCKDOWN=1`)]: `execShell(Actor[#Host], ...)` and host writes outside `/tmp` are locked (`/workspace` not mounted). Use live Digital Twins (`#Valkyrie`, `#Jetson`, `#Thermometer`, `#Network`, `#Web`, `#PDF`, `#ProductLearner`, `#Memory`, `#Bench`, `#Threads`)."
             )
         else:
-            lines.extend(
-                [
-                    "   - To search, read, write, patch, or test files in `/workspace` (`Actor[#Host]`): call `searchFile(Actor[#Host], \"/workspace\", \"pattern\", 15)!!`, `readFile(Actor[#Host], \"/workspace/file.py\", 1, 120)!!`, `editFile(Actor[#Host], \"/workspace/file.py\", \"\"\"old\"\"\", \"\"\"new\"\"\")!!`, `writeFile(Actor[#Host], \"/workspace/file.py\", \"\"\"full text\"\"\")!!`, or `execShell(Actor[#Host], \"python3 -m pytest -q\", 15)!!`.",
-                    "   - When parsing log/CSV/JSON/Parquet files, inspect sample lines/schemas first (`head -n 5`) and match exact bracketed tags (`[ERROR]`, `[WARNING]`) or schema columns.",
-                ]
+            lines.append(
+                "3. Workspace `/workspace` (`Actor[#Host]`): `searchFile`, `readFile`, `editFile`, `writeFile`, `execShell(Actor[#Host], \"python3 -m pytest -q\", 15)!!`. Inspect file schemas (`head -n 5`) before parsing."
             )
-        lines.extend(
-            [
-                "   - Subclass `GraphService`, `MetricEvaluator`, `DomainEntity`, or an existing `:ActorEngram`; instantiate via `Actor[#Inst] := init(new(ClassName), arg1)!!` with prefix calls `compute(Actor[#Inst])`.",
-                "5. Once verified in `LAST RESULT` or scratchpad, reply: `COMPLETE: <concise final answer>`.",
-            ]
-        )
+        lines.append("4. Once verified in `LAST RESULT` or scratchpad, reply `COMPLETE: <concise answer>`.")
         return "\n".join(lines)
 
     @actor_query
@@ -1752,17 +2301,20 @@ class VMSandboxBridge:
         re.IGNORECASE,
     )
 
-    def _has_turn_skippy_preflight(self, harness_obj: Any, chunk_src: str = "") -> bool:
-        """Return True if `askSkippy` already succeeded earlier in THIS turn (or is invoked in `chunk_src` prior to the action)."""
-        if "askSkippy" in (chunk_src or ""):
-            return True
+    def _has_turn_skippy_preflight(self, harness_obj: Any, chunk_src: str = "", risk_pos: Optional[int] = None) -> bool:
+        """Return True if `askSkippy(...)` already succeeded earlier in THIS turn (or is genuinely called before the risky op in `chunk_src`)."""
+        stripped_chunk = _strip_actor_comments_and_strings(chunk_src or "")
+        ask_m = re.search(r"\baskSkippy\s*\(", stripped_chunk)
+        if ask_m is not None:
+            if risk_pos is None or ask_m.start() < risk_pos:
+                return True
         step_log = getattr(harness_obj, "_fields", {}).get("stepLog")
         if isinstance(step_log, (ActorOrderedCollection, list)):
             for e in list(step_log):
                 if (
                     isinstance(e, dict)
                     and e.get("status") == "ok"
-                    and "askSkippy" in str(e.get("action", ""))
+                    and re.search(r"\baskSkippy\s*\(", _strip_actor_comments_and_strings(str(e.get("action", ""))))
                     and not str(e.get("result", "")).startswith(("ERROR:", "askSkippy error", "askSkippy timed out"))
                 ):
                     return True
@@ -1781,17 +2333,25 @@ class VMSandboxBridge:
         if not enforced:
             return None
 
+        stripped_chunk = _strip_actor_comments_and_strings(chunk_src or "")
         risk_kind = ""
-        if self._HARNESS_MUTATION_RE.search(chunk_src):
+        risk_pos: Optional[int] = None
+        m_hm = self._HARNESS_MUTATION_RE.search(stripped_chunk)
+        m_dt = self._DETACHED_THREAD_SPAWN_RE.search(stripped_chunk)
+        m_lm = self._LIVE_MEMORY_BULK_MUTATION_RE.search(chunk_src or "")
+        if m_hm:
             risk_kind = "hot-patching `AgentHarness` cognitive hooks (`evolve` / `now(AgentHarness)`)"
-        elif self._DETACHED_THREAD_SPAWN_RE.search(chunk_src) and "await(" not in chunk_src and "awaitAll(" not in chunk_src:
+            risk_pos = m_hm.start()
+        elif m_dt and "await(" not in stripped_chunk and "awaitAll(" not in stripped_chunk:
             risk_kind = "spawning a detached background task on `Actor[#Threads]` without `await(...)`"
-        elif self._LIVE_MEMORY_BULK_MUTATION_RE.search(chunk_src):
+            risk_pos = m_dt.start()
+        elif m_lm:
             risk_kind = "bulk-mutating live `:ActorEpisode` / `:ActorEngram` nodes in `Actor[#Memory]`"
+            risk_pos = None
 
         if not risk_kind:
             return None
-        if self._has_turn_skippy_preflight(harness_obj, chunk_src):
+        if self._has_turn_skippy_preflight(harness_obj, chunk_src, risk_pos=risk_pos):
             return None
 
         return (
@@ -1845,26 +2405,57 @@ class VMSandboxBridge:
             self._notify_step(trunc_entry)
             return f"ERROR: {trunc_msg}"
 
-        # 0. Guard against identical recent step repetition (including A-B-A-B ping-pong across warnings):
-        # inspect the last 4 steps in `step_log` so a warning step never resets duplicate detection.
+        # 0. Guard against identical recent step repetition (including A-B-A-B ping-pong across warnings)
+        # with state-aware escalation on repeat #2+ (nil result, non-nil result, or identical error).
+        # Crucially, an intervening state-mutating step (e.g. writeFile/editFile/Def) invalidates the
+        # lookback so iterative edit -> re-run test loops are never falsely flagged as duplicates.
+        _STATE_MUTATION_TOKENS = (
+            "writeFile(",
+            "editFile(",
+            "writeAndRun(",
+            "undoLastEdit(",
+            "Def ",
+            "def ",
+            "now(",
+            "inherit(",
+            "saveEngram(",
+            "persistEngram(",
+            "rollbackEngram(",
+            "cypherWrite(",
+            "storeScratch(",
+        )
         if chunk_src and comp_summary is None and isinstance(step_log, (ActorOrderedCollection, list)) and len(step_log) > 0:
             norm_chunk = chunk_src.strip()
             matched_prev = None
+            matched_prev_err = None
             for cand_entry in reversed(list(step_log)[-4:]):
-                if (
-                    isinstance(cand_entry, dict)
-                    and cand_entry.get("status") == "ok"
-                    and str(cand_entry.get("action", "")).strip() == norm_chunk
-                ):
-                    matched_prev = cand_entry
+                if not isinstance(cand_entry, dict):
+                    continue
+                cand_action = str(cand_entry.get("action", "")).strip()
+                cand_st = cand_entry.get("status")
+                if cand_action == norm_chunk:
+                    if cand_st == "ok":
+                        matched_prev = cand_entry
+                        break
+                    if cand_st == "error" and not str(cand_entry.get("error", "")).startswith("DuplicateStepWarning"):
+                        matched_prev_err = cand_entry
+                        break
+                    continue
+                # Stop scanning past an intervening successful state mutation so edit -> re-run is allowed
+                if cand_st == "ok" and any(tok in cand_action for tok in _STATE_MUTATION_TOKENS):
                     break
+
+            def _consecutive_dup_warnings() -> int:
+                cnt = 0
+                for e in reversed(list(step_log)):
+                    if isinstance(e, dict) and str(e.get("error", "")).startswith("DuplicateStepWarning"):
+                        cnt += 1
+                    else:
+                        break
+                return cnt
+
             if matched_prev is not None:
-                prior_dups = sum(
-                    1
-                    for e in list(step_log)
-                    if isinstance(e, dict) and str(e.get("error", "")).startswith("DuplicateStepWarning:")
-                )
-                dup_count = prior_dups + 1
+                dup_count = _consecutive_dup_warnings() + 1
                 failures = int(harness_obj._fields.get("failures", 0) or 0)
                 if dup_count >= 2:
                     failures += 1
@@ -1873,15 +2464,108 @@ class VMSandboxBridge:
                 max_failures = 5 if raw_max_failures is None else int(raw_max_failures)
                 if dup_count >= 3 or (max_failures > 0 and failures >= max_failures):
                     harness_obj._fields["status"] = Symbol("blocked")
-                dup_msg = (
-                    "DuplicateStepWarning: You just re-emitted the exact same Actor 4.1 code chunk that already "
-                    f"executed in Step {matched_prev.get('step')} (result={matched_prev.get('result')!r}, "
-                    f"scratchpad={self.formatScratchpad(harness_obj)}). "
-                    "Do NOT repeat identical code! If the values in SCRATCHPAD or LAST RESULT already answer the goal, reply "
-                    "`COMPLETE: <summary>`. If you are unsure of the exact driver/command for a device or library, call "
-                    "`recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` or `learnProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` "
-                    "instead of repeating the same probe! If a method value is wrong, inspect `sourceOf(Actor[#VM], #ClassName, #selector)!!`."
-                )
+                prev_res = matched_prev.get("result")
+                scratch_str = self.formatScratchpad(harness_obj)
+                shell_exit_code = None
+                shell_stderr = ""
+                if isinstance(prev_res, Dictionary):
+                    ec_val = prev_res.at(Symbol("exitCode"))
+                    if ec_val is None:
+                        ec_val = prev_res.at("exitCode")
+                    if isinstance(ec_val, int) and ec_val != 0:
+                        shell_exit_code = ec_val
+                        se_val = prev_res.at(Symbol("stderr"))
+                        if se_val is None:
+                            se_val = prev_res.at("stderr")
+                        shell_stderr = str(se_val or "")[:280].strip()
+                elif isinstance(prev_res, dict) and isinstance(prev_res.get("exitCode"), int) and prev_res["exitCode"] != 0:
+                    shell_exit_code = int(prev_res["exitCode"])
+                    shell_stderr = str(prev_res.get("stderr") or "")[:280].strip()
+
+                if dup_count >= 2:
+                    if shell_exit_code is not None:
+                        dup_msg = (
+                            f"DuplicateStepWarning [ESCALATED #{dup_count}]: This exact shell command already ran "
+                            f"in Step {matched_prev.get('step')} and FAILED with exitCode={shell_exit_code} "
+                            f"(stderr={shell_stderr!r}). Do NOT re-run the same broken command! "
+                            "Fix the script/command (e.g., write a clean script with `writeFile` and inspect the traceback) "
+                            "or try a different approach."
+                        )
+                    elif prev_res is None:
+                        dup_msg = (
+                            f"DuplicateStepWarning [ESCALATED #{dup_count}]: This exact expression already succeeded "
+                            f"in Step {matched_prev.get('step')} and returned `nil` (`None`) — it is side-effect only "
+                            "or an empty lookup, so re-running it will NOT produce new output! "
+                            f"(scratchpad={scratch_str}). Pivot now: inspect the target variable/file/collection "
+                            "(e.g. `readScratch`, `readFile`, or `describe(Actor[#Twin])!!`), consult "
+                            "`recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` if unsure of the API, "
+                            "or move to the next step / finalize with `COMPLETE: <summary>`."
+                        )
+                    else:
+                        dup_msg = (
+                            f"DuplicateStepWarning [ESCALATED #{dup_count}]: This exact expression already succeeded "
+                            f"in Step {matched_prev.get('step')} — its value (`{prev_res!r}`) is ALREADY in `LAST RESULT` "
+                            f"(scratchpad={scratch_str}). Do NOT re-run it! Either act on that value in your next step, "
+                            "consult `recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` for a different approach, "
+                            "or finalize now with `COMPLETE: <summary>`."
+                        )
+                else:
+                    if shell_exit_code is not None:
+                        dup_msg = (
+                            f"DuplicateStepWarning: You just re-emitted the exact same shell command from Step "
+                            f"{matched_prev.get('step')}, which FAILED with exitCode={shell_exit_code} "
+                            f"(stderr={shell_stderr!r}). Do NOT repeat the broken command — fix the error in your script/arguments first!"
+                        )
+                    else:
+                        dup_msg = (
+                            "DuplicateStepWarning: You just re-emitted the exact same Actor 4.1 code chunk that already "
+                            f"executed in Step {matched_prev.get('step')} (result={prev_res!r}, "
+                            f"scratchpad={scratch_str}). "
+                            "Do NOT repeat identical code! If the values in SCRATCHPAD or LAST RESULT already answer the goal, reply "
+                            "`COMPLETE: <summary>`. If you are unsure of the exact driver/command for a device or library, call "
+                            "`recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` or `learnProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` "
+                            "instead of repeating the same probe! If a method value is wrong, inspect `sourceOf(Actor[#VM], #ClassName, #selector)!!`."
+                        )
+                harness_obj._fields["lastError"] = dup_msg
+                dup_entry = {
+                    "step": step_num,
+                    "action": chunk_src,
+                    "status": "error",
+                    "tier": "TIER_0_READ_ONLY",
+                    "gas_used": 0,
+                    "error": dup_msg,
+                    "rolled_back": True,
+                    "failures": failures,
+                    "timestamp": time.time(),
+                }
+                if isinstance(step_log, ActorOrderedCollection):
+                    step_log.add(dup_entry)
+                self._notify_step(dup_entry)
+                return f"ERROR: {dup_msg}"
+
+            if matched_prev_err is not None:
+                dup_count = _consecutive_dup_warnings() + 1
+                failures = int(harness_obj._fields.get("failures", 0) or 0) + 1
+                harness_obj._fields["failures"] = failures
+                raw_max_failures = harness_obj._fields.get("maxFailures")
+                max_failures = 5 if raw_max_failures is None else int(raw_max_failures)
+                if max_failures > 0 and failures >= max_failures:
+                    harness_obj._fields["status"] = Symbol("blocked")
+                prev_err_txt = str(matched_prev_err.get("error") or "unknown error")
+                if dup_count >= 2:
+                    dup_msg = (
+                        f"DuplicateStepWarning [ESCALATED #{dup_count} — IDENTICAL ERROR]: Re-running the exact same "
+                        f"chunk from Step {matched_prev_err.get('step')} fails identically with `{prev_err_txt}`. "
+                        "Stop repeating this broken expression! Try a concrete different selector or approach "
+                        "(inspect `methodsOf(Actor[#VM], #ClassName)!!` or `describe(Actor[#Twin])!!`), or call "
+                        f"`diagnoseError(Actor[#Grammar], {prev_err_txt[:120]!r})!!` to get a grammar fix."
+                    )
+                else:
+                    dup_msg = (
+                        f"DuplicateStepWarning: You just re-emitted the exact same failing chunk from Step "
+                        f"{matched_prev_err.get('step')} (`{prev_err_txt}`). Change your selector/arguments or call "
+                        f"`diagnoseError(Actor[#Grammar], {prev_err_txt[:120]!r})!!` instead of retrying identically."
+                    )
                 harness_obj._fields["lastError"] = dup_msg
                 dup_entry = {
                     "step": step_num,
@@ -1902,10 +2586,143 @@ class VMSandboxBridge:
         # 1. Pure `COMPLETE:` directive (or direct conversational reply) with no preceding code
         if not chunk_src and comp_summary is not None:
             summary = comp_summary or str(prev_exec_result if prev_exec_result is not None else "Done")
-            # Guard against verbatim or near-verbatim reply parroting across ALL steps (not only step 1!):
-            # reject stale copy-pasted speeches from the last 3 turns unless already rejected twice in this turn.
             chat_log = harness_obj._fields.get("chatLog")
             current_goal = str(harness_obj._fields.get("goal", "") or "").strip()
+            has_valid_tool_step = any(
+                isinstance(e, dict)
+                and e.get("status") == "ok"
+                and not e.get("unhandled_selector")
+                and not str(e.get("action", "")).strip().upper().startswith("COMPLETE:")
+                for e in (list(step_log) if isinstance(step_log, (ActorOrderedCollection, list)) else [])
+            )
+
+            # 1a. Zero-Action Mutation / Telemetry Hallucination Guard (`UnverifiedExecutionClaimError`):
+            # Block fabricated `COMPLETE:` claims of installing/restarting/deploying/verifying live state
+            # when ZERO Actor 4.1 tool calls ran in this turn (`not has_valid_tool_step`).
+            prior_unverified_warnings = (
+                sum(
+                    1
+                    for e in list(step_log)
+                    if isinstance(e, dict) and str(e.get("error", "")).startswith("UnverifiedExecutionClaimError:")
+                )
+                if isinstance(step_log, (ActorOrderedCollection, list))
+                else 0
+            )
+            if (
+                not has_valid_tool_step
+                and prior_unverified_warnings < 1
+                and os.environ.get("ACTORII_BENCH_STRICT") != "1"
+                and len(summary) >= 60
+            ):
+                prev_asst_question = False
+                if isinstance(chat_log, (ActorOrderedCollection, list)) and len(chat_log) > 0:
+                    last_t = list(chat_log)[-1]
+                    if isinstance(last_t, dict):
+                        prev_rep_tail = str(last_t.get("reply") or "").strip()[-240:].lower()
+                        prev_asst_question = "?" in prev_rep_tail or "want me to" in prev_rep_tail or "shall i" in prev_rep_tail
+
+                confirm_goal = bool(
+                    re.match(
+                        r"^\s*(?:yes|yep|yeah|sure|ok|okay|please|go ahead|do it|do that|install|restart|deploy|start|stop|fix|run|proceed)\b",
+                        current_goal,
+                        flags=re.IGNORECASE,
+                    )
+                )
+                claims_live_mutation = bool(
+                    re.search(
+                        r"(?:\b(?:installed and running|restarted and verified|deployed and running|updated and verified|tailscale installed)\b"
+                        r"|\bpid\s*:?\s*\d{3,7}\b"
+                        r"|\binterface\s*:?\s*`?[a-z0-9_]+`?\s+is\s+up\b"
+                        r"|\b(?:service|daemon|stream|container)\s+is\s+(?:now\s+)?running\b)",
+                        summary,
+                        flags=re.IGNORECASE,
+                    )
+                )
+                if claims_live_mutation and (confirm_goal or prev_asst_question or "?" not in current_goal):
+                    unv_msg = (
+                        "UnverifiedExecutionClaimError: You emitted `COMPLETE:` claiming a live system/network state change "
+                        "(e.g. installed/restarted/running PID/interface UP) on Step 1 with ZERO executed Actor 4.1 tool calls in this turn! "
+                        "NEVER fabricate installation, PID, or network status from memory. Execute the real Actor 4.1 diagnostic or action first "
+                        "(e.g. `exec(Actor[#Jetson], ...)!!`, `whoOwnsIp(Actor[#Network], ...)!!`, or `exposeLanPort(Actor[#Network], ...)!!`), "
+                        "or state clearly if an operation requires manual interactive authorization."
+                    )
+                    harness_obj._fields["lastError"] = unv_msg
+                    unv_entry = {
+                        "step": step_num,
+                        "action": f"COMPLETE: {summary}",
+                        "status": "error",
+                        "tier": "TIER_0_READ_ONLY",
+                        "gas_used": 0,
+                        "error": unv_msg,
+                        "rolled_back": True,
+                        "failures": int(harness_obj._fields.get("failures", 0) or 0),
+                        "timestamp": time.time(),
+                    }
+                    if isinstance(step_log, ActorOrderedCollection):
+                        step_log.add(unv_entry)
+                    self._notify_step(unv_entry)
+                    return f"ERROR: {unv_msg}"
+
+            # 1a-2. Workspace Verification-Before-Complete & Zero-Diff Guard (`WorkspaceVerificationGuard`):
+            # For clear coding/file-modification tasks, intercept ONCE per turn when `COMPLETE:` is emitted
+            # with zero workspace edits/writes AND zero test/verification commands executed in this turn.
+            in_docker = os.environ.get("ACTORII_IN_DOCKER") == "1" or Path("/.dockerenv").exists()
+            is_lockdown = is_host_lockdown() and not in_docker
+            prior_ws_guards = (
+                sum(
+                    1
+                    for e in list(step_log)
+                    if isinstance(e, dict) and str(e.get("error", "")).startswith("WorkspaceVerificationGuard:")
+                )
+                if isinstance(step_log, (ActorOrderedCollection, list))
+                else 0
+            )
+            if (
+                prior_ws_guards < 1
+                and os.environ.get("ACTORII_BENCH_STRICT") != "1"
+                and (not is_lockdown or "/workspace" in current_goal)
+                and _is_workspace_coding_goal(current_goal)
+            ):
+                ok_steps = [
+                    e
+                    for e in (list(step_log) if isinstance(step_log, (ActorOrderedCollection, list)) else [])
+                    if isinstance(e, dict) and e.get("status") == "ok"
+                ]
+                has_ws_edit = any(
+                    re.search(r"\b(?:editFile|writeFile|writeAndRun)\s*\(", str(e.get("action", "")))
+                    for e in ok_steps
+                )
+                has_verify_cmd = any(
+                    re.search(r"\bexecShell\s*\(", str(e.get("action", "")))
+                    for e in ok_steps
+                )
+                if not has_ws_edit and not has_verify_cmd:
+                    ws_msg = (
+                        "WorkspaceVerificationGuard: This goal asks to modify/create code or files, "
+                        "but you emitted `COMPLETE:` with zero workspace edits/writes (`editFile`/`writeFile`) "
+                        "and zero test/verification commands (`execShell`) executed in this turn. "
+                        "Apply and verify the change (and run tests, e.g. `execShell(Actor[#Host], \"python3 -m pytest -q\", 30)!!`) "
+                        "before finalizing with `COMPLETE:`, or explain clearly why no edit is needed."
+                    )
+                    harness_obj._fields["lastError"] = ws_msg
+                    ws_entry = {
+                        "step": step_num,
+                        "action": f"COMPLETE: {summary}",
+                        "status": "error",
+                        "tier": "TIER_0_READ_ONLY",
+                        "gas_used": 0,
+                        "error": ws_msg,
+                        "rolled_back": True,
+                        "failures": int(harness_obj._fields.get("failures", 0) or 0),
+                        "timestamp": time.time(),
+                    }
+                    if isinstance(step_log, ActorOrderedCollection):
+                        step_log.add(ws_entry)
+                    self._notify_step(ws_entry)
+                    return f"ERROR: {ws_msg}"
+
+            # 1b. Guard against verbatim or near-verbatim reply parroting across ALL steps (not only step 1!):
+            # reject stale copy-pasted speeches from the last 3 turns unless already rejected twice in this turn.
             prior_parrot_warnings = (
                 sum(
                     1
@@ -1921,13 +2738,6 @@ class VMSandboxBridge:
                 and isinstance(chat_log, (ActorOrderedCollection, list))
                 and len(chat_log) > 0
             ):
-                has_valid_tool_step = any(
-                    isinstance(e, dict)
-                    and e.get("status") == "ok"
-                    and not e.get("unhandled_selector")
-                    and not str(e.get("action", "")).strip().upper().startswith("COMPLETE:")
-                    for e in (list(step_log) if isinstance(step_log, (ActorOrderedCollection, list)) else [])
-                )
                 norm_sum = " ".join(summary.lower().split())
                 nums_sum = re.findall(r"-?\d+(?:\.\d+)?", norm_sum)
                 stop_goal_w = {"what", "whats", "where", "when", "check", "give", "show", "tell", "current", "status", "the", "and", "for", "with", "how", "now"}
@@ -2245,6 +3055,26 @@ class VMSandboxBridge:
         val_src = str(validation_chunk or "").strip()
         if val_src and not val_src.endswith("!!"):
             val_src = val_src.rstrip("!") + "!!"
+        if val_src:
+            has_executable_val = False
+            try:
+                for val_piece in self.vm._split_chunks_safely(val_src):
+                    for v_node in parse_actor(val_piece):
+                        if not isinstance(v_node, MethodDefNode) and not hasattr(v_node, "target_class"):
+                            has_executable_val = True
+                            break
+                    if has_executable_val:
+                        break
+            except Exception:
+                # Let shadow_script surface any actual ParseError cleanly below
+                has_executable_val = True
+            if not has_executable_val:
+                return (
+                    "EVOLVE_REJECTED(validation_not_executed): `validationCode` only defined a `Def` method "
+                    "(which returns its symbol without executing an assertion). Pass an executable boolean "
+                    "expression ending in `!!`, e.g. `(transformAction(Actor[#Harness], \"COMPLETE: ok.\") <> nil) "
+                    "and (transformAction(Actor[#Harness], \"COMPLETE: cut,\") == nil)!!`."
+                )
 
         # 1. Snapshot baseline `AgentHarness` into Neo4j `:ActorEngram` before applying patch so rollback is always available
         if self.memory_graph is not None and self.memory_graph.enable_engrams:
@@ -2267,8 +3097,40 @@ class VMSandboxBridge:
         except Exception as exc:
             return f"EVOLVE_REJECTED(shadow_error): {type(exc).__name__}: {exc}"
 
-        if val_src and (val_res is False or val_res == 0 or str(val_res).startswith("ERROR")):
+        if val_src and (val_res is False or val_res == 0 or val_res is None or str(val_res).startswith("ERROR")):
             return f"EVOLVE_REJECTED(validation_failed): validation returned {val_res!r}"
+
+        # 2b. Ring-0 liveness invariant: a candidate `transformAction` patch must never
+        # silently drop valid VM actions or clean `COMPLETE:` replies (prevents self-bricking
+        # the harness into `Empty source chunk` loops).
+        if re.search(r"\bDef\s+transformAction\s*\(", patch_src):
+            for probe_label, probe_input in (
+                ("vm_action", "methodsOf(Actor[#VM], #String)!!"),
+                ("clean_complete", "COMPLETE: ok."),
+            ):
+                probe_script = f"{patch_src}\ntransformAction(Actor[#Harness], {json.dumps(probe_input)})!!"
+                try:
+                    probe_out = self.vm.eval_transactional(
+                        probe_script,
+                        max_opcodes=25000,
+                        shadow_only=True,
+                    )
+                except Exception as exc:
+                    return (
+                        f"EVOLVE_REJECTED(liveness_error): transformAction liveness probe "
+                        f"({probe_label}) raised {type(exc).__name__}: {exc}"
+                    )
+                if not isinstance(probe_out, str) or not probe_out.strip():
+                    return (
+                        "EVOLVE_REJECTED(liveness_failed): `transformAction` returned empty/nil "
+                        f"({probe_out!r}) for valid {probe_label} ({probe_input!r}). "
+                        "Refusing to commit a hook that would brick harness action execution."
+                    )
+                if probe_label == "vm_action" and "!!" not in probe_out and not probe_out.strip().upper().startswith("COMPLETE:"):
+                    return (
+                        "EVOLVE_REJECTED(liveness_failed): `transformAction` corrupted valid VM action "
+                        f"into non-executable output ({probe_out!r})."
+                    )
 
         # 3. Commit the verified `patch_src` to the live VM and refresh `harness_obj` method bindings
         try:
@@ -2318,8 +3180,24 @@ class VMSandboxBridge:
 
         parent_model = getattr(harness_obj, "model", "qwen3.8:latest") if isinstance(harness_obj, Agent) else "qwen3.8:latest"
         parent_endpoint = getattr(harness_obj, "endpoint", None) if isinstance(harness_obj, Agent) else None
+        parent_max_failures = (
+            int(harness_obj._fields.get("maxFailures", 5) or 5)
+            if isinstance(harness_obj, Agent) and hasattr(harness_obj, "_fields")
+            else 5
+        )
         ns = self.memory_graph.namespace if self.memory_graph is not None else "default"
         engrams_on = self.memory_graph.enable_engrams if self.memory_graph is not None else False
+
+        # Snapshot any evolved Ring-1 methods on parent `AgentHarness` before `bootstrap_agent_harness` reloads disk `.act`
+        parent_evolved_methods: Dict[str, Any] = {}
+        parent_cls = self.vm.hierarchy.get(getattr(harness_obj, "class_name", "AgentHarness") or "AgentHarness")
+        default_methods = getattr(harness_obj, "_default_harness_methods", {}) if harness_obj is not None else {}
+        if parent_cls is not None:
+            for m_sel, m_obj in getattr(parent_cls, "_class_methods", {}).items():
+                if m_sel in default_methods and m_obj is not default_methods[m_sel]:
+                    parent_evolved_methods[m_sel] = m_obj
+                elif getattr(m_obj, "synthesized", False):
+                    parent_evolved_methods[m_sel] = m_obj
 
         sub_max_steps = 4 if max_steps is None else int(max_steps)
         child_vm, child_harness, _ = bootstrap_agent_harness(
@@ -2328,25 +3206,44 @@ class VMSandboxBridge:
             model=parent_model,
             endpoint=parent_endpoint,
             max_steps=sub_max_steps,
-            max_failures=0,
+            max_failures=parent_max_failures,
             gas_limit=int(gas_limit or 25000),
             enable_memory_graph=(self.memory_graph is not None),
             enable_engrams=engrams_on,
             memory_namespace=ns,
         )
+        if parent_evolved_methods:
+            child_cls = child_vm.hierarchy.get("AgentHarness")
+            if child_cls is not None:
+                for m_sel, m_obj in parent_evolved_methods.items():
+                    child_cls.add_method(m_sel, m_obj)
+                    if isinstance(child_harness, ActorObject):
+                        child_harness.set_method(m_sel, m_obj)
         if isinstance(harness_obj, Agent) and getattr(harness_obj, "custom_provider", None) is not None:
             child_harness.custom_provider = harness_obj.custom_provider
 
-        policy_txt = str(policy_override or "").strip()
-        if policy_txt:
-            child_vm.eval_chunk(
-                f"now(AgentHarness)!!\nDef policyNote(self) {{ ^{policy_txt!r}; }}!!"
-            )
+        try:
+            policy_txt = str(policy_override or "").strip()
+            if policy_txt:
+                child_vm.eval_chunk(
+                    f"now(AgentHarness)!!\nDef policyNote(self) {{ ^{json.dumps(policy_txt)}; }}!!"
+                )
 
-        res = child_vm.eval_chunk(
-            f"runGoal(Actor[#Harness], {str(sub_goal)!r}, {sub_max_steps})!!"
-        )
-        return res
+            res = child_vm.eval_chunk(
+                f"runGoal(Actor[#Harness], {json.dumps(str(sub_goal))}, {sub_max_steps})!!"
+            )
+            return res
+        finally:
+            try:
+                child_threads = child_vm.global_vars.get("Actor", {}).get("Threads")
+                t_target = getattr(child_threads, "target", getattr(child_threads, "_target", child_threads))
+                if t_target is not None:
+                    if hasattr(t_target, "shutdown"):
+                        t_target.shutdown()
+                    elif hasattr(t_target, "_executor") and hasattr(t_target._executor, "shutdown"):
+                        t_target._executor.shutdown(wait=False)
+            except Exception:
+                pass
 
     @actor_command
     def checkpointImage(self, path: str = "ACTOR_HARNESS.IMG") -> str:
@@ -2472,12 +3369,14 @@ def bootstrap_agent_harness(
     pdf_py = PDFDocumentTwin()
     active_vm.expose_object(pdf_py, global_key="#PDF")
 
-    thermo_mac = os.environ.get("ACTORII_THERMO_MAC", "" if disable_demo else "00:11:22:33:44:55").strip()
-    thermo_label = "TP358S" if disable_demo else "TP358S (Demo)"
-    active_vm.eval_chunk(
-        f"Actor[#Thermometer] := new(ThermoProTwin, {thermo_mac!r}, {thermo_label!r})!!\n"
-        'Actor[#ThermoUI] := new(ThermometerUI, Actor[#Thermometer], "ThermoPro TP358W Digital Twin")!!'
-    )
+    thermo_mac_env = os.environ.get("ACTORII_THERMO_MAC", "").strip()
+    if not disable_demo or thermo_mac_env:
+        thermo_mac = thermo_mac_env or "00:11:22:33:44:55"
+        thermo_label = "TP358S" if disable_demo else "TP358S (Demo)"
+        active_vm.eval_chunk(
+            f"Actor[#Thermometer] := new(ThermoProTwin, {json.dumps(thermo_mac)}, {json.dumps(thermo_label)})!!\n"
+            'Actor[#ThermoUI] := new(ThermometerUI, Actor[#Thermometer], "ThermoPro TP358W Digital Twin")!!'
+        )
 
     oop_source = OOP_FOUNDATION_ACT_PATH.read_text(encoding="utf-8")
     active_vm.eval_chunk(oop_source)
@@ -2498,6 +3397,14 @@ def bootstrap_agent_harness(
     active_vm.eval_chunk(protocols_source)
     active_vm.eval_chunk("Actor[#Protocols] := initSuite(new(ProtocolSuite), Actor[#Net])!!")
 
+    net_topo_py = NetworkTopologyBridge(jetson_twin=jetson_py)
+    active_vm.expose_object(net_topo_py, global_key="#NetTopo")
+    net_topo_source = NETWORK_TOPOLOGY_ACT_PATH.read_text(encoding="utf-8")
+    active_vm.eval_chunk(net_topo_source)
+    active_vm.eval_chunk(
+        "Actor[#Network] := initTopology(new(NetworkTopology), Actor[#NetTopo], Actor[#Jetson], Actor[#Proxy])!!"
+    )
+
     act_source = HARNESS_ACT_PATH.read_text(encoding="utf-8")
     active_vm.eval_chunk(act_source)
 
@@ -2516,6 +3423,23 @@ def bootstrap_agent_harness(
         harness_obj._fields["chatLog"] = ActorOrderedCollection()
         if endpoint:
             harness_obj.endpoint = endpoint
+        harness_obj._default_harness_methods = dict(getattr(harness_obj, "_methods", {}))
+
+    # Attach Tier-0 `describe` reflection method onto every live twin/bridge in `Actor[...]`
+    # so `describe(Actor[#Name])!!` works on demand for any lazy-loaded twin.
+    actor_pool = active_vm.global_vars.get("Actor", {})
+    if isinstance(actor_pool, dict):
+        def _make_describe_handler(_sb: VMSandboxBridge, _key: str) -> Callable[..., str]:
+            def _desc(*_args: Any) -> str:
+                return _sb.describeBridge(_key)
+            setattr(_desc, "__actor_tier__", 0)
+            return _desc
+
+        for _k, _v in actor_pool.items():
+            _norm = _k.name if isinstance(_k, Symbol) else str(_k).lstrip("#")
+            if isinstance(_v, ActorObject) and not isinstance(_v, ActorClass):
+                if "describe" not in getattr(_v, "_methods", {}):
+                    _v.set_method("describe", _make_describe_handler(sandbox_py, _norm))
 
     if enable_guardrails:
         active_vm.lock_system_singletons = True
