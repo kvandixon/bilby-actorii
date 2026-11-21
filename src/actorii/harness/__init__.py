@@ -23,7 +23,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from actorii.ai import ValkyrieLLMClient
 from actorii.bridge import actor_bridge, actor_command, actor_query
 from actorii.classes.agent import Agent
-from actorii.classes.collections import ActorOrderedCollection
+from actorii.classes.collections import ActorArray, ActorOrderedCollection
 from actorii.classes.concurrency import ActorThreadPoolTwin
 from actorii.classes.dictionary import Dictionary
 from actorii.core import ActorClass, ActorObject, Symbol
@@ -34,6 +34,10 @@ from actorii.guardrails.linter import (
     ActorLinter,
     RiskTier,
 )
+from actorii.harness.active_planner import ActivePlannerBridge
+from actorii.harness.analogy_engine import AnalogyEngineBridge
+from actorii.harness.asp_solver import ASPSolverBridge
+from actorii.harness.wake_sleep import ConsolidatorBridge
 from actorii.harness.benchmark import BENCHMARK_TASKS, ActorBenchSuite
 from actorii.harness.grammar_graph import ActorGrammarGraph
 from actorii.harness.host_bridge import HostWorkspaceBridge, VMReflectionBridge, is_host_lockdown
@@ -231,6 +235,58 @@ _TWIN_SCHEMA_REGISTRY: Dict[str, Dict[str, Any]] = {
         "aliases": (),
         "keywords": ("hue", "light", "lights", "lamp", "bulb", "brightness", "scene"),
         "signature": "`Actor[#Hue]`: `summary(Actor[#Hue])!!`, `turnOn(...)!!`, `turnOff(...)!!`, `setBrightness(..., pct)!!`",
+    },
+    "Solver": {
+        "aliases": (),
+        "keywords": (
+            "constraint", "constraints", "schedule", "scheduling", "sat", "asp",
+            "clingo", "invariant", "invariants", "combinatorial", "dag",
+            "makespan", "muc", "unsat",
+        ),
+        "signature": (
+            "`Actor[#Solver]`: `solveProgram(Actor[#Solver], aspCode, maxModels, timeoutSec)!!`, "
+            "`verifyInvariants(..., factsAsp, rulesAsp, timeoutSec)!!`, "
+            "`solveDAGSchedule(..., tasksJson, maxParallel, timeoutSec)!!`, `describe(...)!!`"
+        ),
+    },
+    "Analogy": {
+        "aliases": (),
+        "keywords": (
+            "analogy", "analogies", "analogical", "isomorphic", "isomorphism",
+            "structural", "transfer", "causal", "schema", "sme", "gentner",
+            "candidate inference",
+        ),
+        "signature": (
+            "`Actor[#Analogy]`: `extractStructure(Actor[#Analogy], graphJson)!!`, "
+            "`alignGraphs(..., baseJson, targetJson)!!`, `findAnalogies(..., targetJson, limit)!!`, "
+            "`registerCausalGraph(..., name, nodesJson, edgesJson, domain)!!`, `describe(...)!!`"
+        ),
+    },
+    "Planner": {
+        "aliases": (),
+        "keywords": (
+            "plan", "planning", "branch", "counterfactual", "simulate",
+            "search", "tree", "epistemic", "uncertainty", "deadend",
+            "efe", "free energy", "mcts", "pomdp",
+        ),
+        "signature": (
+            "`Actor[#Planner]`: `computeEFE(Actor[#Planner], beliefJson, actionsJson)!!`, "
+            "`recommendMode(..., uncertainty, stepsRemaining, hasWrites)!!`, "
+            "`simulateBranches(..., candidatesJson, verifierChunk, maxBranches)!!`, "
+            "`recordDeadEnd(..., goal, actionSig, errorSig)!!`, `recallDeadEnds(..., goal, limit)!!`, `describe(...)!!`"
+        ),
+    },
+    "Consolidator": {
+        "aliases": (),
+        "keywords": (
+            "dream", "consolidat", "compress", "reflex", "engram", "sleep",
+            "egraph", "refactor", "wake-sleep", "stitch", "equivalence", "anti-unification",
+        ),
+        "signature": (
+            "`Actor[#Consolidator]`: `compressEpisodes(Actor[#Consolidator], episodesJson, minSupport, maxAbstractions)!!`, "
+            "`proveEquivalence(..., exprA, exprB)!!`, `registerReflex(..., name, pattern, actorSource, selfTest)!!`, "
+            "`matchReflex(..., goalOrPattern)!!`, `runConsolidationCycle(..., maxEpisodes, dryRun)!!`, `describe(...)!!`"
+        ),
     },
 }
 
@@ -812,11 +868,33 @@ class LLMBridge:
             if hydrated:
                 hydrated = _trim_engram_context(hydrated, max_chars=2800)
 
+            dead_ends_txt = ""
+            try:
+                planner_ref = self.vm.global_vars.get("Actor", {}).get("Planner")
+                planner_py = getattr(planner_ref, "_target", getattr(planner_ref, "target", planner_ref))
+                if planner_py is not None and hasattr(planner_py, "recallDeadEnds"):
+                    de_res = planner_py.recallDeadEnds(goal, 3)
+                    de_items = de_res.at(Symbol("deadEnds")) if isinstance(de_res, Dictionary) else None
+                    if de_items and len(de_items) > 0:
+                        de_lines = []
+                        for item in list(de_items)[:3]:
+                            if isinstance(item, Dictionary):
+                                act_s = str(item.at(Symbol("actionSig")) or "")[:80]
+                                err_s = str(item.at(Symbol("errorSig")) or "")[:80]
+                                if act_s:
+                                    de_lines.append(f"- Avoid `{act_s}` (failed: {err_s})")
+                        if de_lines:
+                            dead_ends_txt = "[KNOWN DEAD ENDS TO AVOID]:\n" + "\n".join(de_lines)
+            except Exception:
+                dead_ends_txt = ""
+
             init_lines: List[str] = []
             if policy_txt:
                 init_lines.append(f"[HARNESS RUNTIME POLICY OVERRIDE]:\n{policy_txt}")
             if hydrated:
                 init_lines.append(hydrated)
+            if dead_ends_txt:
+                init_lines.append(dead_ends_txt)
             if task_grammar:
                 init_lines.append(task_grammar)
             init_lines.append(f"LIVE POOL SUMMARY: {sandbox.poolSummary(goal)}")
@@ -1312,6 +1390,10 @@ class VMSandboxBridge:
             "Threads",
             "Thermometer",
             "ThermoUI",
+            "Solver",
+            "Analogy",
+            "Planner",
+            "Consolidator",
         }
         alias_to_canonical: Dict[str, str] = {}
         for c_name, meta in _TWIN_SCHEMA_REGISTRY.items():
@@ -1842,6 +1924,70 @@ class VMSandboxBridge:
         return (s[:3500] + "...'") if len(s) > 3500 else s
 
     @actor_command
+    def tryReflexShortcut(self, harness_obj: Any, goal_text: str) -> bool:
+        """Attempt a <1 ms, 0-token Reflex Engram shortcut before invoking the LLM.
+
+        Fires ONLY when `Actor[#Consolidator]` has a high-confidence promoted Reflex
+        (`score >= 0.90`) whose `actorSource` succeeds cleanly inside a `shadow_only=True`
+        transaction. Otherwise returns `False` so `runGoal` proceeds normally.
+        """
+        if not isinstance(harness_obj, Agent):
+            return False
+        goal = str(goal_text or "").strip()
+        if not goal:
+            return False
+        cons_ref = self.vm.global_vars.get("Actor", {}).get("Consolidator")
+        cons_py = getattr(cons_ref, "_target", getattr(cons_ref, "target", cons_ref))
+        if cons_py is None or not hasattr(cons_py, "matchReflex"):
+            return False
+        try:
+            match = cons_py.matchReflex(goal)
+            if not isinstance(match, Dictionary):
+                return False
+            if not bool(match.at(Symbol("matched"))):
+                return False
+            score = float(match.at(Symbol("score")) or 0.0)
+            actor_src = str(match.at(Symbol("actorSource")) or "").strip()
+            reflex_name = str(match.at(Symbol("name")) or "reflex")
+            if score < 0.90 or not actor_src:
+                return False
+            gas_limit = int(harness_obj._fields.get("gasLimit") or 100000)
+            result = self.vm.eval_transactional(actor_src, max_opcodes=gas_limit, shadow_only=True)
+            gas_used = int(getattr(self.vm, "last_opcodes_used", 0) or 0)
+            harness_obj._fields["stepCount"] = 1
+            harness_obj._fields["lastAction"] = actor_src
+            harness_obj._fields["lastResult"] = result
+            harness_obj._fields["lastError"] = ""
+            harness_obj._fields["totalGasUsed"] = int(harness_obj._fields.get("totalGasUsed") or 0) + gas_used
+            harness_obj._fields["status"] = Symbol("completed")
+            entry = {
+                "step": 1,
+                "action": actor_src,
+                "status": "ok",
+                "tier": "REFLEX_0TOK",
+                "reflex": reflex_name,
+                "gas_used": gas_used,
+                "result": result,
+                "timestamp": time.time(),
+            }
+            step_log = harness_obj._fields.get("stepLog")
+            if isinstance(step_log, ActorOrderedCollection):
+                step_log.add(entry)
+            chat_log = harness_obj._fields.get("chatLog")
+            if isinstance(chat_log, ActorOrderedCollection):
+                chat_log.add({
+                    "user": goal,
+                    "reply": str(result),
+                    "actions": [actor_src],
+                    "reflex": reflex_name,
+                    "timestamp": time.time(),
+                })
+            self._notify_step(entry)
+            return True
+        except Exception:
+            return False
+
+    @actor_command
     def recordHaltedTurn(self, harness_obj: Any = None, reason: str = "") -> str:
         """Persist a halted/blocked turn's actions and failure signals into `chatLog` so follow-up turns retain full context."""
         target = harness_obj or self.vm.global_vars.get("Actor", {}).get("Harness")
@@ -2120,7 +2266,27 @@ class VMSandboxBridge:
         err_ctx = getattr(target, "_fields", {}).get("lastErrorContext")
         ctx_line = ""
         method_src_hint = ""
+        muc_line = ""
+        muc_items: List[str] = []
+
         if isinstance(err_ctx, Dictionary):
+            raw_muc = (
+                err_ctx.at(Symbol("unsatCore"))
+                or err_ctx.at("unsatCore")
+                or err_ctx.at(Symbol("muc"))
+                or err_ctx.at("muc")
+            )
+            if not raw_muc:
+                lb = err_ctx.at(Symbol("localBindings")) or err_ctx.at("localBindings")
+                if isinstance(lb, Dictionary):
+                    raw_muc = lb.at(Symbol("unsatCore")) or lb.at("unsatCore") or lb.at(Symbol("muc")) or lb.at("muc")
+                elif isinstance(lb, dict):
+                    raw_muc = lb.get("unsatCore") or lb.get("muc")
+            if raw_muc is not None:
+                if isinstance(raw_muc, (ActorArray, list, tuple)):
+                    muc_items = [str(x) for x in raw_muc if str(x).strip()]
+                elif isinstance(raw_muc, str) and raw_muc.strip():
+                    muc_items = [raw_muc.strip()]
             ek = err_ctx.at(Symbol("errorKind")) or ""
             fc = err_ctx.at(Symbol("failedClass")) or ""
             fs = err_ctx.at(Symbol("failedSelector")) or ""
@@ -2136,11 +2302,57 @@ class VMSandboxBridge:
                         f" Auto-Repair Hint: Redefine `{fc}>>{fs}` via `now({fc})!! Def {fs}(...) {{ ... }}!!` "
                         f"and re-save the Engram (`persistEngram(Actor[#Memory], #{fc}, \"...\")!!`).\n"
                     )
+        elif isinstance(err_ctx, dict):
+            raw_muc = err_ctx.get("unsatCore") or err_ctx.get("muc")
+            if raw_muc is not None:
+                if isinstance(raw_muc, (ActorArray, list, tuple)):
+                    muc_items = [str(x) for x in raw_muc if str(x).strip()]
+                elif isinstance(raw_muc, str) and raw_muc.strip():
+                    muc_items = [raw_muc.strip()]
+
+        if not muc_items:
+            last_res = getattr(target, "_fields", {}).get("lastResult")
+            if isinstance(last_res, Dictionary):
+                lr_muc = last_res.at(Symbol("unsatCore")) or last_res.at("unsatCore")
+                if lr_muc and isinstance(lr_muc, (ActorArray, list, tuple)):
+                    muc_items = [str(x) for x in lr_muc if str(x).strip()]
+            elif isinstance(last_res, dict):
+                lr_muc = last_res.get("unsatCore")
+                if lr_muc and isinstance(lr_muc, (list, tuple, ActorArray)):
+                    muc_items = [str(x) for x in lr_muc if str(x).strip()]
+
+        if not muc_items and last_error:
+            m = re.search(
+                r"\b(?:unsatCore|unsat_core|MUC)[\s:=]+(\[[^\]]*\]|(?:[a-zA-Z0-9_:@-]+)(?:,\s*[a-zA-Z0-9_:@-]+)*)",
+                last_error,
+                re.IGNORECASE,
+            )
+            if m:
+                val = m.group(1).strip()
+                if val.startswith("[") and val.endswith("]"):
+                    try:
+                        parsed = json.loads(val.replace("'", '"'))
+                        if isinstance(parsed, list):
+                            muc_items = [str(x) for x in parsed if str(x).strip()]
+                    except Exception:
+                        muc_items = [val]
+                elif val:
+                    muc_items = [v.strip() for v in val.split(",") if v.strip()]
+
+        if muc_items:
+            muc_fmt = ", ".join(muc_items)
+            muc_line = (
+                f"Minimal Unsatisfiable Core (MUC): [{muc_fmt}]\n"
+                f"Conflict Resolution Hint: Invariant violation or constraint conflict detected in rules/assumptions: [{muc_fmt}]. "
+                "Modify or relax these conflicting constraints or remove the conflicting facts.\n"
+            )
+
         return (
             "[PREVIOUS STEP FAILED — SELF-CORRECT THIS ERROR]:\n"
             + (f"Previous failed code: `{prev_bad}`\n" if prev_bad else "")
             + f"Error: {last_error}\n"
             + ctx_line
+            + muc_line
             + method_src_hint
             + repeated_runtime_guard
             + (f"{diag}\n" if diag else "")
@@ -2464,6 +2676,17 @@ class VMSandboxBridge:
                 max_failures = 5 if raw_max_failures is None else int(raw_max_failures)
                 if dup_count >= 3 or (max_failures > 0 and failures >= max_failures):
                     harness_obj._fields["status"] = Symbol("blocked")
+                    try:
+                        planner_ref = self.vm.global_vars.get("Actor", {}).get("Planner")
+                        planner_py = getattr(planner_ref, "_target", getattr(planner_ref, "target", planner_ref))
+                        if planner_py is not None and hasattr(planner_py, "recordDeadEnd"):
+                            planner_py.recordDeadEnd(
+                                str(harness_obj._fields.get("goal", "") or ""),
+                                norm_chunk[:200],
+                                f"DuplicateStepWarning #{dup_count}",
+                            )
+                    except Exception:
+                        pass
                 prev_res = matched_prev.get("result")
                 scratch_str = self.formatScratchpad(harness_obj)
                 shell_exit_code = None
@@ -3369,6 +3592,25 @@ def bootstrap_agent_harness(
     pdf_py = PDFDocumentTwin()
     active_vm.expose_object(pdf_py, global_key="#PDF")
 
+    solver_py = ASPSolverBridge()
+    active_vm.expose_object(solver_py, global_key="#Solver")
+
+    analogy_py = AnalogyEngineBridge(namespace=memory_namespace)
+    active_vm.expose_object(analogy_py, global_key="#Analogy")
+
+    planner_py = ActivePlannerBridge(
+        vm=active_vm,
+        namespace=memory_namespace,
+        enable_neo4j=enable_memory_graph,
+    )
+    active_vm.expose_object(planner_py, global_key="#Planner")
+
+    consolidator_py = ConsolidatorBridge(
+        vm=active_vm,
+        namespace=memory_namespace or "default",
+    )
+    active_vm.expose_object(consolidator_py, global_key="#Consolidator")
+
     thermo_mac_env = os.environ.get("ACTORII_THERMO_MAC", "").strip()
     if not disable_demo or thermo_mac_env:
         thermo_mac = thermo_mac_env or "00:11:22:33:44:55"
@@ -3448,9 +3690,13 @@ def bootstrap_agent_harness(
 
 
 __all__ = [
+    "ActivePlannerBridge",
     "ActorBenchSuite",
     "ActorMemoryGraph",
+    "AnalogyEngineBridge",
+    "ASPSolverBridge",
     "BENCHMARK_TASKS",
+    "ConsolidatorBridge",
     "DEFAULT_HARNESS_SYSTEM_PROMPT",
     "HARNESS_ACT_PATH",
     "HARNESS_SYSTEM_PROMPT",

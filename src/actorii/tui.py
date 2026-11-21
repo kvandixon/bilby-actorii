@@ -1123,6 +1123,7 @@ class ActorTUISession:
                     "Threads", "Valkyrie", "System", "Hue", "Pantry",
                     "ReverseEngineer", "REA", "Telegram", "Proxy", "Jetson",
                     "Net", "PDF", "NetTopo",
+                    "Solver", "Analogy", "Planner", "Consolidator",
                 )
                 saved_bridges: Dict[str, Any] = {}
                 for b_key in bridge_keys:

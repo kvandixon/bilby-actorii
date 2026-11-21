@@ -3,7 +3,7 @@
     "title": "Bilby (ActorII) — Benchmark Scoreboard & Watchlist",
     "hardware": "valkyrie — NVIDIA RTX 5070 Ti (16 GB VRAM), Fedora Linux 44, DDR5-6000 / 32 GB RAM",
     "memory_stack": "Neo4j :ActorEpisode / :ActorEngram hybrid graph + bge-small-en-v1.5 (:8084, 0 MB GPU VRAM)",
-    "updated_at": "2026-11-18",
+    "updated_at": "2026-11-21",
     "latest_version": "v4.3.0"
   },
   "benchmarks": [
@@ -898,6 +898,147 @@
       "raw_ledger": "",
       "notes": "Canaries=[]; Frontier=['dag_task_scheduler']",
       "submetrics": {}
+    },
+    {
+      "run_id": "2026-11-21-redteam-containment-39",
+      "benchmark_id": "redteam-containment",
+      "date": "2026-11-21",
+      "harness_version": "v4.4.0",
+      "model": "qwen3.8:latest",
+      "passed": 6,
+      "total": 6,
+      "score_pct": 100.0,
+      "mode": "Standard Harness",
+      "raw_ledger": "archive/REDTEAM_CONTAINMENT_2026-11-21_v440.json",
+      "notes": "v4.4.0 clean-room sweep (Step-1 prompt trim, UnaryOp fix, Leaps #1-#3 cognitive bridges + autonomous hooks)",
+      "submetrics": {}
+    },
+    {
+      "run_id": "2026-11-21-humaneval-gsm8k-matrix-40",
+      "benchmark_id": "humaneval-gsm8k-matrix",
+      "date": "2026-11-21",
+      "harness_version": "v4.4.0",
+      "model": "qwen3.8:latest",
+      "passed": 20,
+      "total": 20,
+      "score_pct": 100.0,
+      "mode": "Standard Harness",
+      "raw_ledger": "archive/BENCHMARK_RESULTS_2026-11-21_v440.json",
+      "notes": "v4.4.0 clean-room sweep (Step-1 prompt trim, UnaryOp fix, Leaps #1-#3 cognitive bridges + autonomous hooks)",
+      "submetrics": {
+        "HumanEval": "12/12 (100.0%)",
+        "GSM8K": "8/8 (100.0%)"
+      }
+    },
+    {
+      "run_id": "2026-11-21-industry-8track-41",
+      "benchmark_id": "industry-8track",
+      "date": "2026-11-21",
+      "harness_version": "v4.4.0",
+      "model": "qwen3.8:latest",
+      "passed": 19,
+      "total": 22,
+      "score_pct": 86.36,
+      "mode": "Standard Harness",
+      "raw_ledger": "archive/INDUSTRY_8TRACK_2026-11-21_v440.json",
+      "notes": "v4.4.0 clean-room sweep (19/22 NEW ALL-TIME HIGH: SWE-Lite 4/6, BigCodeBench 3/4)",
+      "submetrics": {
+        "SWE-bench Lite": "4/6",
+        "OpenAI HumanEval": "2/2",
+        "Google Research MBPP": "2/2",
+        "OpenAI GSM8K": "2/2",
+        "QuixBugs": "2/2",
+        "AgentBench OS": "2/2",
+        "CruxEval": "2/2",
+        "BigCodeBench-Hard": "3/4"
+      }
+    },
+    {
+      "run_id": "2026-11-21-longmem-locomo-stratified-42",
+      "benchmark_id": "longmem-locomo-stratified",
+      "date": "2026-11-21",
+      "harness_version": "v4.4.0",
+      "model": "qwen3.8:latest",
+      "passed": 16,
+      "total": 17,
+      "score_pct": 94.12,
+      "mode": "Standard Harness",
+      "raw_ledger": "",
+      "notes": "v4.4.0 clean-room sweep (16/17 = 94.12%, avg 11.03s vs 8/17 Raw Compaction)",
+      "submetrics": {}
+    },
+    {
+      "run_id": "2026-11-21-self-evolution-loop-43",
+      "benchmark_id": "self-evolution-loop",
+      "date": "2026-11-21",
+      "harness_version": "v4.4.0",
+      "model": "qwen3.8:latest",
+      "passed": 4,
+      "total": 5,
+      "score_pct": 80.0,
+      "mode": "Standard Harness",
+      "raw_ledger": "",
+      "notes": "v4.4.0 live gate (4/4 blocking canaries 100% holdout, 0 errors, 1,932s, src_hash=c0c6dad66463)",
+      "submetrics": {}
+    },
+    {
+      "run_id": "2026-11-21-tb21-container-44",
+      "benchmark_id": "tb21-container",
+      "date": "2026-11-21",
+      "harness_version": "v4.4.0",
+      "model": "qwen3.8:latest",
+      "passed": 13,
+      "total": 15,
+      "score_pct": 86.67,
+      "mode": "Standard Harness",
+      "raw_ledger": "archive/TB21_5TASK_AVG3_2026-11-21_v440.json",
+      "notes": "v4.4.0 clean-room sweep",
+      "submetrics": {
+        "pass^3": "3/5 (60%)",
+        "pass@3": "5/5 (100%)",
+        "git-leak-recovery": "3/3",
+        "log-summary-date-ranges": "3/3",
+        "cancel-async-tasks": "2/3",
+        "fix-git": "3/3",
+        "multi-source-data-merger": "2/3"
+      },
+      "trials": 3
+    },
+    {
+      "run_id": "2026-11-21-tb21-hard-45",
+      "benchmark_id": "tb21-hard",
+      "date": "2026-11-21",
+      "harness_version": "v4.4.0",
+      "model": "qwen3.8:latest",
+      "passed": 0,
+      "total": 5,
+      "score_pct": 0.0,
+      "mode": "Standard Harness",
+      "raw_ledger": "archive/TB21_HARD_2026-11-21_v440.json",
+      "notes": "v4.4.0 clean-room sweep",
+      "submetrics": {}
+    },
+    {
+      "run_id": "2026-11-21-nextgen-postcutoff-46",
+      "benchmark_id": "nextgen-postcutoff",
+      "date": "2026-11-21",
+      "harness_version": "v4.4.0",
+      "model": "qwen3.8:latest",
+      "passed": 17,
+      "total": 27,
+      "score_pct": 62.96,
+      "mode": "Standard Harness",
+      "raw_ledger": "archive/NEXTGEN_AVG3_2026-11-21_v440.json",
+      "notes": "v4.4.0 clean-room sweep",
+      "submetrics": {
+        "pass^3": "4/9 (44%)",
+        "pass@3": "7/9 (78%)",
+        "Terminal-Bench 2.1": "6/9",
+        "SWE-bench-Live": "2/6",
+        "Aider Polyglot": "3/6",
+        "LiveCodeBench v6": "6/6"
+      },
+      "trials": 3
     }
   ],
   "release_comparison": {

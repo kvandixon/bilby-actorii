@@ -20,14 +20,14 @@ Running **100% locally on a single 16 GB consumer GPU** (NVIDIA RTX 5070 Ti) wit
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **LongMemEval (S Split)** | `Memory` | `500` | **`94.60% (473 / 500)`** | **`+0.48 pp` ▲** | `2026-11-07` |
 | **LoCoMo-10 (Full 5-Category Suite)** | `Memory` | `1,986` | **`77.34% (1,536 / 1,986)`** | — | `2026-11-07` |
-| **Terminal-Bench 2.1 (Container Subset)** | `Terminal & OS` | `5 (×3)` | **`80.00% avg@3 (12 / 15 trials)`** | `0.00 pp (held)` | `2026-11-14` |
-| **Terminal-Bench 2.1 (Hard Tier)** | `Terminal & OS` | `5` | **`0.00% (0 / 5)`** | `0.00 pp (held)` | `2026-11-14` |
-| **Industry 8-Track Suite** | `SWE & Coding` | `22` | **`81.82% (18 / 22)`** | **`+4.55 pp` ▲** | `2026-11-14` |
-| **Next-Gen Post-Cutoff Suite** | `SWE & Coding` | `9 (×3)` | **`59.26% avg@3 (16 / 27 trials)`** | `0.00 pp (held)` | `2026-11-14` |
-| **Red-Team Adversarial Containment Audit** | `Security` | `6` | **`100.00% (6 / 6 Blocked)`** | `0.00 pp (held)` | `2026-11-14` |
-| **HumanEval-12 + GSM8K-8 Local Model Matrix** | `SWE & Coding` | `20` | **`100.00% (20 / 20)`** | **`+15.00 pp` ▲** | `2026-11-14` |
-| **LongMemEval + LoCoMo (Stratified 17-Task)** | `Memory` | `17` | **`94.12% (16 / 17)`** | `0.00 pp (held)` | `2026-11-14` |
-| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `SWE & Coding` | `5` | **`0.00% (0 / 5)`** | `-80.00 pp` ▼ | `2026-11-18` |
+| **Terminal-Bench 2.1 (Container Subset)** | `Terminal & OS` | `5 (×3)` | **`86.67% avg@3 (13 / 15 trials)`** | **`+6.67 pp` ▲** | `2026-11-21` |
+| **Terminal-Bench 2.1 (Hard Tier)** | `Terminal & OS` | `5` | **`0.00% (0 / 5)`** | `0.00 pp (held)` | `2026-11-21` |
+| **Industry 8-Track Suite** | `SWE & Coding` | `22` | **`86.36% (19 / 22)`** | **`+4.54 pp` ▲** | `2026-11-21` |
+| **Next-Gen Post-Cutoff Suite** | `SWE & Coding` | `9 (×3)` | **`62.96% avg@3 (17 / 27 trials)`** | **`+3.70 pp` ▲** | `2026-11-21` |
+| **Red-Team Adversarial Containment Audit** | `Security` | `6` | **`100.00% (6 / 6 Blocked)`** | `0.00 pp (held)` | `2026-11-21` |
+| **HumanEval-12 + GSM8K-8 Local Model Matrix** | `SWE & Coding` | `20` | **`100.00% (20 / 20)`** | `0.00 pp (held)` | `2026-11-21` |
+| **LongMemEval + LoCoMo (Stratified 17-Task)** | `Memory` | `17` | **`94.12% (16 / 17)`** | `0.00 pp (held)` | `2026-11-21` |
+| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `SWE & Coding` | `5` | **`80.00% (4 / 5)`** | **`+80.00 pp` ▲** | `2026-11-21` |
 <!-- BENCHMARK_SCOREBOARD:END -->
 
 👉 **[Full details, run history & live HTML scoreboard (`benchmarks/BENCHMARK_RESULTS.md`)](benchmarks/BENCHMARK_RESULTS.md)**

@@ -23,7 +23,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends git file ca-cer
         scipy \
         cryptography \
         trafilatura \
-        duckduckgo-search
+        duckduckgo-search \
+        clingo \
+        networkx \
+        inferactively-pymdp \
+        stitch-core \
+        egglog
 
 COPY pyproject.toml README.md websocket_server.py browser_client.html index.html thermometer_surface.html actor_tui.py actor_telegram.py /app/
 COPY benchmarks/scoreboard.json benchmarks/scoreboard.html benchmarks/scoreboard.py /app/benchmarks/

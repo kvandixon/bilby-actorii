@@ -130,6 +130,10 @@ PROTECTED_SYSTEM_CLASSES: Set[str] = {
     "Channel",
     "Mutex",
     "AtomicCounter",
+    "ASPSolverBridge",
+    "AnalogyEngineBridge",
+    "ActivePlannerBridge",
+    "ConsolidatorBridge",
 }
 
 SYNTHESIZABLE_TWIN_CLASSES: Set[str] = {
@@ -177,6 +181,10 @@ PROTECTED_POOL_SINGLETONS: Set[str] = {
     "NetTopo",
     "Network",
     "Threads",
+    "Solver",
+    "Analogy",
+    "Planner",
+    "Consolidator",
 }
 
 
