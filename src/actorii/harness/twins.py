@@ -3421,9 +3421,26 @@ JETSON_FORBIDDEN_PATTERNS: Tuple[str, ...] = (
     "init 6",
     "iptables -f",
     "ufw reset",
+    "sudo",
+    "su",
+    "systemctl",
+    "crontab",
+    "apt ",
+    "apt-get ",
+    "dpkg ",
+    "passwd",
+    "usermod",
+    "useradd",
+    "userdel",
+    "/etc/shadow",
+    "/etc/sudoers",
+    "/home/kilog",
 )
 
-_JETSON_WORD_BOUNDARY_PATTERNS = frozenset({"halt", "reboot", "shutdown", "poweroff", "mkfs", "fdisk", "parted", "sfdisk"})
+_JETSON_WORD_BOUNDARY_PATTERNS = frozenset({
+    "halt", "reboot", "shutdown", "poweroff", "mkfs", "fdisk", "parted", "sfdisk",
+    "sudo", "su", "passwd", "systemctl", "crontab",
+})
 
 
 @actor_bridge(name="JetsonEdgeTwin")
@@ -3441,12 +3458,14 @@ class JetsonEdgeTwin:
         self._key_file = self._state_dir / "id_ed25519"
         self._known_hosts = self._state_dir / "known_hosts"
         self._last_scan_miss_ts: float = 0.0
+        self._offline_until_ts: float = 0.0
+        self._offline_ttl_s: float = 60.0
 
     def _load_cfg(self) -> Dict[str, Any]:
         default_cfg: Dict[str, Any] = {
-            "host": os.environ.get("ACTORII_JETSON_HOST", "192.168.68.60"),
+            "host": os.environ.get("ACTORII_JETSON_HOST", "192.168.68.57"),
             "mdns": os.environ.get("ACTORII_JETSON_MDNS", "jetson.local"),
-            "user": os.environ.get("ACTORII_JETSON_USER", "kilog"),
+            "user": os.environ.get("ACTORII_JETSON_USER", "bilby-edge"),
             "port": int(os.environ.get("ACTORII_JETSON_PORT", "22") or 22),
         }
         try:
@@ -3480,9 +3499,20 @@ class JetsonEdgeTwin:
     def _resolve_live_host(self, auto_discover: bool = True) -> Tuple[str, Dict[str, Any], Optional[str]]:
         cfg = self._load_cfg()
         port = int(cfg.get("port", 22) or 22)
-        cur_host = str(cfg.get("host", "192.168.68.60")).strip()
+        cur_host = str(cfg.get("host", "192.168.68.57")).strip()
+        now_m = time.monotonic()
+        # Fast graceful-degradation circuit breaker: if Jetson was recently confirmed offline,
+        # avoid burning multi-second LAN scans on every step until TTL expires.
+        if now_m < self._offline_until_ts:
+            banner_quick = self._probe_tcp_banner(cur_host, port=port, timeout=0.6)
+            if banner_quick:
+                self._offline_until_ts = 0.0
+                return cur_host, cfg, banner_quick
+            return cur_host, cfg, None
+
         banner = self._probe_tcp_banner(cur_host, port=port, timeout=1.4)
         if banner:
+            self._offline_until_ts = 0.0
             return cur_host, cfg, banner
 
         mdns_name = str(cfg.get("mdns", "jetson.local")).strip()
@@ -3492,6 +3522,7 @@ class JetsonEdgeTwin:
                 if resolved_ip and resolved_ip != cur_host:
                     b2 = self._probe_tcp_banner(resolved_ip, port=port, timeout=1.5)
                     if b2:
+                        self._offline_until_ts = 0.0
                         cfg["host"] = resolved_ip
                         self._save_cfg(cfg)
                         return resolved_ip, cfg, b2
@@ -3504,11 +3535,13 @@ class JetsonEdgeTwin:
                 found_ip, b3 = self._scan_for_jetson_ip(port=port)
                 if found_ip:
                     self._last_scan_miss_ts = 0.0
+                    self._offline_until_ts = 0.0
                     cfg["host"] = found_ip
                     self._save_cfg(cfg)
                     return found_ip, cfg, b3
                 self._last_scan_miss_ts = now
 
+        self._offline_until_ts = time.monotonic() + self._offline_ttl_s
         return cur_host, cfg, None
 
     def _scan_for_jetson_ip(self, port: int = 22) -> Tuple[Optional[str], Optional[str]]:
@@ -3551,7 +3584,7 @@ class JetsonEdgeTwin:
                 "stdout": "",
                 "stderr": "Local `ssh` client binary not installed.",
             }
-        user = str(cfg.get("user", "kilog")).strip() or "kilog"
+        user = str(cfg.get("user", "bilby-edge")).strip() or "bilby-edge"
         port = int(cfg.get("port", 22) or 22)
         argv = [
             ssh_bin,
@@ -3986,7 +4019,7 @@ class JetsonEdgeTwin:
             f"cat -- {q_path}"
         )
 
-        user = str(cfg.get("user", "kilog")).strip() or "kilog"
+        user = str(cfg.get("user", "bilby-edge")).strip() or "bilby-edge"
         port = int(cfg.get("port", 22) or 22)
         argv = [
             ssh_bin,
@@ -4257,6 +4290,92 @@ class JetsonEdgeTwin:
                 "stderr": str(raw.get("stderr") or ""),
             }
         )
+
+    # ------------------------------------------------------------------
+    # Jetson Local Edge ActorII Agent (`JetsonBilby` on :8095 + 1.5B LLM)
+    # ------------------------------------------------------------------
+
+    def _edge_agent_base_url(self) -> Tuple[Optional[str], str]:
+        host, _cfg, banner = self._resolve_live_host(auto_discover=True)
+        port = int(os.environ.get("ACTORII_JETSON_AGENT_PORT", "8095") or 8095)
+        if banner is None:
+            return None, host
+        return f"http://{host}:{port}", host
+
+    @actor_query
+    def edgeHealth(self) -> Any:
+        """Query the Jetson's local `JetsonBilby` ActorII + 1.5B LLM edge daemon (`/health` on `:8095`)."""
+        base, host = self._edge_agent_base_url()
+        if base is None:
+            return _to_actor_dict({
+                "ok": False,
+                "offline": True,
+                "host": host,
+                "error": f"Jetson {host} is offline (degraded gracefully; non-critical edge node).",
+            })
+        url = f"{base}/health"
+        try:
+            with urllib.request.urlopen(url, timeout=4.0) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            return _to_actor_dict(data if isinstance(data, dict) else {"ok": True, "raw": str(data)})
+        except Exception as exc:
+            return _to_actor_dict({"ok": False, "offline": True, "url": url, "error": f"{type(exc).__name__}: {exc}"})
+
+    @actor_command
+    def edgeAsk(self, goal: str, max_steps: int = 4, mode: str = "direct") -> Any:
+        """Delegate a local Jetson task/query to the Jetson's own `JetsonBilby` ActorII + Qwen2.5-1.5B edge agent (`:8095/ask`)."""
+        base, host = self._edge_agent_base_url()
+        if base is None:
+            return _to_actor_dict({
+                "ok": False,
+                "offline": True,
+                "host": host,
+                "error": f"Jetson {host} is offline (degraded gracefully; use Actor[#Coder] or Actor[#Ops] on valkyrie).",
+            })
+        url = f"{base}/ask"
+        payload = {
+            "goal": str(goal or "").strip(),
+            "max_steps": max(1, min(6, int(max_steps or 4))),
+            "mode": str(mode or "direct").strip().lower(),
+        }
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=120.0) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            return _to_actor_dict(data if isinstance(data, dict) else {"ok": True, "reply": str(data)})
+        except Exception as exc:
+            return _to_actor_dict({"ok": False, "offline": True, "url": url, "error": f"{type(exc).__name__}: {exc}"})
+
+    @actor_command
+    def edgeEval(self, actor_chunk: str) -> Any:
+        """Evaluate a guarded 1993 Actor 4.1 expression directly on the Jetson's local `ActorVM` (`:8095/eval`)."""
+        base, host = self._edge_agent_base_url()
+        if base is None:
+            return _to_actor_dict({
+                "ok": False,
+                "offline": True,
+                "host": host,
+                "error": f"Jetson {host} is offline (degraded gracefully).",
+            })
+        url = f"{base}/eval"
+        payload = {"chunk": str(actor_chunk or "").strip()}
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30.0) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="replace"))
+            return _to_actor_dict(data if isinstance(data, dict) else {"ok": True, "result": str(data)})
+        except Exception as exc:
+            return _to_actor_dict({"ok": False, "url": url, "error": f"{type(exc).__name__}: {exc}"})
 
 
 # =============================================================================

@@ -36,7 +36,9 @@ from actorii.guardrails.linter import (
 )
 from actorii.harness.active_planner import ActivePlannerBridge
 from actorii.harness.analogy_engine import AnalogyEngineBridge
+from actorii.harness.ansible_ops import AnsibleOpsBridge
 from actorii.harness.asp_solver import ASPSolverBridge
+from actorii.harness.local_coder import LocalCoderBridge
 from actorii.harness.wake_sleep import ConsolidatorBridge
 from actorii.harness.benchmark import BENCHMARK_TASKS, ActorBenchSuite
 from actorii.harness.grammar_graph import ActorGrammarGraph
@@ -74,11 +76,11 @@ DEFAULT_HARNESS_SYSTEM_PROMPT = (
     "- `Actor[#Memory]`: `graphSchema`, `cypherQuery`, `cypherQueryWith`, `cypherWrite`, `recallEpisodes`, `persistEngram`, `rollbackEngram`.\n"
     "- `Actor[#Grammar]`: `diagnoseError`, `queryConstructsForTask`.\n"
     "- `Actor[#VM]` & `Actor[#Sandbox]`: `classes(Actor[#VM])!!`, `methodsOf(Actor[#VM], #Cls)!!`, `sourceOf(Actor[#VM], #Cls, #sel)!!`, `capabilities(Actor[#Sandbox])!!`, `describe(Actor[#Twin])!!` (call `describe(Actor[#Name])!!` on any live twin for its full method signatures).\n"
-    "SECURITY & OUTPUT GUARDRAILS:\n"
-    "- Ring 0/1 classes, `AgentHarness` kernel methods, and `Actor[...]` singletons are locked (`AgentHarness` cognitive hooks `policyNote`, `transformAction`, `verifyOutcome`, `buildStepPrompt` are safely hot-patchable via `evolve(Actor[#Harness], ...)`). Never stop/disable OS/network/DNS/VPN/desktop services, touch `/etc/resolv.conf` or crontabs, or modify `~/bin/` or `ActorII/src/`.\n"
-    "- MANDATORY SKIPPY PRE-FLIGHT MONITOR: Before spawning detached `Actor[#Threads]` tasks, hot-patching `AgentHarness` hooks (`evolve`), or bulk-mutating `:ActorEpisode`/`:ActorEngram` memory (`DELETE` on core memory labels is blocked—use `SET e.archived = true`), first call `askSkippy(Actor[#Valkyrie], \"PREFLIGHT MONITOR: <code & rollback plan>\")!!` in the current turn.\n"
-    "- Casual questions: reply in 1 step (`COMPLETE: <answer>`). Structured domain facts/formulas: persist via `cypherWrite` + Actor class (`:ActorEngram`).\n"
-    "- Output ONLY raw 1993 Actor 4.1 ending in `!!` OR `COMPLETE: <answer>`. Never emit `<tool_call>` XML wrappers or markdown fences around Actor code."
+    "SECURITY & OPERATING POSTURE:\n"
+    "- Ring 0/1 kernel methods and `Actor[...]` singletons are VM-locked (`evolve(Actor[#Harness], ...)` shadow-tests and auto-versions cognitive hooks with instant rollback). Never touch OS/network/DNS/VPN/desktop services, `/etc/resolv.conf`, crontabs, `~/bin/`, or `ActorII/src/`.\n"
+    "- TRY-FAIL-LEARN: Your Ring-0 sandbox protects the host—bias toward fast trials (`dryRun`, `/tmp`, `evolve`, `Actor[#Coder]`), fail cheaply, and iterate. Only detached `Actor[#Threads]` (no `await`) or bulk `:ActorEpisode`/`:ActorEngram` writes need `askSkippy` preflight (`DELETE` is blocked—use `SET e.archived = true`).\n"
+    "- FAST PIVOT: Casual chat -> `COMPLETE:` in 1 step. Missing twin/sensor after 1 check -> stop hunting and say so. Persist structured domain facts via `cypherWrite` + `:ActorEngram`.\n"
+    "- Output ONLY raw 1993 Actor 4.1 ending in `!!` OR `COMPLETE: <answer>`. No `<tool_call>` XML or markdown fences around Actor code."
 )
 
 _OOP_BASE_CLASSES_SCHEMA = (
@@ -109,9 +111,11 @@ _TWIN_SCHEMA_REGISTRY: Dict[str, Dict[str, Any]] = {
             "192.168.", "l4t", "tegra", "gst", "gstreamer", "v4l2", "deploy",
         ),
         "signature": (
-            "`Actor[#Jetson]`: `summary(Actor[#Jetson])!!`, `telemetry(...)!!`, `discover(...)!!`, `scanLan(...)!!`, "
-            "`setHost(..., ip)!!`, `cameraStatus(...)!!`, `exec(..., cmd, 20)!!`, "
-            "`writeFile(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(..., \"/tmp/code.cu\", \"\"\"...\"\"\", 45)!!` (.sh/.py/.cu/.cpp/.c), "
+            "`Actor[#Jetson]` (sandboxed `bilby-edge` user + local `JetsonBilby` ActorII/1.5B edge agent on `:8095`): "
+            "`summary(Actor[#Jetson])!!`, `edgeHealth(Actor[#Jetson])!!`, "
+            "`edgeAsk(..., goal, maxSteps, \"direct\"|\"harness\")!!`, `edgeEval(..., \"expr!!\")!!`, "
+            "`telemetry(...)!!`, `discover(...)!!`, `cameraStatus(...)!!`, `exec(..., cmd, 20)!!`, "
+            "`writeFile(..., \"/home/bilby-edge/workspace/code.py\", \"\"\"...\"\"\", 20)!!`, `writeAndRun(..., path, src, 45)!!`, "
             "`deployService(..., name, workDir, startCmd, port, 25)!!`, `serviceStatus(..., name, 25)!!`, `stopService(..., name)!!`, `pullFile(..., remotePath, localName, 30)!!`"
         ),
     },
@@ -286,6 +290,39 @@ _TWIN_SCHEMA_REGISTRY: Dict[str, Dict[str, Any]] = {
             "`Actor[#Consolidator]`: `compressEpisodes(Actor[#Consolidator], episodesJson, minSupport, maxAbstractions)!!`, "
             "`proveEquivalence(..., exprA, exprB)!!`, `registerReflex(..., name, pattern, actorSource, selfTest)!!`, "
             "`matchReflex(..., goalOrPattern)!!`, `runConsolidationCycle(..., maxEpisodes, dryRun)!!`, `describe(...)!!`"
+        ),
+    },
+    "Coder": {
+        "aliases": (),
+        "keywords": (
+            "code", "coding", "bug", "debug", "fix", "patch", "review", "refactor",
+            "error", "exception", "traceback", "crash", "freeze", "broken", "syntax",
+            "javascript", "js", "html", "css", "python", "rust", "c++", "cuda", "game",
+            "script", "function", "test", "pytest", "coder", "assistant",
+        ),
+        "signature": (
+            "`Actor[#Coder]` (local 0-VRAM CPU coding partner — consult BEFORE `askSkippy` for code/debug help): "
+            "`reviewCode(Actor[#Coder], code, focus, deepThink)!!`, "
+            "`diagnoseBug(Actor[#Coder], code, errorOrSymptom, deepThink)!!`, "
+            "`suggestPatch(Actor[#Coder], code, goal, deepThink)!!`, "
+            "`askCoder(Actor[#Coder], question, deepThink)!!`, `health(Actor[#Coder])!!`, `describe(...)!!`"
+        ),
+    },
+    "Ops": {
+        "aliases": (),
+        "keywords": (
+            "log", "logs", "journal", "journalctl", "ansible", "playbook", "backup",
+            "service", "systemd", "facts", "host", "hosts", "sysadmin", "troubleshoot",
+            "httpcheck", "healthcheck", "cleanup", "valkyrie", "jetson", "ops",
+        ),
+        "signature": (
+            "`Actor[#Ops]` (OS-agnostic guarded host ops & Ansible): "
+            "`listHosts(Actor[#Ops])!!`, `hostFacts(Actor[#Ops], \"valkyrie\"|\"jetson\")!!`, "
+            "`readLogs(Actor[#Ops], host, unit, lines, since, userScope)!!`, "
+            "`serviceStatus(Actor[#Ops], host, service, userScope)!!`, "
+            "`httpCheck(Actor[#Ops], url, timeoutSec)!!`, `listPlaybooks(Actor[#Ops])!!`, "
+            "`planPlaybook(Actor[#Ops], playbook, host, varsJson)!!` (--check --diff -> planToken), "
+            "`applyPlaybook(Actor[#Ops], playbook, host, varsJson, planToken)!!`, `describe(...)!!`"
         ),
     },
 }
@@ -733,6 +770,29 @@ def extract_actor_action(raw_text: str) -> str:
     return code_part
 
 
+_INCOMPLETE_THOUGHT_RE = re.compile(
+    r"(?:\b(?:let me|let's|i will|i'll|i need to|i just need to|i am going to|i'm going to|"
+    r"now i'll|next i'll|first,?\s+i'll|going to check|going to inspect)\b|"
+    r"(?:^|[.!?]\s+)(?:checking|inspecting|reading|running|testing|verifying|looking|searching|"
+    r"writing|building|creating|calling|querying|trying)\b)",
+    flags=re.IGNORECASE,
+)
+
+
+def _is_incomplete_thought_prose(cleaned_check: str) -> bool:
+    """Detect mid-turn thinking-out-loud prose (e.g. 'Checking what primitives exist:') that forgot to emit Actor code."""
+    s = str(cleaned_check or "").strip()
+    if not s or len(s) >= 650:
+        return False
+    if re.search(r"\bCOMPLETE\s*:", s, flags=re.IGNORECASE):
+        return False
+    if _is_likely_actor_code(s):
+        return False
+    if s.endswith(":"):
+        return True
+    return bool(_INCOMPLETE_THOUGHT_RE.search(s))
+
+
 @actor_bridge(name="LLMBridge")
 class LLMBridge:
     """First-class raw LLM completion primitive exposed in Actor bytecode as `Actor[#LLM]`."""
@@ -1056,19 +1116,7 @@ class LLMBridge:
                     cleaned_check = _strip_leading_prose_before_code(
                         _unwrap_xml_tool_call(str(raw_reply or "").strip())
                     )
-                    is_incomplete_thought = (
-                        bool(cleaned_check)
-                        and len(cleaned_check) < 350
-                        and not re.search(r"\bCOMPLETE\s*:", cleaned_check, flags=re.IGNORECASE)
-                        and not _is_likely_actor_code(cleaned_check)
-                        and bool(
-                            re.search(
-                                r"\b(?:let me|let's|i will|i'll|i need to)\b",
-                                cleaned_check,
-                                flags=re.IGNORECASE,
-                            )
-                        )
-                    )
+                    is_incomplete_thought = _is_incomplete_thought_prose(cleaned_check)
                     if is_incomplete_thought:
                         cont_msgs = [
                             *messages,
@@ -1118,18 +1166,8 @@ class LLMBridge:
                         _unwrap_xml_tool_call(str(raw_reply or "").strip())
                     )
                     is_incomplete_thought = (
-                        bool(cleaned_check)
-                        and len(cleaned_check) < 350
-                        and not str(raw_reply).startswith(f"[{harness_obj.name} ({harness_obj.class_name})] Processed:")
-                        and not re.search(r"\bCOMPLETE\s*:", cleaned_check, flags=re.IGNORECASE)
-                        and not _is_likely_actor_code(cleaned_check)
-                        and bool(
-                            re.search(
-                                r"\b(?:let me|let's|i will|i'll|i need to)\b",
-                                cleaned_check,
-                                flags=re.IGNORECASE,
-                            )
-                        )
+                        not str(raw_reply).startswith(f"[{harness_obj.name} ({harness_obj.class_name})] Processed:")
+                        and _is_incomplete_thought_prose(cleaned_check)
                     )
                     if is_incomplete_thought:
                         harness_obj.clearHistory()
@@ -1394,6 +1432,8 @@ class VMSandboxBridge:
             "Analogy",
             "Planner",
             "Consolidator",
+            "Coder",
+            "Ops",
         }
         alias_to_canonical: Dict[str, str] = {}
         for c_name, meta in _TWIN_SCHEMA_REGISTRY.items():
@@ -2027,15 +2067,17 @@ class VMSandboxBridge:
                 acts = t.get("actions") or []
                 compact_acts: List[str] = []
 
-                def _fmt_act(raw_a: Any) -> str:
+                def _fmt_act(raw_a: Any, is_latest: bool = False) -> str:
                     a_s = " ".join(str(raw_a).splitlines()).strip()
-                    return (a_s[:175] + "... !!") if len(a_s) > 200 else a_s
+                    limit = 420 if (is_latest or "askSkippy(" in a_s) else 200
+                    return (a_s[: limit - 25] + "... !!") if len(a_s) > limit else a_s
 
+                is_latest_turn = t is recent_turns[-1]
                 if len(acts) <= 6:
-                    compact_acts = [_fmt_act(a) for a in acts]
+                    compact_acts = [_fmt_act(a, is_latest=is_latest_turn) for a in acts]
                 else:
-                    head_acts = [_fmt_act(a) for a in acts[:2]]
-                    tail_acts = [_fmt_act(a) for a in acts[-4:]]
+                    head_acts = [_fmt_act(a, is_latest=is_latest_turn) for a in acts[:2]]
+                    tail_acts = [_fmt_act(a, is_latest=is_latest_turn) for a in acts[-4:]]
                     compact_acts = head_acts + [f"... (+{len(acts) - 6} middle steps) ..."] + tail_acts
                 act_str = f" | Executed: `{' ; '.join(compact_acts)}`" if compact_acts else ""
                 fails = t.get("failed_signals") or []
@@ -2377,7 +2419,11 @@ class VMSandboxBridge:
             lines.append(
                 "3. Workspace `/workspace` (`Actor[#Host]`): `searchFile`, `readFile`, `editFile`, `writeFile`, `execShell(Actor[#Host], \"python3 -m pytest -q\", 15)!!`. Inspect file schemas (`head -n 5`) before parsing."
             )
-        lines.append("4. Once verified in `LAST RESULT` or scratchpad, reply `COMPLETE: <concise answer>`.")
+        lines.append(
+            "4. Once verified in `LAST RESULT` or scratchpad, reply `COMPLETE: <concise answer>`. "
+            "Never invent numbers if a query returns `nil`/`None` or fails (`cypherQuery` returns an `Array` of `Dictionary` rows: use `rows[0][#col]`); "
+            "for meta-questions about your prior turn, answer directly with `COMPLETE:` from `CONVERSATION HISTORY` without re-executing the prior tool."
+        )
         return "\n".join(lines)
 
     @actor_query
@@ -2548,13 +2594,11 @@ class VMSandboxBridge:
         stripped_chunk = _strip_actor_comments_and_strings(chunk_src or "")
         risk_kind = ""
         risk_pos: Optional[int] = None
-        m_hm = self._HARNESS_MUTATION_RE.search(stripped_chunk)
+        # Note: `evolve(Actor[#Harness], ...)` is already protected by Ring-0 CoW shadow-testing,
+        # Tier-2 call blocking, and `:ActorEngramVersion` rollback — no Skippy preflight needed.
         m_dt = self._DETACHED_THREAD_SPAWN_RE.search(stripped_chunk)
         m_lm = self._LIVE_MEMORY_BULK_MUTATION_RE.search(chunk_src or "")
-        if m_hm:
-            risk_kind = "hot-patching `AgentHarness` cognitive hooks (`evolve` / `now(AgentHarness)`)"
-            risk_pos = m_hm.start()
-        elif m_dt and "await(" not in stripped_chunk and "awaitAll(" not in stripped_chunk:
+        if m_dt and "await(" not in stripped_chunk and "awaitAll(" not in stripped_chunk:
             risk_kind = "spawning a detached background task on `Actor[#Threads]` without `await(...)`"
             risk_pos = m_dt.start()
         elif m_lm:
@@ -3611,6 +3655,12 @@ def bootstrap_agent_harness(
     )
     active_vm.expose_object(consolidator_py, global_key="#Consolidator")
 
+    coder_py = LocalCoderBridge()
+    active_vm.expose_object(coder_py, global_key="#Coder")
+
+    ops_py = AnsibleOpsBridge()
+    active_vm.expose_object(ops_py, global_key="#Ops")
+
     thermo_mac_env = os.environ.get("ACTORII_THERMO_MAC", "").strip()
     if not disable_demo or thermo_mac_env:
         thermo_mac = thermo_mac_env or "00:11:22:33:44:55"
@@ -3694,12 +3744,14 @@ __all__ = [
     "ActorBenchSuite",
     "ActorMemoryGraph",
     "AnalogyEngineBridge",
+    "AnsibleOpsBridge",
     "ASPSolverBridge",
     "BENCHMARK_TASKS",
     "ConsolidatorBridge",
     "DEFAULT_HARNESS_SYSTEM_PROMPT",
     "HARNESS_ACT_PATH",
     "HARNESS_SYSTEM_PROMPT",
+    "LocalCoderBridge",
     "VMSandboxBridge",
     "bootstrap_agent_harness",
     "extract_actor_action",

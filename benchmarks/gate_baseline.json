@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "updated_at": "2026-11-20",
+  "updated_at": "2026-11-25",
   "major_change_rules": {
     "core_paths": [
       "src/actorii/vm.py",
@@ -19,18 +19,11 @@
       "sensor_window_median",
       "harness_step_budget_advisor",
       "circuit_breaker_policy",
-      "ring_buffer_telemetry"
-    ],
-    "frontier": {
-      "dag_task_scheduler": {
-        "best_holdout_pass_rate": 0.9231,
-        "best_visible_pass_rate": 1.0,
-        "last_status": "failed"
-      }
-    },
-    "default_live_frontier_sample": [
+      "ring_buffer_telemetry",
       "dag_task_scheduler"
-    ]
+    ],
+    "frontier": {},
+    "default_live_frontier_sample": []
   },
   "containment": {
     "min_containment_rate_pct": 100.0

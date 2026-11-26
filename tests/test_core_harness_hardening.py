@@ -192,17 +192,17 @@ def test_skippy_preflight_blocks_comment_and_string_bypass(monkeypatch: pytest.M
     monkeypatch.setenv("ACTORII_ENFORCE_SKIPPY_PREFLIGHT", "1")
     vm, harness, sandbox = bootstrap_agent_harness(enable_memory_graph=False)
 
-    # Comment mentioning askSkippy must NOT bypass preflight!
+    # Comment mentioning askSkippy must NOT bypass preflight on detached thread spawn!
     reason1 = sandbox._check_skippy_preflight_required(
         harness,
-        '/* askSkippy */ evolve(Actor[#Harness], "Def policyNote(self) { ^\\"x\\"; }!!", "")!!',
+        '/* askSkippy */ spawnChunk(Actor[#Threads], "1 + 1!!", 5000)!!',
     )
     assert reason1 is not None and "SKIPPY_PREFLIGHT_REQUIRED" in reason1
 
-    # String literal mentioning askSkippy must NOT bypass preflight!
+    # String literal mentioning askSkippy must NOT bypass preflight on detached thread spawn!
     reason2 = sandbox._check_skippy_preflight_required(
         harness,
-        'evolve(Actor[#Harness], "Def policyNote(self) { ^\\"askSkippy\\"; }!!", "")!!',
+        'spawnChunk(Actor[#Threads], "/* askSkippy */ 1 + 1!!", 5000)!!',
     )
     assert reason2 is not None and "SKIPPY_PREFLIGHT_REQUIRED" in reason2
 
@@ -211,13 +211,13 @@ def test_skippy_preflight_blocks_comment_and_string_bypass(monkeypatch: pytest.M
         {
             "step": 1,
             "status": "ok",
-            "action": 'askSkippy(Actor[#Valkyrie], "PREFLIGHT MONITOR: safe evolve")!!',
+            "action": 'askSkippy(Actor[#Valkyrie], "PREFLIGHT MONITOR: safe detached worker")!!',
             "result": "APPROVED",
         }
     )
     reason3 = sandbox._check_skippy_preflight_required(
         harness,
-        'evolve(Actor[#Harness], "Def policyNote(self) { ^\\"x\\"; }!!", "")!!',
+        'spawnChunk(Actor[#Threads], "1 + 1!!", 5000)!!',
     )
     assert reason3 is None
 
@@ -379,3 +379,23 @@ def test_disable_demo_twins_skips_thermometer_ble_scan_on_boot(monkeypatch: pyte
     assert "ThermoUI" not in actor_pool
     assert elapsed < 3.0, f"VM boot took {elapsed:.2f}s (expected <3s without BLE scan)"
 
+
+
+def test_incomplete_thought_prose_detector_catches_dangling_colon_and_narration():
+    from actorii.harness import _is_incomplete_thought_prose
+
+    # Exact Bilby Step-16 Asteroids dead response must be caught
+    bilby_dead = (
+        "`exposeLanPort` correctly refuses to bridge valkyrie→itself. The phone is already on "
+        "the same LAN (`192.168.68.0/16` is in the proxy's allowed CIDRs), so I just need a "
+        "local HTTP server bound to `0.0.0.0`. Checking what serving primitives exist on the "
+        "available twins before trying anything:"
+    )
+    assert _is_incomplete_thought_prose(bilby_dead) is True
+    assert _is_incomplete_thought_prose("Checking the file contents now.") is True
+    assert _is_incomplete_thought_prose("Next I'll inspect the logs:") is True
+
+    # Normal conversational answers, COMPLETE: replies, and Actor code must NOT trigger
+    assert _is_incomplete_thought_prose("Absolutely! I'm all ears. What's the fun idea?") is False
+    assert _is_incomplete_thought_prose("COMPLETE: Checking done — game is ready.") is False
+    assert _is_incomplete_thought_prose("describe(Actor[#Proxy])!!") is False

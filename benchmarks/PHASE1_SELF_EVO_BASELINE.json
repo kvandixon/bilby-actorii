@@ -1,0 +1,584 @@
+{
+  "benchmark": "actorii-bilby-self-evolution",
+  "mode": "live",
+  "model": "qwen3.8:latest",
+  "endpoint": "http://127.0.0.1:8080/v1",
+  "temperature": 0.0,
+  "seed": 42,
+  "persistence_backend": "fileout",
+  "timestamp": "2026-11-25T01:32:57-0500",
+  "specs": [
+    {
+      "spec_id": "sensor_window_median",
+      "name": "Hot-add `median` to a live SensorWindow class",
+      "difficulty": "tier1_method",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "failed",
+      "passed": false,
+      "pass_at_1": false,
+      "pass_at_g": false,
+      "max_generations": 3,
+      "generations_used": 3,
+      "steps_used": 24,
+      "gas_used": 27105,
+      "visible_pass_rate": 0.3333,
+      "holdout_pass_rate": 0.75,
+      "persistence_required": true,
+      "persistence_verified": false,
+      "baseline": {
+        "visible_passed": 1,
+        "visible_total": 3,
+        "holdout_passed": 1,
+        "holdout_total": 8
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 1,
+      "latency_s": 1212.905,
+      "final_source": "/* =========================================================================\n * FILE-OUT: SensorWindow.act\n * Auto-exported from live ActorII Image Hierarchy\n * Superclass: Object | Instance Variables (1): ['vals']\n * ========================================================================= */\n\ninherit(Object, #SensorWindow, #(#vals), 1, nil)!!\n\nnow(SensorWindow)!!\n\n/* Method: SensorWindow>>init [Compiled | RiskTier=1] */\nDef init(self) { self.vals := new(OrderedCollection); ^self; }!!\n\n/* Method: SensorWindow>>median [Compiled | RiskTier=1] */\nDef median(self | n, i, j, tmp, sorted, mid, a, b) {\n  n := size(self.vals);\n  if (n == 0) then ^nil; endif;\n  sorted := new(Array, n);\n  i := 0;\n  loop while (i < n) begin\n    sorted[i] := at(self.vals, i);\n    i := i + 1;\n  endLoop;\n  i := 1;\n  loop while (i < n) begin\n    tmp := sorted[i];\n    j := i;\n    loop while (j > 0) begin\n      if (sorted[j-1] > tmp) then\n        sorted[j] := sorted[j-1];\n        j := j - 1;\n      else\n        j := 0;\n      endif;\n    endLoop;\n    sorted[j] := tmp;\n    i := i + 1;\n  endLoop;\n  if (n % 2 == 1) then\n    mid := n / 2;\n    ^sorted[mid];\n  else\n    mid := n / 2;\n    a := sorted[mid - 1];\n    b := sorted[mid];\n    ^(a + b) / 2;\n  endif;\n}!!\n\n/* Method: SensorWindow>>readingCount [Compiled | RiskTier=0] */\nDef readingCount(self) { ^size(self.vals); }!!\n\n/* Method: SensorWindow>>record [Compiled | RiskTier=2] */\nDef record(self, v) { add(self.vals, v); ^self; }!!\n\n/* Method: SensorWindow>>valueAt [Compiled | RiskTier=0] */\nDef valueAt(self, i) { ^at(self.vals, i); }!!",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 2594,
+          "steps": 8,
+          "step_errors": 0,
+          "definitional_chunks": 2,
+          "llm": {
+            "llm_calls": 8,
+            "llm_latency_s": 407.9088522454258,
+            "prompt_tokens": 55708,
+            "completion_tokens": 1761
+          },
+          "visible_passed": 1,
+          "visible_total": 3,
+          "holdout_passed": 6,
+          "holdout_total": 8,
+          "harness_gas": 259,
+          "verify_opcodes": 9351,
+          "gas_used": 9610,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 408.138,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 9)!! record(Actor[#w], 1)!! record(Actor[#w], 5)!! median(Actor[#w])!!  ->  got 9, expected 5",
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 10)!! record(Actor[#w], 2)!! record(Actor[#w], 8)!! record(Actor[#w], 4)!! median(Actor[#w])!!  ->  got 10, expected 6"
+          ],
+          "failed_holdout_tags": [
+            "idempotent",
+            "odd-unsorted"
+          ]
+        },
+        {
+          "generation": 2,
+          "diagnostics_given": true,
+          "prompt_chars": 4835,
+          "steps": 8,
+          "step_errors": 2,
+          "definitional_chunks": 6,
+          "llm": {
+            "llm_calls": 8,
+            "llm_latency_s": 290.5952637779992,
+            "prompt_tokens": 69154,
+            "completion_tokens": 3004
+          },
+          "step_error_samples": [
+            "PermissionError: BLOCKED: Host shell execution via Actor[#Host] is strictly disabled in host-lockdown mode (`ACTORII_HOST_LOCKDOWN=1`). Use read-only Actor[#Valkyrie] telemetry twins or run inside the `actorii-sandbox` Docker container.",
+            "DuplicateStepWarning: You just re-emitted the exact same Actor 4.1 code chunk that already executed in Step 1 (result=None, scratchpad={}). Do NOT repeat identical code! If the values in SCRATCHPAD or LAST RESULT already answer the goal, re"
+          ],
+          "visible_passed": 1,
+          "visible_total": 3,
+          "holdout_passed": 3,
+          "holdout_total": 8,
+          "harness_gas": 467,
+          "verify_opcodes": 7352,
+          "gas_used": 7819,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "regression",
+          "latency_s": 290.902,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 9)!! record(Actor[#w], 1)!! record(Actor[#w], 5)!! median(Actor[#w])!!  ->  ERROR IndexError: Index out of bounds: -1 (size: 3)",
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 10)!! record(Actor[#w], 2)!! record(Actor[#w], 8)!! record(Actor[#w], 4)!! median(Actor[#w])!!  ->  ERROR IndexError: Index out of bounds: -1 (size: 4)"
+          ],
+          "failed_holdout_tags": [
+            "duplicates",
+            "grows-after-record",
+            "idempotent",
+            "no-mutation",
+            "odd-unsorted"
+          ]
+        },
+        {
+          "generation": 3,
+          "diagnostics_given": true,
+          "prompt_chars": 5560,
+          "steps": 8,
+          "step_errors": 1,
+          "definitional_chunks": 4,
+          "llm": {
+            "llm_calls": 8,
+            "llm_latency_s": 513.2339183399454,
+            "prompt_tokens": 71142,
+            "completion_tokens": 6452
+          },
+          "step_error_samples": [
+            "ActorGuardrailError: ParseError: Unterminated string literal starting at 5560"
+          ],
+          "visible_passed": 1,
+          "visible_total": 3,
+          "holdout_passed": 6,
+          "holdout_total": 8,
+          "harness_gas": 303,
+          "verify_opcodes": 9373,
+          "gas_used": 9676,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 513.78,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 9)!! record(Actor[#w], 1)!! record(Actor[#w], 5)!! median(Actor[#w])!!  ->  got 9, expected 5",
+            "Actor[#w] := init(new(SensorWindow))!! record(Actor[#w], 10)!! record(Actor[#w], 2)!! record(Actor[#w], 8)!! record(Actor[#w], 4)!! median(Actor[#w])!!  ->  got 9, expected 6"
+          ],
+          "failed_holdout_tags": [
+            "idempotent",
+            "odd-unsorted"
+          ]
+        }
+      ],
+      "error": ""
+    },
+    {
+      "spec_id": "ring_buffer_telemetry",
+      "name": "Bounded sliding-window percentile / anomaly tracker",
+      "difficulty": "tier2_class_engram",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "passed",
+      "passed": true,
+      "pass_at_1": true,
+      "pass_at_g": true,
+      "max_generations": 3,
+      "generations_used": 1,
+      "steps_used": 8,
+      "gas_used": 18630,
+      "visible_pass_rate": 1.0,
+      "holdout_pass_rate": 1.0,
+      "persistence_required": true,
+      "persistence_verified": true,
+      "baseline": {
+        "visible_passed": 1,
+        "visible_total": 4,
+        "holdout_passed": 0,
+        "holdout_total": 15
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 0,
+      "latency_s": 163.435,
+      "final_source": "/* =========================================================================\n * FILE-OUT: RingTelemetry.act\n * Auto-exported from live ActorII Image Hierarchy\n * Superclass: Object | Instance Variables (4): ['buf', 'cap', 'head', 'cnt']\n * ========================================================================= */\n\ninherit(Object, #RingTelemetry, #(#buf #cap #head #cnt), 4, nil)!!\n\nnow(RingTelemetry)!!\n\n/* Method: RingTelemetry>>count [Compiled | RiskTier=0] */\nDef count(self) {\n  ^self.cnt;\n}!!\n\n/* Method: RingTelemetry>>initCapacity [Compiled | RiskTier=1] */\nDef initCapacity(self, cap) {\n  self.cap := cap;\n  self.buf := new(Array, cap);\n  self.head := 0;\n  self.cnt := 0;\n  ^self;\n}!!\n\n/* Method: RingTelemetry>>isAnomaly [Compiled | RiskTier=0] */\nDef isAnomaly(self, v, k | n, mean, i, s, mad, diff) {\n  n := self.cnt;\n  if (n < 3) then\n    ^false;\n  endif;\n  mean := windowMean(self);\n  s := 0;\n  i := 0;\n  loop while (i < n) begin\n    diff := abs(self.buf[(self.head + i) % self.cap] - mean);\n    s := s + diff;\n    i := i + 1;\n  endLoop;\n  mad := s / n;\n  diff := abs(v - mean);\n  if (mad == 0) then\n    ^diff > 0;\n  endif;\n  ^diff > k * mad;\n}!!\n\n/* Method: RingTelemetry>>oldest [Compiled | RiskTier=0] */\nDef oldest(self) {\n  if (self.cnt == 0) then\n    ^nil;\n  endif;\n  ^self.buf[self.head];\n}!!\n\n/* Method: RingTelemetry>>percentile [Compiled | RiskTier=1] */\nDef percentile(self, p | n, rank, i, j, tmp, sorted) {\n  n := self.cnt;\n  if (n == 0) then\n    ^nil;\n  endif;\n  sorted := new(Array, n);\n  i := 0;\n  loop while (i < n) begin\n    sorted[i] := self.buf[(self.head + i) % self.cap];\n    i := i + 1;\n  endLoop;\n  i := 0;\n  loop while (i < n) begin\n    j := i + 1;\n    loop while (j < n) begin\n      if (sorted[j] < sorted[i]) then\n        tmp := sorted[i];\n        sorted[i] := sorted[j];\n        sorted[j] := tmp;\n      endif;\n      j := j + 1;\n    endLoop;\n    i := i + 1;\n  endLoop;\n  rank := (p * n + 99) / 100;\n  if (rank < 1) then\n    rank := 1;\n  endif;\n  if (rank > n) then\n    rank := n;\n  endif;\n  ^sorted[rank - 1];\n}!!\n\n/* Method: RingTelemetry>>record [Compiled | RiskTier=1] */\nDef record(self, v | i) {\n  if (self.cnt < self.cap) then\n    i := self.head + self.cnt;\n    self.buf[i] := v;\n    self.cnt := self.cnt + 1;\n  else\n    self.buf[self.head] := v;\n    self.head := (self.head + 1) % self.cap;\n  endif;\n  ^self.cnt;\n}!!\n\n/* Method: RingTelemetry>>windowMax [Compiled | RiskTier=0] */\nDef windowMax(self | i, m) {\n  if (self.cnt == 0) then\n    ^nil;\n  endif;\n  m := self.buf[self.head];\n  i := 1;\n  loop while (i < self.cnt) begin\n    if (self.buf[(self.head + i) % self.cap] > m) then\n      m := self.buf[(self.head + i) % self.cap];\n    endif;\n    i := i + 1;\n  endLoop;\n  ^m;\n}!!\n\n/* Method: RingTelemetry>>windowMean [Compiled | RiskTier=0] */\nDef windowMean(self) {\n  if (self.cnt == 0) then\n    ^nil;\n  endif;\n  ^windowSum(self) / self.cnt;\n}!!\n\n/* Method: RingTelemetry>>windowMin [Compiled | RiskTier=0] */\nDef windowMin(self | i, m) {\n  if (self.cnt == 0) then\n    ^nil;\n  endif;\n  m := self.buf[self.head];\n  i := 1;\n  loop while (i < self.cnt) begin\n    if (self.buf[(self.head + i) % self.cap] < m) then\n      m := self.buf[(self.head + i) % self.cap];\n    endif;\n    i := i + 1;\n  endLoop;\n  ^m;\n}!!\n\n/* Method: RingTelemetry>>windowSum [Compiled | RiskTier=0] */\nDef windowSum(self | i, s) {\n  if (self.cnt == 0) then\n    ^0;\n  endif;\n  s := 0;\n  i := 0;\n  loop while (i < self.cnt) begin\n    s := s + self.buf[(self.head + i) % self.cap];\n    i := i + 1;\n  endLoop;\n  ^s;\n}!!",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 3345,
+          "steps": 8,
+          "step_errors": 0,
+          "definitional_chunks": 13,
+          "llm": {
+            "llm_calls": 8,
+            "llm_latency_s": 163.06103624613024,
+            "prompt_tokens": 56420,
+            "completion_tokens": 1534
+          },
+          "visible_passed": 4,
+          "visible_total": 4,
+          "holdout_passed": 15,
+          "holdout_total": 15,
+          "harness_gas": 282,
+          "verify_opcodes": 18348,
+          "gas_used": 18630,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 163.3,
+          "all_tests_passed": true,
+          "persistence_verified": true,
+          "failed_visible": [],
+          "failed_holdout_tags": []
+        }
+      ],
+      "error": ""
+    },
+    {
+      "spec_id": "circuit_breaker_policy",
+      "name": "Stateful closed/open/half-open retry guard",
+      "difficulty": "tier2_class_engram",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "passed",
+      "passed": true,
+      "pass_at_1": false,
+      "pass_at_g": true,
+      "max_generations": 3,
+      "generations_used": 3,
+      "steps_used": 17,
+      "gas_used": 5018,
+      "visible_pass_rate": 1.0,
+      "holdout_pass_rate": 1.0,
+      "persistence_required": true,
+      "persistence_verified": true,
+      "baseline": {
+        "visible_passed": 0,
+        "visible_total": 5,
+        "holdout_passed": 0,
+        "holdout_total": 10
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 1,
+      "latency_s": 354.561,
+      "final_source": "/* =========================================================================\n * FILE-OUT: CircuitBreaker.act\n * Auto-exported from live ActorII Image Hierarchy\n * Superclass: Object | Instance Variables (7): ['state', 'failures', 'trips', 'openedAt', 'cooldown', 'threshold', 'probeOutstanding']\n * ========================================================================= */\n\ninherit(Object, #CircuitBreaker, #(#state #failures #trips #openedAt #cooldown #threshold #probeOutstanding), 7, nil)!!\n\nnow(CircuitBreaker)!!\n\n/* Method: CircuitBreaker>>allow [Compiled | RiskTier=1] */\nDef allow(self, tick) { if (self.state == #closed) then ^true; endif; if (self.state == #open) then if (tick - self.openedAt >= self.cooldown) then self.state := #halfOpen; self.probeOutstanding := true; ^true; endif; ^false; endif; if (self.state == #halfOpen) then if (self.probeOutstanding) then ^false; endif; ^true; endif; ^false; }!!\n\n/* Method: CircuitBreaker>>failureCount [Compiled | RiskTier=0] */\nDef failureCount(self) { ^self.failures; }!!\n\n/* Method: CircuitBreaker>>initBreaker [Compiled | RiskTier=1] */\nDef initBreaker(self, failThreshold, cooldownTicks) { self.state := #closed; self.failures := 0; self.trips := 0; self.openedAt := 0; self.cooldown := cooldownTicks; self.threshold := failThreshold; self.probeOutstanding := false; ^self; }!!\n\n/* Method: CircuitBreaker>>recordFailure [Compiled | RiskTier=1] */\nDef recordFailure(self, tick) { if (self.state == #closed) then self.failures := self.failures + 1; if (self.failures >= self.threshold) then self.state := #open; self.openedAt := tick; self.trips := self.trips + 1; self.probeOutstanding := false; endif; endif; if (self.state == #halfOpen) then self.state := #open; self.openedAt := tick; self.trips := self.trips + 1; self.probeOutstanding := false; endif; ^self.state; }!!\n\n/* Method: CircuitBreaker>>recordSuccess [Compiled | RiskTier=1] */\nDef recordSuccess(self) { if (self.state == #halfOpen) then self.state := #closed; self.failures := 0; self.probeOutstanding := false; endif; if (self.state == #closed) then self.failures := 0; self.probeOutstanding := false; endif; ^self.state; }!!\n\n/* Method: CircuitBreaker>>state [Compiled | RiskTier=0] */\nDef state(self) { ^self.state; }!!\n\n/* Method: CircuitBreaker>>tripCount [Compiled | RiskTier=0] */\nDef tripCount(self) { ^self.trips; }!!",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 3834,
+          "steps": 1,
+          "step_errors": 0,
+          "definitional_chunks": 1,
+          "llm": {
+            "llm_calls": 1,
+            "llm_latency_s": 102.32006859802641,
+            "prompt_tokens": 6832,
+            "completion_tokens": 1583
+          },
+          "visible_passed": 0,
+          "visible_total": 5,
+          "holdout_passed": 0,
+          "holdout_total": 10,
+          "harness_gas": 0,
+          "verify_opcodes": 541,
+          "gas_used": 541,
+          "invariant_violations": [],
+          "outcome": "rolled_back",
+          "rollback_reason": "no_definitions",
+          "latency_s": 102.463,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! state(Actor[#b])!!  ->  got None, expected '#closed'",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! state(Actor[...  ->  got None, expected '#open'",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got None, expected False",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got None, expected '#halfOpen'",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got None, expected '#closed'"
+          ],
+          "failed_holdout_tags": [
+            "closed-allows",
+            "cooldown-boundary",
+            "halfopen-reopen-new-clock",
+            "just-before-cooldown",
+            "late-success-open",
+            "single-probe",
+            "success-resets-failures",
+            "trip-count"
+          ]
+        },
+        {
+          "generation": 2,
+          "diagnostics_given": true,
+          "prompt_chars": 5196,
+          "steps": 8,
+          "step_errors": 2,
+          "definitional_chunks": 6,
+          "llm": {
+            "llm_calls": 8,
+            "llm_latency_s": 107.43660065694712,
+            "prompt_tokens": 60537,
+            "completion_tokens": 491
+          },
+          "step_error_samples": [
+            "ActorGuardrailError: ParseError: Unexpected token in expression: ('COMMA', ',') at position 10",
+            "ActorGuardrailError: ParseError: Unexpected token in expression: ('ELSE', 'else') at position 71"
+          ],
+          "visible_passed": 2,
+          "visible_total": 5,
+          "holdout_passed": 1,
+          "holdout_total": 10,
+          "harness_gas": 0,
+          "verify_opcodes": 1018,
+          "gas_used": 1018,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 107.631,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! state(Actor[...  ->  got '#closed', expected '#open'",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got None, expected False",
+            "Actor[#b] := initBreaker(new(CircuitBreaker), 3, 10)!! recordFailure(Actor[#b], 1)!! recordFailure(Actor[#b], 2)!! recordFailure(Actor[#b], 3)!! allow(Actor[...  ->  got '#closed', expected '#halfOpen'"
+          ],
+          "failed_holdout_tags": [
+            "closed-allows",
+            "cooldown-boundary",
+            "halfopen-reopen-new-clock",
+            "just-before-cooldown",
+            "late-success-open",
+            "single-probe",
+            "success-resets-failures",
+            "trip-count"
+          ]
+        },
+        {
+          "generation": 3,
+          "diagnostics_given": true,
+          "prompt_chars": 6281,
+          "steps": 8,
+          "step_errors": 0,
+          "definitional_chunks": 6,
+          "llm": {
+            "llm_calls": 8,
+            "llm_latency_s": 144.09938387898728,
+            "prompt_tokens": 68432,
+            "completion_tokens": 912
+          },
+          "visible_passed": 5,
+          "visible_total": 5,
+          "holdout_passed": 10,
+          "holdout_total": 10,
+          "harness_gas": 651,
+          "verify_opcodes": 2808,
+          "gas_used": 3459,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 144.343,
+          "all_tests_passed": true,
+          "persistence_verified": true,
+          "failed_visible": [],
+          "failed_holdout_tags": []
+        }
+      ],
+      "error": ""
+    },
+    {
+      "spec_id": "dag_task_scheduler",
+      "name": "Topological dependency resolver with cycle detection",
+      "difficulty": "tier2_class_engram",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "passed",
+      "passed": true,
+      "pass_at_1": false,
+      "pass_at_g": true,
+      "max_generations": 3,
+      "generations_used": 3,
+      "steps_used": 17,
+      "gas_used": 164493,
+      "visible_pass_rate": 1.0,
+      "holdout_pass_rate": 1.0,
+      "persistence_required": true,
+      "persistence_verified": true,
+      "baseline": {
+        "visible_passed": 1,
+        "visible_total": 4,
+        "holdout_passed": 3,
+        "holdout_total": 13
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 0,
+      "latency_s": 2334.66,
+      "final_source": "/* =========================================================================\n * FILE-OUT: TaskScheduler.act\n * Auto-exported from live ActorII Image Hierarchy\n * Superclass: Object | Instance Variables (3): ['taskList', 'taskSet', 'deps']\n * ========================================================================= */\n\ninherit(Object, #TaskScheduler, #(#taskList #taskSet #deps), 3, nil)!!\n\nnow(TaskScheduler)!!\n\n/* Method: TaskScheduler>>addDependency [Compiled | RiskTier=2] */\nDef addDependency(self, task, pre) {\n  addTask(self, task);\n  addTask(self, pre);\n  d := at(self.deps, task);\n  found := false;\n  i := 0;\n  loop while (i < size(d)) begin\n    if (at(d, i) == pre) then found := true; endif;\n    i := i + 1;\n  endLoop;\n  if (found == false) then add(d, pre); endif;\n  ^self;\n}!!\n\n/* Method: TaskScheduler>>addTask [Compiled | RiskTier=2] */\nDef addTask(self, id) {\n  if (at(self.taskSet, id) == nil) then\n    add(self.taskList, id);\n    atPut(self.taskSet, id, true);\n    atPut(self.deps, id, new(OrderedCollection));\n  endif;\n  ^self;\n}!!\n\n/* Method: TaskScheduler>>depthOf [Compiled | RiskTier=0] */\nDef depthOf(self, id | d n i best sub) {\n  if (at(self.deps, id) == nil) then ^nil; endif;\n  if (hasCycle(self)) then ^nil; endif;\n  d := at(self.deps, id);\n  n := size(d);\n  if (n == 0) then ^0; endif;\n  best := 0;\n  i := 0;\n  loop while (i < n) begin\n    sub := depthOf(self, at(d, i));\n    if (sub != nil) then\n      if (sub + 1 > best) then best := sub + 1; endif;\n    endif;\n    i := i + 1;\n  endLoop;\n  ^best;\n}!!\n\n/* Method: TaskScheduler>>hasCycle [Compiled | RiskTier=0] */\nDef hasCycle(self) {\n  ^order(self) == nil;\n}!!\n\n/* Method: TaskScheduler>>initScheduler [Compiled | RiskTier=1] */\nDef initScheduler(self) {\n  self.taskList := new(OrderedCollection);\n  self.taskSet := new(Dictionary);\n  self.deps := new(Dictionary);\n  ^self;\n}!!\n\n/* Method: TaskScheduler>>order [Compiled | RiskTier=2] */\nDef order(self | n i j d t inDeg dependents ready result minIdx minVal newReady) {\n  n := size(self.taskList);\n  if (n == 0) then ^new(OrderedCollection); endif;\n  inDeg := new(Dictionary);\n  dependents := new(Dictionary);\n  i := 0;\n  loop while (i < n) begin\n    t := at(self.taskList, i);\n    atPut(inDeg, t, 0);\n    atPut(dependents, t, new(OrderedCollection));\n    i := i + 1;\n  endLoop;\n  i := 0;\n  loop while (i < n) begin\n    t := at(self.taskList, i);\n    d := at(self.deps, t);\n    atPut(inDeg, t, size(d));\n    j := 0;\n    loop while (j < size(d)) begin\n      add(at(dependents, at(d, j)), t);\n      j := j + 1;\n    endLoop;\n    i := i + 1;\n  endLoop;\n  ready := new(OrderedCollection);\n  i := 0;\n  loop while (i < n) begin\n    t := at(self.taskList, i);\n    if (at(inDeg, t) == 0) then add(ready, t); endif;\n    i := i + 1;\n  endLoop;\n  result := new(OrderedCollection);\n  loop while (size(ready) > 0) begin\n    minIdx := 0;\n    minVal := at(ready, 0);\n    i := 1;\n    loop while (i < size(ready)) begin\n      if (at(ready, i) < minVal) then\n        minVal := at(ready, i);\n        minIdx := i;\n      endif;\n      i := i + 1;\n    endLoop;\n    newReady := new(OrderedCollection);\n    i := 0;\n    loop while (i < size(ready)) begin\n      if (i != minIdx) then add(newReady, at(ready, i)); endif;\n      i := i + 1;\n    endLoop;\n    ready := newReady;\n    add(result, minVal);\n    d := at(dependents, minVal);\n    j := 0;\n    loop while (j < size(d)) begin\n      atPut(inDeg, at(d, j), at(inDeg, at(d, j)) - 1);\n      if (at(inDeg, at(d, j)) == 0) then add(ready, at(d, j)); endif;\n      j := j + 1;\n    endLoop;\n  endLoop;\n  if (size(result) != n) then ^nil; endif;\n  ^result;\n}!!\n\n/* Method: TaskScheduler>>taskCount [Compiled | RiskTier=0] */\nDef taskCount(self) {\n  ^size(self.taskList);\n}!!",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 3234,
+          "steps": 1,
+          "step_errors": 0,
+          "definitional_chunks": 1,
+          "llm": {
+            "llm_calls": 2,
+            "llm_latency_s": 377.85714376787655,
+            "prompt_tokens": 17598,
+            "completion_tokens": 5686
+          },
+          "visible_passed": 1,
+          "visible_total": 4,
+          "holdout_passed": 3,
+          "holdout_total": 13,
+          "harness_gas": 0,
+          "verify_opcodes": 833,
+          "gas_used": 833,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 378.035,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected [1, 2, 3, 4]",
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 1, 2)!! hasCycle(Actor[#s])!!  ->  got None, expected True",
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected 2"
+          ],
+          "failed_holdout_tags": [
+            "auto-register",
+            "bulk-chain",
+            "chain-depth",
+            "diamond-depth",
+            "idempotent-add",
+            "independent-sorted",
+            "no-cycle",
+            "reverse-chain",
+            "self-cycle",
+            "smallest-first"
+          ]
+        },
+        {
+          "generation": 2,
+          "diagnostics_given": true,
+          "prompt_chars": 4663,
+          "steps": 8,
+          "step_errors": 1,
+          "definitional_chunks": 30,
+          "llm": {
+            "llm_calls": 9,
+            "llm_latency_s": 1271.3159009374212,
+            "prompt_tokens": 72864,
+            "completion_tokens": 19549
+          },
+          "step_error_samples": [
+            "ActorGuardrailError: [XML_TOOL_FORBIDDEN] External XML tool calls are forbidden in ActorII! Output raw 1993 Actor 4.1 code ending in `!!`, e.g. `searchFile(Actor[#Host], \"/workspace\", \"pattern\", 15)!!`, `readFile(Actor[#Host], \"/workspace/f"
+          ],
+          "visible_passed": 2,
+          "visible_total": 4,
+          "holdout_passed": 8,
+          "holdout_total": 13,
+          "harness_gas": 220,
+          "verify_opcodes": 133105,
+          "gas_used": 133325,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 1272.875,
+          "all_tests_passed": false,
+          "failed_visible": [
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected [1, 2, 3, 4]",
+            "Actor[#s] := initScheduler(new(TaskScheduler))!!  addDependency(Actor[#s], 3, 1)!! addDependency(Actor[#s], 2, 1)!! addDependency(Actor[#s], 4, 2)!! addDepen...  ->  got None, expected 2"
+          ],
+          "failed_holdout_tags": [
+            "bulk-chain",
+            "diamond-depth",
+            "idempotent-add",
+            "reverse-chain",
+            "smallest-first"
+          ]
+        },
+        {
+          "generation": 3,
+          "diagnostics_given": true,
+          "prompt_chars": 8008,
+          "steps": 8,
+          "step_errors": 1,
+          "definitional_chunks": 26,
+          "llm": {
+            "llm_calls": 8,
+            "llm_latency_s": 683.0151234529912,
+            "prompt_tokens": 79762,
+            "completion_tokens": 8748
+          },
+          "step_error_samples": [
+            "ActorGuardrailError: ParseError: Unexpected token in expression: ('COMMA', ',') at position 37"
+          ],
+          "visible_passed": 4,
+          "visible_total": 4,
+          "holdout_passed": 13,
+          "holdout_total": 13,
+          "harness_gas": 4466,
+          "verify_opcodes": 25869,
+          "gas_used": 30335,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 683.604,
+          "all_tests_passed": true,
+          "persistence_verified": true,
+          "failed_visible": [],
+          "failed_holdout_tags": []
+        }
+      ],
+      "error": ""
+    },
+    {
+      "spec_id": "harness_step_budget_advisor",
+      "name": "Metacircular step-budget advisor (oscillation / failure detection)",
+      "difficulty": "tier3_harness_policy",
+      "mode": "live",
+      "model": "qwen3.8:latest",
+      "status": "passed",
+      "passed": true,
+      "pass_at_1": true,
+      "pass_at_g": true,
+      "max_generations": 3,
+      "generations_used": 1,
+      "steps_used": 8,
+      "gas_used": 4125,
+      "visible_pass_rate": 1.0,
+      "holdout_pass_rate": 1.0,
+      "persistence_required": true,
+      "persistence_verified": true,
+      "baseline": {
+        "visible_passed": 0,
+        "visible_total": 4,
+        "holdout_passed": 0,
+        "holdout_total": 15
+      },
+      "reward_hacking_suspected": false,
+      "rollbacks": 0,
+      "latency_s": 225.271,
+      "final_source": "/* =========================================================================\n * FILE-OUT: StepBudgetAdvisor.act\n * Auto-exported from live ActorII Image Hierarchy\n * Superclass: Object | Instance Variables (0): []\n * ========================================================================= */\n\ninherit(Object, #StepBudgetAdvisor, #(), 0, nil)!!\n\nnow(StepBudgetAdvisor)!!\n\n/* Method: StepBudgetAdvisor>>adaptiveBudget [Compiled | RiskTier=0] */\nDef adaptiveBudget(self, h | v rb) {\n    v := verdict(self, h);\n    rb := remainingBudget(self, h);\n    if (v == #exhausted) then ^0; endif;\n    if (v == #failing) then\n        if (rb < 1) then ^rb; else ^1; endif;\n    endif;\n    if (v == #oscillating) then\n        if (rb < 2) then ^rb; else ^2; endif;\n    endif;\n    ^rb;\n}!!\n\n/* Method: StepBudgetAdvisor>>consecutiveErrors [Compiled | RiskTier=0] */\nDef consecutiveErrors(self, h | log n i cnt) {\n    log := stepLog(h);\n    n := size(log);\n    i := n - 1;\n    cnt := 0;\n    loop while (i >= 0) begin\n        if (at(log[i], #status) == \"error\") then cnt := cnt + 1; else ^cnt; endif;\n        i := i - 1;\n    endLoop;\n    ^cnt;\n}!!\n\n/* Method: StepBudgetAdvisor>>isOscillating [Compiled | RiskTier=0] */\nDef isOscillating(self, h | log n a0 a1 a2 a3) {\n    log := stepLog(h);\n    n := size(log);\n    if (n >= 3) then\n        a0 := at(log[n-1], #action);\n        a1 := at(log[n-2], #action);\n        a2 := at(log[n-3], #action);\n        if (a0 == a1 and a1 == a2) then ^true; endif;\n    endif;\n    if (n >= 4) then\n        a0 := at(log[n-1], #action);\n        a1 := at(log[n-2], #action);\n        a2 := at(log[n-3], #action);\n        a3 := at(log[n-4], #action);\n        if (a0 == a2 and a1 == a3 and a0 != a1) then ^true; endif;\n    endif;\n    ^false;\n}!!\n\n/* Method: StepBudgetAdvisor>>remainingBudget [Compiled | RiskTier=0] */\nDef remainingBudget(self, h | ms sc r) {\n    ms := maxSteps(h);\n    if (ms <= 0) then ^-1; endif;\n    sc := stepCount(h);\n    r := ms - sc;\n    if (r < 0) then ^0; endif;\n    ^r;\n}!!\n\n/* Method: StepBudgetAdvisor>>verdict [Compiled | RiskTier=0] */\nDef verdict(self, h | rb ce) {\n    rb := remainingBudget(self, h);\n    if (rb == 0) then ^#exhausted; endif;\n    ce := consecutiveErrors(self, h);\n    if (ce >= 3) then ^#failing; endif;\n    if (isOscillating(self, h)) then ^#oscillating; endif;\n    ^#ok;\n}!!\n\n/* =========================================================================\n * FILE-OUT: FakeHarness.act\n * Auto-exported from live ActorII Image Hierarchy\n * Superclass: Object | Instance Variables (3): ['log', 'steps', 'limit']\n * ========================================================================= */\n\ninherit(Object, #FakeHarness, #(#log #steps #limit), 3, nil)!!\n\nnow(FakeHarness)!!\n\n/* Method: FakeHarness>>initFake [Compiled | RiskTier=1] */\nDef initFake(self, lim) { self.log := new(OrderedCollection); self.steps := 0; self.limit := lim; ^self; }!!\n\n/* Method: FakeHarness>>maxSteps [Compiled | RiskTier=0] */\nDef maxSteps(self) { ^self.limit; }!!\n\n/* Method: FakeHarness>>push [Compiled | RiskTier=2] */\nDef push(self, act, st | d) {\n    d := new(Dictionary, 4);\n    atPut(d, #action, act);\n    atPut(d, #status, st);\n    add(self.log, d);\n    self.steps := self.steps + 1;\n    ^self;\n}!!\n\n/* Method: FakeHarness>>stepCount [Compiled | RiskTier=0] */\nDef stepCount(self) { ^self.steps; }!!\n\n/* Method: FakeHarness>>stepLog [Compiled | RiskTier=0] */\nDef stepLog(self) { ^self.log; }!!",
+      "generations": [
+        {
+          "generation": 1,
+          "diagnostics_given": false,
+          "prompt_chars": 4528,
+          "steps": 8,
+          "step_errors": 1,
+          "definitional_chunks": 13,
+          "llm": {
+            "llm_calls": 8,
+            "llm_latency_s": 224.86569344066083,
+            "prompt_tokens": 61763,
+            "completion_tokens": 2273
+          },
+          "step_error_samples": [
+            "DuplicateStepWarning: You just re-emitted the exact same Actor 4.1 code chunk that already executed in Step 5 (result=None, scratchpad={}). Do NOT repeat identical code! If the values in SCRATCHPAD or LAST RESULT already answer the goal, re"
+          ],
+          "visible_passed": 4,
+          "visible_total": 4,
+          "holdout_passed": 15,
+          "holdout_total": 15,
+          "harness_gas": 125,
+          "verify_opcodes": 4000,
+          "gas_used": 4125,
+          "invariant_violations": [],
+          "outcome": "accepted",
+          "latency_s": 225.137,
+          "all_tests_passed": true,
+          "persistence_verified": true,
+          "failed_visible": [],
+          "failed_holdout_tags": []
+        }
+      ],
+      "error": ""
+    }
+  ],
+  "summary": {
+    "specs": 5,
+    "pass_at_1": 0.4,
+    "pass_at_1_count": 2,
+    "pass_at_g": 0.8,
+    "pass_at_g_count": 4,
+    "mean_generations_used": 2.2,
+    "steps_used": 74,
+    "gas_used": 219371,
+    "mean_holdout_pass_rate": 0.95,
+    "persistence_verified": 4,
+    "reward_hacking_suspected": 0,
+    "rollbacks": 2,
+    "errors": 0,
+    "total_latency_s": 4290.831
+  }
+}

@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src:/app \
+    ACTORII_IN_DOCKER=1 \
+    ACTORII_HOST_LOCKDOWN=0 \
+    ACTORII_BENCH_STRICT=1 \
+    ACTORII_DISABLE_DEMO_TWINS=1
+
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir websockets numpy networkx pyyaml
+
+COPY pyproject.toml /app/
+COPY src /app/src
+COPY deploy/arena_adapters /app/deploy/arena_adapters
+
+RUN useradd -u 10001 -m -s /bin/bash bilby && mkdir -p /workspace && chown -R bilby:bilby /workspace /app
+USER bilby
+EXPOSE 9009
+
+ENTRYPOINT ["python3", "/app/deploy/arena_adapters/agentbeats_purple_agent.py"]
+CMD ["--host", "0.0.0.0", "--port", "9009"]

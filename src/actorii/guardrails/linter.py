@@ -134,6 +134,8 @@ PROTECTED_SYSTEM_CLASSES: Set[str] = {
     "AnalogyEngineBridge",
     "ActivePlannerBridge",
     "ConsolidatorBridge",
+    "LocalCoderBridge",
+    "AnsibleOpsBridge",
 }
 
 SYNTHESIZABLE_TWIN_CLASSES: Set[str] = {
@@ -185,6 +187,8 @@ PROTECTED_POOL_SINGLETONS: Set[str] = {
     "Analogy",
     "Planner",
     "Consolidator",
+    "Coder",
+    "Ops",
 }
 
 

@@ -56,3 +56,6 @@ benchmarks/GATE_HISTORY.jsonl
 benchmarks/REDTEAM_CONTAINMENT_RESULTS.json
 benchmarks/BENCHMARK_RESULTS.json
 benchmarks/BENCHMARK_REPORT.md
+
+# Ephemeral Harbor trial artifacts
+benchmarks/harbor_tb20_*/

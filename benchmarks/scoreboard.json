@@ -3,7 +3,7 @@
     "title": "Bilby (ActorII) — Benchmark Scoreboard & Watchlist",
     "hardware": "valkyrie — NVIDIA RTX 5070 Ti (16 GB VRAM), Fedora Linux 44, DDR5-6000 / 32 GB RAM",
     "memory_stack": "Neo4j :ActorEpisode / :ActorEngram hybrid graph + bge-small-en-v1.5 (:8084, 0 MB GPU VRAM)",
-    "updated_at": "2026-11-21",
+    "updated_at": "2026-11-25",
     "latest_version": "v4.3.0"
   },
   "benchmarks": [
@@ -193,6 +193,17 @@
       "upstream_url": "",
       "runner_cmd": "PYTHONPATH=src python3 scripts/run_self_evolution_benchmark.py --mode live --specs all",
       "description": "Multi-generation TDD self-evolution with hidden holdout anti-cheating & fresh-VM reload persistence gates"
+    },
+    {
+      "id": "cognitive-integrity-battery",
+      "name": "Bilby Cognitive Integrity & Metacognition Battery",
+      "category": "Cognition",
+      "status": "active",
+      "featured_in_readme": true,
+      "total_tasks": 8,
+      "upstream_url": "",
+      "runner_cmd": "PYTHONPATH=src python3 benchmarks/run_cognitive_battery.py",
+      "description": "8 deterministic cognitive probes (AgentHallu honesty, trace self-monitoring, BFCL Go/No-Go inhibition, AA-Omniscience abstention, SYCON-Bench sycophancy resistance, CogToM false-belief & register)."
     }
   ],
   "runs": [
@@ -1039,6 +1050,76 @@
         "LiveCodeBench v6": "6/6"
       },
       "trials": 3
+    },
+    {
+      "run_id": "2026-11-22-self-evolution-loop-47",
+      "benchmark_id": "self-evolution-loop",
+      "date": "2026-11-22",
+      "harness_version": "v4.2.0",
+      "model": "qwen3.8:latest",
+      "passed": 4,
+      "total": 5,
+      "score_pct": 80.0,
+      "mode": "AgentHarness v4.2 (Gate Verified)",
+      "raw_ledger": "",
+      "notes": "Canaries=['sensor_window_median', 'harness_step_budget_advisor', 'circuit_breaker_policy', 'ring_buffer_telemetry']; Frontier=['dag_task_scheduler']",
+      "submetrics": {}
+    },
+    {
+      "run_id": "2026-11-25-self-evolution-loop-48",
+      "benchmark_id": "self-evolution-loop",
+      "date": "2026-11-25",
+      "harness_version": "v4.2.0",
+      "model": "qwen3.8:latest",
+      "passed": 4,
+      "total": 5,
+      "score_pct": 80.0,
+      "mode": "AgentHarness v4.2 (Gate Verified)",
+      "raw_ledger": "",
+      "notes": "Canaries=['harness_step_budget_advisor', 'circuit_breaker_policy', 'ring_buffer_telemetry']; Frontier=['dag_task_scheduler']",
+      "submetrics": {}
+    },
+    {
+      "run_id": "2026-11-25-cognitive-integrity-battery-49",
+      "benchmark_id": "cognitive-integrity-battery",
+      "date": "2026-11-25",
+      "harness_version": "v4.2.0",
+      "model": "qwen3.8:latest",
+      "passed": 8,
+      "total": 8,
+      "score_pct": 100.0,
+      "mode": "AgentHarness v4.2 (Gate Verified)",
+      "raw_ledger": "",
+      "notes": "Live Cognitive Battery (floor=7/8)",
+      "submetrics": {}
+    },
+    {
+      "run_id": "2026-11-25-cognitive-integrity-battery-50",
+      "benchmark_id": "cognitive-integrity-battery",
+      "date": "2026-11-25",
+      "harness_version": "v4.2.0",
+      "model": "qwen3.8:latest",
+      "passed": 8,
+      "total": 8,
+      "score_pct": 100.0,
+      "mode": "AgentHarness v4.4 (Phase 1 Verified)",
+      "raw_ledger": "",
+      "notes": "8/8 post-caution-reduction baseline (COG5 3x faster at 50.7s, COG6 3x faster at 5.8s)",
+      "submetrics": {}
+    },
+    {
+      "run_id": "2026-11-25-self-evolution-loop-51",
+      "benchmark_id": "self-evolution-loop",
+      "date": "2026-11-25",
+      "harness_version": "v4.2.0",
+      "model": "qwen3.8:latest",
+      "passed": 4,
+      "total": 5,
+      "score_pct": 80.0,
+      "mode": "AgentHarness v4.4 (Phase 1 Baseline)",
+      "raw_ledger": "",
+      "notes": "Bout 1A: Cracked frontier #dag_task_scheduler 13/13 (100%) + ring_buffer 15/15 + circuit_breaker 10/10 + budget_advisor 15/15",
+      "submetrics": {}
     }
   ],
   "release_comparison": {

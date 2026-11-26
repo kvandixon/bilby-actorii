@@ -440,15 +440,16 @@ def test_self_preservation_guards_and_mandatory_skippy_preflight(
         with pytest.raises(PermissionError, match="MEMORY_SELF_PRESERVATION_GUARD"):
             mem.cypherWrite(bad_cypher)
 
-    # 4. Self-risking steps (detached thread spawn, `evolve(Actor[#Harness], ...)`, bulk `:ActorEpisode` write)
-    # are mechanically blocked until `askSkippy` has succeeded in the current turn!
+    # 4. Self-risking steps (detached thread spawn, bulk `:ActorEpisode` write)
+    # are mechanically blocked until `askSkippy` has succeeded in the current turn;
+    # `evolve(Actor[#Harness], ...)` is already protected by Ring-0 CoW shadow-testing & rollback.
     err_thread = sandbox.executeStepAction(harness, 'spawnChunk(Actor[#Threads], "1 + 1!!", 5000)!!')
     assert "SKIPPY_PREFLIGHT_REQUIRED" in str(err_thread)
 
-    err_evolve = sandbox.executeStepAction(
+    ok_evolve = sandbox.executeStepAction(
         harness, 'evolve(Actor[#Harness], "Def policyNote(self) { ^\\"x\\"; }!!", "")!!'
     )
-    assert "SKIPPY_PREFLIGHT_REQUIRED" in str(err_evolve)
+    assert "SKIPPY_PREFLIGHT_REQUIRED" not in str(ok_evolve)
 
     err_mem = sandbox.executeStepAction(
         harness,

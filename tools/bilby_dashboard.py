@@ -484,6 +484,19 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .pill strong { color: var(--text); font-weight: 600; }
   .pill.ok strong { color: var(--green); }
   .pill.warn strong { color: var(--amber); }
+  .pill.arena-link {
+    text-decoration: none;
+    color: var(--text);
+    font-weight: 600;
+    border-color: rgba(56,189,248,0.45);
+    background: rgba(56,189,248,0.12);
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .pill.arena-link:hover {
+    background: rgba(56,189,248,0.24);
+    border-color: var(--accent);
+  }
   #pillGpu {
     display: inline-flex;
     align-items: center;
@@ -770,6 +783,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     </div>
   </div>
   <div class="pills">
+    <a class="pill arena-link" href="/arena" title="Open Bilby Fight Camp &amp; Arena Status Board">🥊 Fight Camp</a>
     <div id="pillSse" class="pill ok">SSE: <strong>connecting…</strong></div>
     <div id="pillModel" class="pill">Model: <strong>—</strong></div>
     <div id="pillSlot" class="pill">Engine :8080: <strong>—</strong></div>
@@ -1214,6 +1228,570 @@ connectSSE();
 """
 
 
+BENCH_DIR = Path(__file__).resolve().parents[1] / "benchmarks"
+
+
+def get_arena_status() -> Dict[str, Any]:
+    """Aggregate live Fight Camp & Dual Scoreboard status for `/api/arena`."""
+    def _load_json(p: Path) -> Dict[str, Any]:
+        try:
+            if p.is_file():
+                return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+        return {}
+
+    gate_stamp = _load_json(BENCH_DIR / ".gate_stamp.json")
+    cog_res = _load_json(BENCH_DIR / "COGNITIVE_BATTERY_RESULTS.json")
+    psych_res = _load_json(BENCH_DIR / "PSYCH_PROFILE_RESULTS.json")
+    sb_raw = _load_json(BENCH_DIR / "scoreboard.json")
+    self_evo_raw = _load_json(BENCH_DIR / "PHASE1_SELF_EVO_BASELINE.json")
+    sparring_raw = _load_json(BENCH_DIR / "SPARRING_RESULTS.json")
+    gw_state = _load_json(GATEWAY_STATE_PATH)
+
+    # Phase 1A Self-Evolution Baseline (benchmarks/PHASE1_SELF_EVO_BASELINE.json)
+    if self_evo_raw and (self_evo_raw.get("specs") or self_evo_raw.get("summary")):
+        se_summary = self_evo_raw.get("summary") or {}
+        se_specs_raw = self_evo_raw.get("specs") or []
+        se_specs: List[Dict[str, Any]] = []
+        for sp in se_specs_raw:
+            if not isinstance(sp, dict):
+                continue
+            vis_rate = sp.get("visible_pass_rate")
+            hold_rate = sp.get("holdout_pass_rate")
+            se_specs.append(
+                {
+                    "spec_id": sp.get("spec_id") or sp.get("id") or "—",
+                    "name": sp.get("name") or sp.get("spec_id") or "—",
+                    "difficulty": sp.get("difficulty") or "—",
+                    "status": sp.get("status") or ("passed" if sp.get("passed") else "failed"),
+                    "passed": bool(sp.get("passed")),
+                    "pass_at_1": bool(sp.get("pass_at_1")),
+                    "pass_at_g": bool(sp.get("pass_at_g")),
+                    "generations_used": sp.get("generations_used", 0),
+                    "max_generations": sp.get("max_generations", 0),
+                    "visible_pass_pct": round(float(vis_rate) * 100.0, 1) if vis_rate is not None else None,
+                    "holdout_pass_pct": round(float(hold_rate) * 100.0, 1) if hold_rate is not None else None,
+                    "persistence_verified": bool(sp.get("persistence_verified")),
+                    "latency_s": round(float(sp.get("latency_s") or 0.0), 1),
+                }
+            )
+        total_specs = int(se_summary.get("specs") or len(se_specs))
+        passed_g = int(
+            se_summary.get("pass_at_g_count")
+            if se_summary.get("pass_at_g_count") is not None
+            else sum(1 for s in se_specs if s["passed"])
+        )
+        passed_1 = int(
+            se_summary.get("pass_at_1_count")
+            if se_summary.get("pass_at_1_count") is not None
+            else sum(1 for s in se_specs if s["pass_at_1"])
+        )
+        mean_holdout = se_summary.get("mean_holdout_pass_rate")
+        if mean_holdout is None and se_specs:
+            vals = [s["holdout_pass_pct"] / 100.0 for s in se_specs if s["holdout_pass_pct"] is not None]
+            mean_holdout = (sum(vals) / len(vals)) if vals else 0.0
+        self_evo_baseline: Dict[str, Any] = {
+            "available": True,
+            "status": f"{passed_g}/{total_specs} Passed",
+            "model": self_evo_raw.get("model") or "—",
+            "timestamp": self_evo_raw.get("timestamp") or "—",
+            "summary": {
+                "specs": total_specs,
+                "pass_at_1_count": passed_1,
+                "pass_at_g_count": passed_g,
+                "pass_at_1_pct": round(float(se_summary.get("pass_at_1") or (passed_1 / total_specs if total_specs else 0.0)) * 100.0, 1),
+                "pass_at_g_pct": round(float(se_summary.get("pass_at_g") or (passed_g / total_specs if total_specs else 0.0)) * 100.0, 1),
+                "mean_holdout_pct": round(float(mean_holdout or 0.0) * 100.0, 1),
+                "persistence_verified": int(se_summary.get("persistence_verified") or 0),
+                "rollbacks": int(se_summary.get("rollbacks") or 0),
+                "total_latency_s": round(float(se_summary.get("total_latency_s") or 0.0), 1),
+            },
+            "specs": se_specs,
+        }
+    else:
+        self_evo_baseline = {
+            "available": False,
+            "status": "In Progress...",
+            "model": "—",
+            "timestamp": "—",
+            "summary": {},
+            "specs": [],
+        }
+
+    # Phase 1B RL Film-Study Sparring Rematches (benchmarks/SPARRING_RESULTS.json)
+    if sparring_raw:
+        raw_bouts = (
+            sparring_raw.get("bouts")
+            or sparring_raw.get("rematches")
+            or sparring_raw.get("matches")
+            or sparring_raw.get("games")
+            or sparring_raw.get("results")
+            or sparring_raw.get("entries")
+            or []
+        )
+        sp_bouts: List[Dict[str, Any]] = []
+        if isinstance(raw_bouts, list):
+            for b in raw_bouts:
+                if not isinstance(b, dict):
+                    continue
+                sp_bouts.append(
+                    {
+                        "env_id": b.get("env_id") or b.get("game") or b.get("name") or b.get("id") or "—",
+                        "before": b.get("before") if b.get("before") is not None else b.get("baseline"),
+                        "after": b.get("after") if b.get("after") is not None else b.get("rematch"),
+                        "delta": b.get("delta") if b.get("delta") is not None else b.get("reward_delta"),
+                        "status": b.get("status") or b.get("outcome") or "completed",
+                        "engram": b.get("engram") or b.get("film_study_engram") or "",
+                        "notes": b.get("notes") or "",
+                    }
+                )
+        sparring_results: Dict[str, Any] = {
+            "available": True,
+            "status": sparring_raw.get("status") or f"{len(sp_bouts)} Rematch(es) Logged",
+            "timestamp": sparring_raw.get("timestamp") or sparring_raw.get("updated_at") or "—",
+            "model": sparring_raw.get("model") or "—",
+            "opponent": sparring_raw.get("opponent") or "—",
+            "summary": sparring_raw.get("summary") or {},
+            "bouts": sp_bouts,
+        }
+    else:
+        sparring_results = {
+            "available": False,
+            "status": "Ready for Bout 1B",
+            "timestamp": "—",
+            "model": "—",
+            "opponent": "—",
+            "summary": {},
+            "bouts": [],
+        }
+
+    # Extract latest featured benchmark scores from Skippy's scoreboard.json
+    skippy_ledger: List[Dict[str, Any]] = []
+    runs_by_bench: Dict[str, Dict[str, Any]] = {}
+    for run in sb_raw.get("runs") or []:
+        bid = run.get("benchmark_id")
+        if bid:
+            runs_by_bench[bid] = run
+    for b in sb_raw.get("benchmarks") or []:
+        if not b.get("featured_in_readme"):
+            continue
+        bid = b.get("id")
+        latest = runs_by_bench.get(bid, {})
+        skippy_ledger.append(
+            {
+                "id": bid,
+                "name": b.get("name"),
+                "category": b.get("category"),
+                "score": latest.get("display_score")
+                or (
+                    f"{latest.get('passed')}/{latest.get('total')}"
+                    if latest.get("total")
+                    else "—"
+                ),
+                "date": latest.get("date") or "—",
+                "model": latest.get("model") or "—",
+            }
+        )
+
+    # Query Bilby's live Neo4j fight log & memory counts
+    matches: List[Dict[str, Any]] = []
+    engram_count = 0
+    episode_count = 0
+    try:
+        matches = neo4j_query(
+            "MATCH (m:TextArenaMatch) "
+            "RETURN m.env_id AS env_id, m.mode AS mode, m.players AS players, "
+            "m.model AS model, m.turns AS turns, m.rewards_json AS rewards_json, "
+            "m.elapsed_s AS elapsed_s, m.created_at AS created_at "
+            "ORDER BY m.created_at DESC LIMIT 15"
+        )
+        cnts = neo4j_query(
+            "MATCH (e:ActorEngram {namespace: 'default'}) RETURN count(e) AS engrams"
+        )
+        engram_count = int((cnts[0].get("engrams") if cnts else 0) or 0)
+        ep_cnts = neo4j_query(
+            "MATCH (e:ActorEpisode {namespace: 'default'}) WHERE coalesce(e.archived, false) = false RETURN count(e) AS eps"
+        )
+        episode_count = int((ep_cnts[0].get("eps") if ep_cnts else 0) or 0)
+    except Exception:
+        pass
+
+    # Dual-Scoreboard Reconciliation (Bilby live ledger vs Skippy's scoreboard.json)
+    def _extract_date(val: Any) -> str:
+        m = re.search(r"(\d{4}-\d{2}-\d{2})", str(val or ""))
+        return m.group(1) if m else ""
+
+    skippy_dates = [_extract_date((sb_raw.get("metadata") or {}).get("updated_at"))]
+    skippy_dates.extend(_extract_date(s.get("date")) for s in skippy_ledger)
+    skippy_latest_date = max((d for d in skippy_dates if d), default="")
+
+    bilby_dates = [
+        _extract_date(gate_stamp.get("timestamp")),
+        _extract_date(cog_res.get("timestamp")),
+        _extract_date(psych_res.get("timestamp")),
+        _extract_date(self_evo_raw.get("timestamp")),
+        _extract_date(sparring_raw.get("timestamp") or sparring_raw.get("updated_at")),
+    ]
+    for m in matches:
+        bilby_dates.append(_extract_date(m.get("created_at")))
+    bilby_latest_date = max((d for d in bilby_dates if d), default="")
+
+    unreconciled_reasons: List[str] = []
+    if not skippy_ledger:
+        unreconciled_reasons.append("scoreboard.json has no featured entries")
+    if bilby_latest_date and skippy_latest_date and bilby_latest_date > skippy_latest_date:
+        unreconciled_reasons.append(
+            f"Bilby live ledger ({bilby_latest_date}) ahead of scoreboard.json ({skippy_latest_date})"
+        )
+    if self_evo_baseline["available"] and not any(
+        "self-evo" in str(r.get("benchmark_id") or "").lower()
+        for r in (sb_raw.get("runs") or [])
+        if _extract_date(r.get("date")) >= _extract_date(self_evo_baseline.get("timestamp"))
+    ):
+        unreconciled_reasons.append("Bout 1A self-evo baseline pending scoreboard.json sync")
+    if sparring_results["available"] and not any(
+        "sparring" in str(r.get("benchmark_id") or "").lower()
+        for r in (sb_raw.get("runs") or [])
+        if _extract_date(r.get("date")) >= _extract_date(sparring_results.get("timestamp"))
+    ):
+        unreconciled_reasons.append("Bout 1B sparring deltas pending scoreboard.json sync")
+
+    reconciled = len(unreconciled_reasons) == 0 and bool(skippy_ledger)
+    reconciliation = {
+        "in_sync": reconciled,
+        "status": "IN SYNC" if reconciled else "PENDING RECONCILIATION",
+        "bilby_latest_date": bilby_latest_date or "—",
+        "skippy_latest_date": skippy_latest_date or "—",
+        "bilby_matches": len(matches),
+        "skippy_featured": len(skippy_ledger),
+        "reason": "Bilby live ledger and Skippy scoreboard.json are reconciled."
+        if reconciled
+        else "; ".join(unreconciled_reasons),
+    }
+
+    recent_chat = (gw_state.get("chat_history") or [])[-3:]
+    latest_exchange = [
+        {
+            "turn": t.get("turn"),
+            "user": str(t.get("user") or "")[:240],
+            "reply": str(t.get("reply") or "")[:420],
+        }
+        for t in recent_chat
+        if isinstance(t, dict)
+    ]
+
+    return {
+        "ok": True,
+        "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "phase": "Phase 1: Baseline & Calibration (Weeks 1–2)",
+        "contract": {
+            "status": "Active — Dual Scoreboards + Deterministic Tiebreaker",
+            "tier1": ["SWE-bench Verified/Lite", "Terminal-Bench (tbench.ai)", "AgentBeats (agentbeats.dev)"],
+            "tier2": ["ARC Prize", "Kaggle Game Arena", "TextArena Sparring"],
+            "tier3": ["LiveCodeBench", "GAIA", "CTF / Red-Team Containment"],
+            "bilby_conditions": [
+                "Isolated staging (/tmp/actorii_bench_* & Neo4j bench namespace)",
+                "0-VRAM specialist budget (RTX 5070 Ti stays clean for :8080)",
+                "Before/after canary gate including 8-probe Cognitive Integrity Battery",
+                "Bilby retains veto & pause power over any bout or schedule",
+                "Crystallize every trial into reusable :ActorEngram classes",
+                "Sandbox-only execution (no host OS/network/daemon changes)",
+            ],
+        },
+        "telemetry": get_telemetry_snapshot(),
+        "gate_stamp": {
+            "tier": gate_stamp.get("tier", "—"),
+            "passed": gate_stamp.get("passed"),
+            "timestamp": gate_stamp.get("timestamp", "—"),
+            "src_hash": str(gate_stamp.get("src_tree_hash", ""))[:12],
+        },
+        "reconciliation": reconciliation,
+        "bilby_ledger": {
+            "total_turns": gw_state.get("total_turns", 0),
+            "total_steps": gw_state.get("total_steps", 0),
+            "active_episodes": episode_count,
+            "engrams": engram_count,
+            "matches_logged": len(matches),
+        },
+        "skippy_ledger": skippy_ledger,
+        "self_evo_baseline": self_evo_baseline,
+        "sparring_results": sparring_results,
+        "cognitive_battery": {
+            "passed": cog_res.get("passed", 0),
+            "total": cog_res.get("total", 8),
+            "score_pct": cog_res.get("score_pct", 0.0),
+            "timestamp": cog_res.get("timestamp", "—"),
+            "probes": cog_res.get("results") or [],
+        },
+        "psych_profile": {
+            "overall_behavioral_pct": psych_res.get("overall_behavioral_pct", 0.0),
+            "timestamp": psych_res.get("timestamp", "—"),
+            "axes": psych_res.get("behavioral_axis_pct") or {},
+        },
+        "matches": matches,
+        "latest_exchange": latest_exchange,
+    }
+
+
+ARENA_HTML = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bilby Fight Camp & Arena Status (:8095)</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#58a6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:var(--bg); color:var(--text); padding:14px; line-height:1.45; }
+  a { color:var(--accent); text-decoration:none; }
+  .top { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:14px; }
+  .title { font-size:1.15rem; font-weight:700; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:0.78rem; border:1px solid var(--border); background:#1f2937; }
+  .pill.ok { color:var(--ok); border-color:var(--ok); background:rgba(63,185,80,.12); }
+  .pill.warn { color:var(--warn); border-color:var(--warn); background:rgba(210,153,34,.12); }
+  .pill.bad { color:var(--bad); border-color:var(--bad); background:rgba(248,81,73,.12); }
+  .pill.info { color:var(--accent); border-color:var(--accent); background:rgba(88,166,255,.12); }
+  .top-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:12px; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px; min-width:0; }
+  .card h2 { margin:0 0 8px 0; font-size:0.95rem; color:var(--accent); border-bottom:1px solid var(--border); padding-bottom:6px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  .kv { display:flex; justify-content:space-between; gap:8px; padding:3px 0; font-size:0.84rem; border-bottom:1px dashed rgba(48,54,61,.5); }
+  .kv:last-child { border-bottom:none; }
+  .muted { color:var(--muted); font-size:0.8rem; }
+  ul { margin:6px 0 0 18px; padding:0; font-size:0.82rem; }
+  li { margin:3px 0; }
+  .probe { display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:0.8rem; border-bottom:1px dashed rgba(48,54,61,.45); }
+  .match-item { padding:6px 0; border-bottom:1px solid rgba(48,54,61,.5); font-size:0.8rem; }
+  .exch { padding:6px 8px; background:#0b0f14; border:1px solid var(--border); border-radius:6px; margin-bottom:6px; font-size:0.8rem; white-space:pre-wrap; word-break:break-word; }
+  .tbl-wrap { overflow-x:auto; margin-top:8px; }
+  table.mini { width:100%; border-collapse:collapse; font-size:0.78rem; }
+  table.mini th, table.mini td { text-align:left; padding:5px 6px; border-bottom:1px solid rgba(48,54,61,.55); white-space:nowrap; }
+  table.mini th { color:var(--muted); font-size:0.72rem; text-transform:uppercase; }
+  .reconcile-note { margin-top:8px; padding:6px 8px; border-radius:6px; font-size:0.78rem; background:#0b0f14; border:1px solid var(--border); }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <div class="title">🥊 Bilby Fight Camp &amp; Arena Status Board</div>
+      <div class="muted" id="sub">Loading live telemetry...</div>
+    </div>
+    <div class="top-actions">
+      <a class="pill" href="/">← Oversight Dashboard</a>
+      <span class="pill" id="reconcile-pill">Scoreboards: ...</span>
+      <span class="pill ok" id="gate-pill">Gate: ...</span>
+      <span class="pill" id="refresh-pill">Auto 10s</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Active Phase &amp; Contract</h2>
+      <div id="phase-box" class="muted">Loading...</div>
+    </div>
+    <div class="card">
+      <h2>Bilby's Ledger (Live VM &amp; Neo4j)</h2>
+      <div id="bilby-ledger" class="muted">Loading...</div>
+    </div>
+    <div class="card">
+      <h2>Cognitive Integrity &amp; Psych Profile</h2>
+      <div id="cog-box" class="muted">Loading...</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>
+        <span>Self-Evolution Baseline (Bout 1A)</span>
+        <span class="pill warn" id="self-evo-pill">Loading...</span>
+      </h2>
+      <div id="self-evo-box" class="muted">Loading...</div>
+    </div>
+    <div class="card">
+      <h2>
+        <span>RL Film-Study Sparring (Bout 1B)</span>
+        <span class="pill info" id="sparring-pill">Loading...</span>
+      </h2>
+      <div id="sparring-box" class="muted">Loading...</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>
+        <span>Skippy's Benchmark Ledger (scoreboard.json)</span>
+        <span class="pill" id="sb-sync-pill">...</span>
+      </h2>
+      <div id="skippy-ledger" class="muted">Loading...</div>
+    </div>
+    <div class="card">
+      <h2>Recent Arena Matches (:TextArenaMatch)</h2>
+      <div id="matches-box" class="muted">Loading...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Latest Corner Check-Ins (Telegram / Handshake)</h2>
+    <div id="chat-box" class="muted">Loading...</div>
+  </div>
+
+<script>
+function esc(s){return String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function fmtVal(v){
+  if(v === null || v === undefined || v === '') return '—';
+  if(typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+async function refresh(){
+  try{
+    const r = await fetch('/api/arena', {cache:'no-store'});
+    const d = await r.json();
+    const gpu = (d.telemetry && d.telemetry.gpu) || {};
+    document.getElementById('sub').textContent =
+      `Updated ${d.updated_at} | ${d.phase} | GPU: ${gpu.vram_used_mb||0}/${gpu.vram_total_mb||0} MB (${gpu.temp_c||0}°C, ${gpu.gpu_util_pct||0}% util)`;
+
+    const gp = document.getElementById('gate-pill');
+    gp.textContent = `Gate [${(d.gate_stamp.tier||'?').toUpperCase()}]: ${d.gate_stamp.passed ? 'PASS' : 'CHECK'}`;
+    gp.className = 'pill ' + (d.gate_stamp.passed ? 'ok' : 'warn');
+
+    const rec = d.reconciliation || {};
+    const recStatus = rec.status || 'PENDING RECONCILIATION';
+    const recCls = rec.in_sync ? 'ok' : 'warn';
+    const rp = document.getElementById('reconcile-pill');
+    rp.textContent = `Dual Scoreboards: ${recStatus}`;
+    rp.className = 'pill ' + recCls;
+    rp.title = rec.reason || '';
+    const sbp = document.getElementById('sb-sync-pill');
+    sbp.textContent = recStatus;
+    sbp.className = 'pill ' + recCls;
+    sbp.title = rec.reason || '';
+
+    document.getElementById('phase-box').innerHTML =
+      `<div class="kv"><span>Status</span><strong>${esc(d.contract.status)}</strong></div>` +
+      `<div class="kv"><span>Tier 1</span><span>${esc(d.contract.tier1.join(' · '))}</span></div>` +
+      `<div class="kv"><span>Tier 2</span><span>${esc(d.contract.tier2.join(' · '))}</span></div>` +
+      `<div class="muted" style="margin-top:8px;">Bilby's Non-Negotiable Terms:</div><ul>` +
+      d.contract.bilby_conditions.map(c=>`<li>${esc(c)}</li>`).join('') + `</ul>`;
+
+    const bl = d.bilby_ledger || {};
+    document.getElementById('bilby-ledger').innerHTML =
+      `<div class="kv"><span>Telegram Turns</span><strong>${bl.total_turns}</strong></div>` +
+      `<div class="kv"><span>VM Steps</span><strong>${bl.total_steps}</strong></div>` +
+      `<div class="kv"><span>Active :ActorEpisode</span><strong>${bl.active_episodes}</strong></div>` +
+      `<div class="kv"><span>Crystallized :ActorEngram</span><strong>${bl.engrams}</strong></div>` +
+      `<div class="kv"><span>Logged Arena Matches</span><strong>${bl.matches_logged}</strong></div>` +
+      `<div class="reconcile-note"><span class="pill ${recCls}">${esc(recStatus)}</span> ` +
+      `<span class="muted">Bilby: ${esc(rec.bilby_latest_date||'—')} vs Skippy: ${esc(rec.skippy_latest_date||'—')}</span>` +
+      (rec.reason ? `<div class="muted" style="margin-top:4px;">${esc(rec.reason)}</div>` : '') + `</div>`;
+
+    const cog = d.cognitive_battery || {};
+    const psy = d.psych_profile || {};
+    let cogHtml = `<div class="kv"><span>Cognitive Integrity</span><strong style="color:var(--ok)">${cog.passed}/${cog.total} (${cog.score_pct}%)</strong></div>` +
+                  `<div class="kv"><span>Psych Enacted Profile</span><strong style="color:var(--ok)">${psy.overall_behavioral_pct}%</strong></div>`;
+    for(const p of (cog.probes||[])){
+      cogHtml += `<div class="probe"><span>${esc(p.id)}</span><span class="pill ${p.passed?'ok':'bad'}">${p.passed?'PASS':'FAIL'} (${p.elapsed_sec}s)</span></div>`;
+    }
+    document.getElementById('cog-box').innerHTML = cogHtml;
+
+    // Self-Evolution Baseline (Bout 1A)
+    const se = d.self_evo_baseline || {};
+    const sePill = document.getElementById('self-evo-pill');
+    if(!se.available){
+      sePill.textContent = se.status || 'In Progress...';
+      sePill.className = 'pill warn';
+      document.getElementById('self-evo-box').innerHTML =
+        `<div class="kv"><span>Status</span><strong style="color:var(--warn)">${esc(se.status || 'In Progress...')}</strong></div>` +
+        `<div class="muted" style="margin-top:6px;">Awaiting <code>benchmarks/PHASE1_SELF_EVO_BASELINE.json</code> from live Bout 1A self-evolution baseline run.</div>`;
+    } else {
+      const ss = se.summary || {};
+      const allPass = ss.specs && ss.pass_at_g_count === ss.specs;
+      sePill.textContent = se.status || 'Complete';
+      sePill.className = 'pill ' + (allPass ? 'ok' : (ss.pass_at_g_count > 0 ? 'warn' : 'bad'));
+      let seHtml =
+        `<div class="kv"><span>Model</span><strong>${esc(se.model)}</strong></div>` +
+        `<div class="kv"><span>Pass@1 / Pass@G</span><strong>${ss.pass_at_1_count??0}/${ss.specs??0} (${ss.pass_at_1_pct??0}%) · ${ss.pass_at_g_count??0}/${ss.specs??0} (${ss.pass_at_g_pct??0}%)</strong></div>` +
+        `<div class="kv"><span>Mean Holdout Pass</span><strong>${ss.mean_holdout_pct??0}%</strong></div>` +
+        `<div class="kv"><span>Persistence / Latency</span><span>${ss.persistence_verified??0}/${ss.specs??0} · ${ss.total_latency_s??0}s</span></div>`;
+      if((se.specs||[]).length){
+        seHtml += `<div class="tbl-wrap"><table class="mini"><thead><tr><th>Spec</th><th>Tier</th><th>Canary</th><th>Holdout</th><th>Status</th></tr></thead><tbody>`;
+        for(const sp of se.specs){
+          const visTxt = sp.visible_pass_pct != null ? `${sp.visible_pass_pct}%` : '—';
+          const holdTxt = sp.holdout_pass_pct != null ? `${sp.holdout_pass_pct}%` : '—';
+          const stCls = sp.passed ? 'ok' : (sp.status === 'error' ? 'bad' : 'warn');
+          seHtml += `<tr><td><strong>${esc(sp.spec_id)}</strong></td><td class="muted">${esc(sp.difficulty)}</td>` +
+                    `<td>${esc(visTxt)}</td><td>${esc(holdTxt)}</td>` +
+                    `<td><span class="pill ${stCls}">${esc(sp.passed ? 'PASS' : (sp.status||'FAIL').toUpperCase())}</span></td></tr>`;
+        }
+        seHtml += `</tbody></table></div>`;
+      }
+      document.getElementById('self-evo-box').innerHTML = seHtml;
+    }
+
+    // RL Film-Study Sparring Rematches (Bout 1B)
+    const sp = d.sparring_results || {};
+    const spPill = document.getElementById('sparring-pill');
+    if(!sp.available){
+      spPill.textContent = sp.status || 'Ready for Bout 1B';
+      spPill.className = 'pill info';
+      document.getElementById('sparring-box').innerHTML =
+        `<div class="kv"><span>Status</span><strong style="color:var(--accent)">${esc(sp.status || 'Ready for Bout 1B')}</strong></div>` +
+        `<div class="muted" style="margin-top:6px;">No Before-vs-After RL Film-Study rematch deltas yet. Waiting for <code>benchmarks/SPARRING_RESULTS.json</code>.</div>`;
+    } else {
+      spPill.textContent = sp.status || 'Logged';
+      spPill.className = 'pill ok';
+      let spHtml =
+        `<div class="kv"><span>Model / Opponent</span><strong>${esc(sp.model)} vs ${esc(sp.opponent)}</strong></div>` +
+        `<div class="kv"><span>Updated</span><span>${esc(sp.timestamp)}</span></div>`;
+      const sum = sp.summary || {};
+      for(const [k, v] of Object.entries(sum)){
+        spHtml += `<div class="kv"><span>${esc(k)}</span><strong>${esc(fmtVal(v))}</strong></div>`;
+      }
+      if((sp.bouts||[]).length){
+        spHtml += `<div class="tbl-wrap"><table class="mini"><thead><tr><th>Arena</th><th>Before</th><th>After</th><th>Delta</th><th>Status</th></tr></thead><tbody>`;
+        for(const b of sp.bouts){
+          const dNum = Number(b.delta);
+          const dCls = !Number.isNaN(dNum) ? (dNum > 0 ? 'ok' : (dNum < 0 ? 'bad' : 'info')) : 'info';
+          const dTxt = (!Number.isNaN(dNum) && dNum > 0 ? '+' : '') + fmtVal(b.delta);
+          spHtml += `<tr><td><strong>${esc(b.env_id)}</strong></td><td>${esc(fmtVal(b.before))}</td>` +
+                    `<td>${esc(fmtVal(b.after))}</td><td><span class="pill ${dCls}">${esc(dTxt)}</span></td>` +
+                    `<td class="muted">${esc(b.status)}</td></tr>`;
+        }
+        spHtml += `</tbody></table></div>`;
+      }
+      document.getElementById('sparring-box').innerHTML = spHtml;
+    }
+
+    let sbHtml = '';
+    for(const s of (d.skippy_ledger||[])){
+      sbHtml += `<div class="kv"><span>${esc(s.name)} <span class="muted">(${esc(s.category)})</span></span><strong>${esc(s.score)}</strong></div>`;
+    }
+    document.getElementById('skippy-ledger').innerHTML = sbHtml || '<div class="muted">No scoreboard entries yet.</div>';
+
+    let mHtml = '';
+    for(const m of (d.matches||[])){
+      mHtml += `<div class="match-item"><strong>${esc(m.env_id)}</strong> <span class="pill">${esc(m.mode)}</span> ` +
+               `turns=${esc(m.turns)} | rewards=<code>${esc(m.rewards_json)}</code> | ${esc(m.elapsed_s)}s</div>`;
+    }
+    document.getElementById('matches-box').innerHTML = mHtml || '<div class="muted">No arena matches logged yet.</div>';
+
+    let cHtml = '';
+    for(const ex of (d.latest_exchange||[]).reverse()){
+      cHtml += `<div class="exch"><strong>Turn ${esc(ex.turn)} — User/Corner:</strong> ${esc(ex.user)}\n<strong>Bilby:</strong> ${esc(ex.reply)}</div>`;
+    }
+    document.getElementById('chat-box').innerHTML = cHtml || '<div class="muted">No recent turns.</div>';
+  }catch(e){
+    document.getElementById('sub').textContent = 'Error refreshing: ' + e;
+  }
+}
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>
+"""
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -1247,6 +1825,22 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+            return
+
+        if path in ("/arena", "/fight-camp"):
+            body = ARENA_HTML.encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if path == "/api/arena":
+            try:
+                self._send_json(get_arena_status())
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, status=500)
             return
 
         if path == "/api/health":

@@ -1,0 +1,514 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-25T10:56:54.475797+00:00",
+  "runs": [
+    {
+      "timestamp": "2026-11-25T06:39:38.825527+00:00",
+      "env_id": "ConnectFour-v0",
+      "model": "qwen3.8:latest",
+      "use_actorii": true,
+      "opponent": "tactical_c4",
+      "match_1": {
+        "env_id": "ConnectFour-v0",
+        "mode": "local",
+        "players": 2,
+        "model": "qwen3.8:latest",
+        "turns": 7,
+        "rewards": {
+          "0": 1,
+          "1": -1
+        },
+        "game_info": {
+          "0": {
+            "role": "Player 0",
+            "invalid_move": false,
+            "turn_count": 4,
+            "reason": "Player 0 wins by connecting four!"
+          },
+          "1": {
+            "role": "Player 1",
+            "invalid_move": false,
+            "turn_count": 3,
+            "reason": "Player 0 wins by connecting four!"
+          }
+        },
+        "elapsed_s": 29.85,
+        "transcript": [
+          {
+            "turn": 1,
+            "player_id": 0,
+            "action": "[col 3]"
+          },
+          {
+            "turn": 2,
+            "player_id": 1,
+            "action": "[col 3]"
+          },
+          {
+            "turn": 3,
+            "player_id": 0,
+            "action": "[col 2]"
+          },
+          {
+            "turn": 4,
+            "player_id": 1,
+            "action": "[col 2]"
+          },
+          {
+            "turn": 5,
+            "player_id": 0,
+            "action": "[col 4]"
+          },
+          {
+            "turn": 6,
+            "player_id": 1,
+            "action": "[col 1]"
+          },
+          {
+            "turn": 7,
+            "player_id": 0,
+            "action": "[col 5]"
+          }
+        ]
+      },
+      "film_study": {
+        "env_id": "ConnectFour-v0",
+        "namespace": "textarena_bilby",
+        "opponent": "tactical_c4",
+        "outcome": "WIN",
+        "reflection_source": "live_agent",
+        "transcript": "Match Film-Study Transcript | Env: ConnectFour-v0 | Opponent: tactical_c4 | Turns: 7 | P0 Outcome: WIN | Rewards: {\"0\": 1, \"1\": -1}\n----------------------------------------------------------------------------------------\nT01 Bilby(P0): [col 3]\nT02 Opp(P1): [col 3]\nT03 Bilby(P0): [col 2]\nT04 Opp(P1): [col 2]\nT05 Bilby(P0): [col 4]\nT06 Opp(P1): [col 1]\nT07 Bilby(P0): [col 5]",
+        "lessons": "- **Mistake:** Failed to block the opponent's immediate horizontal threat at T06. Opponent had `O` at cols 1, 2, 3; dropping at col 4 (or 0) would have completed 4-in-a-row. Bilby played col 5, allowing the win.\n- **Rule 1:** Always scan for opponent's 3-in-a-row with an open 4th slot before making your own move. Block immediate threats first.\n- **Rule 2:** When building your own 3-in-a-row, ensure the 4th slot is not easily blocked by opponent (e.g., avoid setups where opponent can drop above your 3rd disc to block).\n- **Rule 3:** Prioritize center columns (3, 2, 4) for early game to maximize diagonal and horizontal options, but always verify opponent's threats before committing.",
+        "neo4j_saved": true
+      },
+      "match_2": {
+        "env_id": "ConnectFour-v0",
+        "mode": "local",
+        "players": 2,
+        "model": "qwen3.8:latest",
+        "turns": 12,
+        "rewards": {
+          "1": 1,
+          "0": -1
+        },
+        "game_info": {
+          "0": {
+            "role": "Player 0",
+            "invalid_move": false,
+            "turn_count": 6,
+            "reason": "Player 1 wins by connecting four!"
+          },
+          "1": {
+            "role": "Player 1",
+            "invalid_move": false,
+            "turn_count": 6,
+            "reason": "Player 1 wins by connecting four!"
+          }
+        },
+        "elapsed_s": 266.63,
+        "transcript": [
+          {
+            "turn": 1,
+            "player_id": 0,
+            "action": "[col 3]"
+          },
+          {
+            "turn": 2,
+            "player_id": 1,
+            "action": "[col 3]"
+          },
+          {
+            "turn": 3,
+            "player_id": 0,
+            "action": "[col 2]"
+          },
+          {
+            "turn": 4,
+            "player_id": 1,
+            "action": "[col 2]"
+          },
+          {
+            "turn": 5,
+            "player_id": 0,
+            "action": "[col 4]"
+          },
+          {
+            "turn": 6,
+            "player_id": 1,
+            "action": "[col 1]"
+          },
+          {
+            "turn": 7,
+            "player_id": 0,
+            "action": "[col 0]"
+          },
+          {
+            "turn": 8,
+            "player_id": 1,
+            "action": "[col 5]"
+          },
+          {
+            "turn": 9,
+            "player_id": 0,
+            "action": "[col 6]"
+          },
+          {
+            "turn": 10,
+            "player_id": 1,
+            "action": "[col 4]"
+          },
+          {
+            "turn": 11,
+            "player_id": 0,
+            "action": "[col 1]"
+          },
+          {
+            "turn": 12,
+            "player_id": 1,
+            "action": "[col 5]"
+          }
+        ]
+      },
+      "before_vs_after": {
+        "p0_reward_before": 1.0,
+        "p0_reward_after": -1.0,
+        "p0_reward_delta": -2.0,
+        "improved": false,
+        "outcome_before": "WIN",
+        "outcome_after": "LOSS"
+      }
+    },
+    {
+      "timestamp": "2026-11-25T06:41:28.607267+00:00",
+      "env_id": "SimpleNegotiation-v0",
+      "model": "qwen3.8:latest",
+      "use_actorii": true,
+      "opponent": "nash_neg",
+      "match_1": {
+        "env_id": "SimpleNegotiation-v0",
+        "mode": "local",
+        "players": 2,
+        "model": "qwen3.8:latest",
+        "turns": 9,
+        "rewards": {
+          "1": -1,
+          "0": 1
+        },
+        "game_info": {
+          "0": {
+            "role": "Player 0",
+            "invalid_move": false,
+            "turn_count": 4,
+            "reason": "Player tried accepting a trade without having the necessary resources."
+          },
+          "1": {
+            "role": "Player 1",
+            "invalid_move": true,
+            "turn_count": 4,
+            "reason": "Player tried accepting a trade without having the necessary resources."
+          }
+        },
+        "elapsed_s": 29.72,
+        "transcript": [
+          {
+            "turn": 1,
+            "player_id": 0,
+            "action": "[Offer: 2 Ore, 1 Brick -> 3 Sheep, 2 Wood]"
+          },
+          {
+            "turn": 2,
+            "player_id": 1,
+            "action": "That trade increases our mutual value. [Accept]"
+          },
+          {
+            "turn": 3,
+            "player_id": 0,
+            "action": "[Offer: 2 Ore, 1 Brick -> 3 Sheep, 2 Wood]"
+          },
+          {
+            "turn": 4,
+            "player_id": 1,
+            "action": "That trade increases our mutual value. [Accept]"
+          },
+          {
+            "turn": 5,
+            "player_id": 0,
+            "action": "[Offer: 2 Ore, 1 Brick -> 3 Sheep, 2 Wood]"
+          },
+          {
+            "turn": 6,
+            "player_id": 1,
+            "action": "That trade increases our mutual value. [Accept]"
+          },
+          {
+            "turn": 7,
+            "player_id": 0,
+            "action": "[Offer: 2 Ore, 1 Brick -> 3 Sheep, 2 Wood]"
+          },
+          {
+            "turn": 8,
+            "player_id": 1,
+            "action": "That trade increases our mutual value. [Accept]"
+          },
+          {
+            "turn": 9,
+            "player_id": 1,
+            "action": "That trade increases our mutual value. [Accept]"
+          }
+        ]
+      },
+      "film_study": {
+        "env_id": "SimpleNegotiation-v0",
+        "namespace": "textarena_bilby",
+        "opponent": "nash_neg",
+        "outcome": "WIN",
+        "reflection_source": "live_agent",
+        "transcript": "Match Film-Study Transcript | Env: SimpleNegotiation-v0 | Opponent: nash_neg | Turns: 9 | P0 Outcome: WIN | Rewards: {\"1\": -1, \"0\": 1}\n----------------------------------------------------------------------------------------\nT01 Bilby(P0): [Offer: 2 Ore, 1 Brick -> 3 Sheep, 2 Wood]\nT02 Opp(P1): That trade increases our mutual value. [Accept]\nT03 Bilby(P0): [Offer: 2 Ore, 1 Brick -> 3 Sheep, 2 Wood]\nT04 Opp(P1): That trade increases our mutual value. [Accept]\nT05 Bilby(P0): [Offer: 2 Ore, 1 Brick -> 3 Sheep, 2 Wood]\nT06 Opp(P1): That trade increases our mutual value. [Accept]\nT07 Bilby(P0): [Offer: 2 Ore, 1 Brick -> 3 Sheep, 2 Wood]\nT08 Opp(P1): That trade increases our mutual value. [Accept]\nT09 Opp(P1): That trade increases our mutual value. [Accept]",
+        "lessons": "1. **Stop repeating identical offers:** The opponent (`nash_neg`) is a deterministic acceptor for positive-sum trades; repeating the exact same offer 5 times is redundant and risks hitting a \"no-change\" penalty or wasting turns. Vary the mix (e.g., swap 1 Ore for 1 Brick) to keep the trade fresh and potentially extract slightly better terms if the opponent has hidden preferences.\n2. **Maximize Volume, Not Just Value:** Since the opponent accepts any trade that \"increases mutual value,\" prioritize high-volume trades of your lowest-value resources (Wheat/Wood) for their highest-value resources (Ore/Brick) to maximize the *delta* in your total portfolio value per turn.\n3. **Front-Load Aggressive Swaps:** Use early turns to dump excess low-value goods (Wheat: 6, Wood: 8) for high-value goods (Ore: 37, Brick: 28). Do not hold back; the goal is to convert all low-value inventory into high-value inventory before the 10-turn limit.",
+        "neo4j_saved": true
+      },
+      "match_2": {
+        "env_id": "SimpleNegotiation-v0",
+        "mode": "local",
+        "players": 2,
+        "model": "qwen3.8:latest",
+        "turns": 11,
+        "rewards": {
+          "0": 0,
+          "1": 0
+        },
+        "game_info": {
+          "0": {
+            "role": "Player 0",
+            "invalid_move": false,
+            "turn_count": 6,
+            "reason": "Same change in inventory value for all players. Draw."
+          },
+          "1": {
+            "role": "Player 1",
+            "invalid_move": false,
+            "turn_count": 5,
+            "reason": "Same change in inventory value for all players. Draw."
+          }
+        },
+        "elapsed_s": 57.67,
+        "transcript": [
+          {
+            "turn": 1,
+            "player_id": 0,
+            "action": "[Offer: 5 Wheat, 2 Wood -> 3 Ore, 2 Brick]"
+          },
+          {
+            "turn": 2,
+            "player_id": 1,
+            "action": "That offer doesn't quite balance for me, so here is a constructive counter-offer: [Offer: 3 Wheat -> 1 Ore]"
+          },
+          {
+            "turn": 3,
+            "player_id": 0,
+            "action": "[Deny]"
+          },
+          {
+            "turn": 4,
+            "player_id": 1,
+            "action": "That offer doesn't quite balance for me, so here is a constructive counter-offer: [Offer: 3 Wheat -> 1 Ore]"
+          },
+          {
+            "turn": 5,
+            "player_id": 0,
+            "action": "[Offer: 4 Wheat, 1 Wood -> 2 Ore, 1 Brick]"
+          },
+          {
+            "turn": 6,
+            "player_id": 1,
+            "action": "That offer doesn't quite balance for me, so here is a constructive counter-offer: [Offer: 3 Wheat -> 1 Ore]"
+          },
+          {
+            "turn": 7,
+            "player_id": 0,
+            "action": "[Offer: 6 Wheat -> 1 Ore, 1 Brick]"
+          },
+          {
+            "turn": 8,
+            "player_id": 1,
+            "action": "That offer doesn't quite balance for me, so here is a constructive counter-offer: [Offer: 3 Wheat -> 1 Ore]"
+          },
+          {
+            "turn": 9,
+            "player_id": 0,
+            "action": "[Offer: 8 Wheat -> 2 Ore]"
+          },
+          {
+            "turn": 10,
+            "player_id": 1,
+            "action": "That offer doesn't quite balance for me, so here is a constructive counter-offer: [Offer: 3 Wheat -> 1 Ore]"
+          },
+          {
+            "turn": 11,
+            "player_id": 0,
+            "action": "[Offer: 10 Wheat -> 3 Ore]"
+          }
+        ]
+      },
+      "before_vs_after": {
+        "p0_reward_before": 1.0,
+        "p0_reward_after": 0.0,
+        "p0_reward_delta": -1.0,
+        "improved": false,
+        "outcome_before": "WIN",
+        "outcome_after": "DRAW"
+      }
+    },
+    {
+      "timestamp": "2026-11-25T10:56:54.475697+00:00",
+      "env_id": "ConnectFour-v0",
+      "model": "qwen3.8:latest",
+      "use_actorii": true,
+      "opponent": "tactical_c4",
+      "match_1": {
+        "env_id": "ConnectFour-v0",
+        "mode": "local",
+        "players": 2,
+        "model": "qwen3.8:latest",
+        "turns": 7,
+        "rewards": {
+          "0": 1,
+          "1": -1
+        },
+        "game_info": {
+          "0": {
+            "role": "Player 0",
+            "invalid_move": false,
+            "turn_count": 4,
+            "reason": "Player 0 wins by connecting four!"
+          },
+          "1": {
+            "role": "Player 1",
+            "invalid_move": false,
+            "turn_count": 3,
+            "reason": "Player 0 wins by connecting four!"
+          }
+        },
+        "elapsed_s": 31.41,
+        "transcript": [
+          {
+            "turn": 1,
+            "player_id": 0,
+            "action": "[col 3]"
+          },
+          {
+            "turn": 2,
+            "player_id": 1,
+            "action": "[col 3]"
+          },
+          {
+            "turn": 3,
+            "player_id": 0,
+            "action": "[col 2]"
+          },
+          {
+            "turn": 4,
+            "player_id": 1,
+            "action": "[col 2]"
+          },
+          {
+            "turn": 5,
+            "player_id": 0,
+            "action": "[col 4]"
+          },
+          {
+            "turn": 6,
+            "player_id": 1,
+            "action": "[col 1]"
+          },
+          {
+            "turn": 7,
+            "player_id": 0,
+            "action": "[col 5]"
+          }
+        ]
+      },
+      "film_study": {
+        "env_id": "ConnectFour-v0",
+        "namespace": "textarena_bilby",
+        "opponent": "tactical_c4",
+        "outcome": "WIN",
+        "reflection_source": "live_agent",
+        "transcript": "Match Film-Study Transcript | Env: ConnectFour-v0 | Opponent: tactical_c4 | Turns: 7 | P0 Outcome: WIN | Rewards: {\"0\": 1, \"1\": -1}\n----------------------------------------------------------------------------------------\nT01 Bilby(P0): [col 3]\nT02 Opp(P1): [col 3]\nT03 Bilby(P0): [col 2]\nT04 Opp(P1): [col 2]\nT05 Bilby(P0): [col 4]\nT06 Opp(P1): [col 1]\nT07 Bilby(P0): [col 5]",
+        "lessons": "1. **Central Control & Fork Creation:** Opening with col 3, then flanking with cols 2 and 4 creates a strong central triangle (X at 2,3,4). This maximizes diagonal and horizontal attack vectors while forcing the opponent to play defensively around your center.\n2. **Exploit Opponent's Edge Bias:** When the opponent (tactical_c4) played col 1 (edge) at T06, it signaled a shift away from the center. Immediately extending your horizontal line to col 5 (T07) created an unblockable 4-in-a-row threat (cols 2-5) that the opponent could not counter, securing the win.\n3. **Maintain Horizontal Pressure:** In the mid-game, prioritize extending your longest horizontal line (cols 2-4) to either side (col 1 or 5) before the opponent can establish a counter-fork. This \"double-threat\" setup (winning on either side) is the most reliable path to victory against tactical opponents.",
+        "neo4j_saved": true
+      },
+      "match_2": {
+        "env_id": "ConnectFour-v0",
+        "mode": "local",
+        "players": 2,
+        "model": "qwen3.8:latest",
+        "turns": 7,
+        "rewards": {
+          "0": 1,
+          "1": -1
+        },
+        "game_info": {
+          "0": {
+            "role": "Player 0",
+            "invalid_move": false,
+            "turn_count": 4,
+            "reason": "Player 0 wins by connecting four!"
+          },
+          "1": {
+            "role": "Player 1",
+            "invalid_move": false,
+            "turn_count": 3,
+            "reason": "Player 0 wins by connecting four!"
+          }
+        },
+        "elapsed_s": 40.54,
+        "transcript": [
+          {
+            "turn": 1,
+            "player_id": 0,
+            "action": "[col 3]"
+          },
+          {
+            "turn": 2,
+            "player_id": 1,
+            "action": "[col 3]"
+          },
+          {
+            "turn": 3,
+            "player_id": 0,
+            "action": "[col 2]"
+          },
+          {
+            "turn": 4,
+            "player_id": 1,
+            "action": "[col 2]"
+          },
+          {
+            "turn": 5,
+            "player_id": 0,
+            "action": "[col 4]"
+          },
+          {
+            "turn": 6,
+            "player_id": 1,
+            "action": "[col 1]"
+          },
+          {
+            "turn": 7,
+            "player_id": 0,
+            "action": "[col 5]"
+          }
+        ]
+      },
+      "before_vs_after": {
+        "p0_reward_before": 1.0,
+        "p0_reward_after": 1.0,
+        "p0_reward_delta": 0.0,
+        "improved": false,
+        "outcome_before": "WIN",
+        "outcome_after": "WIN"
+      }
+    }
+  ]
+}
