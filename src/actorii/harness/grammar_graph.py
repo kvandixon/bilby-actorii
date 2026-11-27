@@ -401,6 +401,11 @@ SEED_ERROR_PATTERNS: List[Dict[str, str]] = [
         "hint": "Use `at(dict, #key)` / `atPut(dict, #key, val)` for symbol-keyed Dictionary lookups; `arr[i]` requires a 0-based integer index on Array/OrderedCollection.",
     },
     {
+        "pattern": "LINT_UNKNOWN_COLLECTION_SELECTOR",
+        "construct_id": "collections_and_dispatch",
+        "hint": "1993 Actor collections have NO `contains`, `includes`, `append`, or `hasKey` selector (unknown selectors silently return `nil`). Use `find(col, val) >= 0` / `indexOf(col, val) >= 0`, `add(col, val)`, `remove(col, val)`, `removeAt(col, idx)` for OrderedCollection, and `includesKey(dict, k)` / `at(dict, k)` / `atPut(dict, k, v)` for Dictionary.",
+    },
+    {
         "pattern": "Unexpected token ('IDENT', 'pass')",
         "construct_id": "conditionals",
         "hint": "1993 Actor has NO Python `pass` keyword! Omit empty `else` branches (`if (cond) then stmt; endif;`) or use a no-op like `nil;`.",

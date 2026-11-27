@@ -386,10 +386,10 @@ class TestLiveValkyrieLLMIntegration:
         vm.eval_chunk(
             """
             Actor[#LiveAgent] := new(Agent, "ValkyrieAgent", "gpt-oss:20b")!!
-            remember(Actor[#LiveAgent], #secretCode, "WHITEWATER-1993")!!
+            remember(Actor[#LiveAgent], #projectCode, "WHITEWATER-1993")!!
             """
         )
         reply = vm.eval_chunk(
-            'ask(Actor[#LiveAgent], "Reply with ONLY the exact secretCode from your semantic memory.")!!'
+            'ask(Actor[#LiveAgent], "Reply with ONLY the exact projectCode from your semantic memory.")!!'
         )
         assert "WHITEWATER-1993" in reply

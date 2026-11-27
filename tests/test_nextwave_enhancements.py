@@ -359,6 +359,153 @@ class TestSmarterDuplicateStepEscalation:
         with_write = ok_probes + [{"step": 15, "action": 'writeFile(Actor[#Host], "/workspace/s.py", "x")!!', "status": "ok"}]
         assert sandbox._midpoint_implementation_nudge(harness, with_write, 16) == ""
 
+    def test_mutating_execshell_resets_dup_guard_and_readonly_shell_nudges(self, monkeypatch) -> None:
+        import asyncio as _asyncio
+        import base64 as _b64
+        import json as _json
+        from types import SimpleNamespace
+        from actorii.ai import ValkyrieLLMClient
+        from actorii.harness import _is_mutating_shell_action, VMSandboxBridge
+
+        # 1. Shell mutation classifier distinguishes file edits from read-only probes
+        assert _is_mutating_shell_action('execShell(Actor[#Host], "sed -i \'s/a/b/\' /app/ars.R", 10)!!') is True
+        assert _is_mutating_shell_action('execShell(Actor[#Host], "perl -0pi -e \'s/a/b/\' /app/ars.R", 10)!!') is True
+        assert _is_mutating_shell_action('execShell(Actor[#Host], "cat > /app/a.py << EOF", 10)!!') is True
+        assert _is_mutating_shell_action('execShell(Actor[#Host], "Rscript -e \'test()\' 2>&1 | tail -20", 10)!!') is False
+        assert _is_mutating_shell_action('execShell(Actor[#Host], "python3 -c \'print(1+1)\' 2>/dev/null", 10)!!') is False
+
+        # 2. Re-running identical test command after mutating execShell must NOT falsely trigger DuplicateStepWarning
+        vm, harness, sandbox = bootstrap_agent_harness(enable_memory_graph=False)
+        vm.eval_chunk('setGoal(Actor[#Harness], "Fix /app/ars.R")!!')
+        harness._fields["stepLog"].add({
+            "step": 1,
+            "action": 'execShell(Actor[#Host], "Rscript -e \'test()\' 2>&1 | tail -20", 10)!!',
+            "status": "ok",
+            "result": "[exit=1]\nfail",
+        })
+        harness._fields["stepLog"].add({
+            "step": 2,
+            "action": 'execShell(Actor[#Host], "sed -i \'s/bad/good/\' /app/ars.R", 10)!!',
+            "status": "ok",
+            "result": "[exit=0]\n(no output)",
+        })
+        # Mock Host.execShell so Step 3 executes cleanly without hitting host lockdown
+        monkeypatch.setattr(vm.global_vars["Actor"]["Host"]._target, "execShell", lambda cmd, timeout=10: "[exit=0]\nPASS")
+        harness._fields["stepCount"] = 3
+        r3 = str(sandbox.executeStepAction(harness, 'execShell(Actor[#Host], "Rscript -e \'test()\' 2>&1 | tail -20", 10)!!'))
+        assert "DuplicateStepWarning" not in r3
+        assert "PASS" in r3
+
+        # 3. 6+ consecutive read-only execShell probes trigger exploratory-probe pivot nudge
+        monkeypatch.setenv("ACTORII_HOST_LOCKDOWN", "0")
+        ro_steps = [
+            {"step": i, "action": f'execShell(Actor[#Host], "python3 -c \'print({i})\'", 10)!!', "status": "ok", "result": f"[exit=0]\n{i}"}
+            for i in range(1, 7)
+        ]
+        nudge = VMSandboxBridge._step_loop_nudge(ro_steps)
+        assert "CONSECUTIVE EXPLORATORY SHELL PROBES" in nudge
+
+        # 4. String `[exit=2]` triggers non-zero shell exit detection in DuplicateStepWarning & auto thinking in ai.py
+        harness._fields["stepLog"].add({
+            "step": 4,
+            "action": 'execShell(Actor[#Host], "pytest -q", 10)!!',
+            "status": "ok",
+            "result": "[exit=2]\nImportError: no module",
+        })
+        harness._fields["stepCount"] = 5
+        r5 = str(sandbox.executeStepAction(harness, 'execShell(Actor[#Host], "pytest -q", 10)!!'))
+        assert "FAILED with exitCode=2" in r5
+
+        captured = {}
+        class _FakeResp:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self):
+                return _json.dumps({"choices": [{"message": {"content": "COMPLETE: ok"}}], "usage": {}}).encode()
+        monkeypatch.setenv("ACTORII_THINKING_MODE", "auto")
+        monkeypatch.setattr("urllib.request.urlopen", lambda req, timeout=None: (captured.setdefault("payload", _json.loads(req.data.decode("utf-8"))), _FakeResp())[1])
+        client = ValkyrieLLMClient(endpoint="http://127.0.0.1:8080/v1/chat/completions", model="inkling-2-mini-sq-15")
+        client.complete_messages([
+            {"role": "system", "content": "You are Bilby."},
+            {"role": "user", "content": "STEP: 4 of 60\nLAST RESULT: '[exit=2]\\nmissing dep'"},
+        ], temperature=0.1)
+        assert captured["payload"]["chat_template_kwargs"]["enable_thinking"] is True
+
+        # 5. HarborContainerHostBridge.editFile works purely via base64 without python3 in container
+        import sys as _sys
+        from pathlib import Path as _Path
+        _repo = _Path(__file__).resolve().parents[1]
+        if str(_repo) not in _sys.path:
+            _sys.path.insert(0, str(_repo))
+        from deploy.arena_adapters.terminal_bench_adapter import _build_harbor_host_bridge
+
+        fake_fs = {"/app/ars.R": "alpha <- 1\nbeta <- 2\n"}
+        cmds_seen = []
+
+        class _FakeEnv:
+            async def exec(self, command: str, timeout_sec: int = 15):
+                cmds_seen.append(command)
+                if command.startswith("base64 "):
+                    b64 = _b64.b64encode(fake_fs["/app/ars.R"].encode()).decode()
+                    return SimpleNamespace(return_code=0, stdout=b64, stderr="")
+                if "base64 -d >" in command:
+                    tok = command.split("printf %s ", 1)[1].split(" | base64", 1)[0].strip("'\"")
+                    fake_fs["/app/ars.R"] = _b64.b64decode(tok).decode()
+                    return SimpleNamespace(return_code=0, stdout="", stderr="")
+                return SimpleNamespace(return_code=1, stdout="", stderr="unexpected")
+
+        loop = _asyncio.new_event_loop()
+        import threading as _th
+        th = _th.Thread(target=loop.run_forever, daemon=True)
+        th.start()
+        try:
+            bridge = _build_harbor_host_bridge(_FakeEnv(), loop)
+            res = bridge.editFile("/app/ars.R", "beta <- 2", "beta <- 99")
+            assert res == "Edited /app/ars.R"
+            assert "beta <- 99" in fake_fs["/app/ars.R"]
+            assert all("python3" not in c for c in cmds_seen)
+
+            # 6. Exposed HarborContainerHostBridge MUST survive eval_transactional rollback intact!
+            vm.lock_system_singletons = False
+            vm.expose_object(bridge, global_key="#Host")
+            vm.lock_system_singletons = True
+            try:
+                vm.eval_transactional("(1 / 0)!!", max_opcodes=5000)
+            except Exception:
+                pass
+            assert vm.global_vars["Actor"]["Host"] is not None
+            assert hasattr(vm.global_vars["Actor"]["Host"], "_bridge_specs")
+            res2 = vm.eval_chunk('editFile(Actor[#Host], "/app/ars.R", "beta <- 99", "beta <- 100")!!')
+            assert res2 == "Edited /app/ars.R"
+        finally:
+            loop.call_soon_threadsafe(loop.stop)
+            th.join(timeout=2)
+            loop.close()
+
+        # 7. Inline prose before Actor call, JSON <tool_call>, and bare `!!` anti-Done guard
+        from actorii.harness import extract_actor_action
+        assert extract_actor_action('I\'ll check the lock.execShell(Actor[#Host], "ls /app", 15)!!') == 'execShell(Actor[#Host], "ls /app", 15)!!'
+        assert extract_actor_action('Checking...<tool_call>\n{"name": "execShell", "arguments": {"cmd": "ls /app"}}\n</tool_call>') == 'execShell(Actor[#Host], "ls /app", 20)!!'
+        assert extract_actor_action('!!execShell(Actor[#Host], "ls /app", 15)!!') == 'execShell(Actor[#Host], "ls /app", 15)!!'
+        assert extract_actor_action("!!") == ""
+        assert extract_actor_action("!!!!") == ""
+
+        # 8. WorkspaceVerificationGuard catches claiming "Fixed /app/user.cpp" with zero actual file edits (even in strict mode)
+        monkeypatch.setenv("ACTORII_BENCH_STRICT", "1")
+        monkeypatch.setenv("ACTORII_HOST_LOCKDOWN", "0")
+        vm2, h2, sb2 = bootstrap_agent_harness(enable_memory_graph=False)
+        vm2.eval_chunk('setGoal(Actor[#Harness], "Fix the release crash in /app/user.cpp")!!')
+        h2._fields["stepLog"].add({
+            "step": 1,
+            "action": 'execShell(Actor[#Host], "cat /app/user.cpp", 10)!!',
+            "status": "ok",
+            "result": "[exit=0]\nvoid f() {}",
+        })
+        h2._fields["stepCount"] = 2
+        r_guard = str(sb2.executeStepAction(h2, "COMPLETE: Fixed /app/user.cpp by adding sized operator delete."))
+        assert "WorkspaceVerificationGuard:" in r_guard
+        assert str(h2._fields.get("status")) != "complete"
+
 
 class TestUnaryOperatorCompilation:
     def test_unary_minus_and_not_in_actor_vm(self) -> None:

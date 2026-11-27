@@ -1322,7 +1322,8 @@ def get_arena_status() -> Dict[str, Any]:
     # Phase 1B RL Film-Study Sparring Rematches (benchmarks/SPARRING_RESULTS.json)
     if sparring_raw:
         raw_bouts = (
-            sparring_raw.get("bouts")
+            sparring_raw.get("runs")
+            or sparring_raw.get("bouts")
             or sparring_raw.get("rematches")
             or sparring_raw.get("matches")
             or sparring_raw.get("games")
@@ -1331,34 +1332,84 @@ def get_arena_status() -> Dict[str, Any]:
             or []
         )
         sp_bouts: List[Dict[str, Any]] = []
+        wins_after = 0
+        draws_after = 0
+        losses_after = 0
+        improved_cnt = 0
+        latest_model = sparring_raw.get("model") or "—"
+        latest_opp = sparring_raw.get("opponent") or "—"
         if isinstance(raw_bouts, list):
-            for b in raw_bouts:
+            for b in reversed(raw_bouts):
                 if not isinstance(b, dict):
                     continue
+                bva = b.get("before_vs_after") if isinstance(b.get("before_vs_after"), dict) else {}
+                out_b = bva.get("outcome_before")
+                out_a = bva.get("outcome_after")
+                rew_b = bva.get("p0_reward_before")
+                rew_a = bva.get("p0_reward_after")
+                if out_a == "WIN":
+                    wins_after += 1
+                elif out_a == "DRAW":
+                    draws_after += 1
+                elif out_a == "LOSS":
+                    losses_after += 1
+                if bva.get("improved"):
+                    improved_cnt += 1
+                if latest_model == "—" and b.get("model"):
+                    latest_model = str(b.get("model"))
+                if latest_opp == "—" and b.get("opponent"):
+                    latest_opp = str(b.get("opponent"))
+                before_val = (
+                    f"{out_b} ({rew_b:+.1f})"
+                    if out_b is not None and isinstance(rew_b, (int, float))
+                    else (b.get("before") if b.get("before") is not None else b.get("baseline"))
+                )
+                after_val = (
+                    f"{out_a} ({rew_a:+.1f})"
+                    if out_a is not None and isinstance(rew_a, (int, float))
+                    else (b.get("after") if b.get("after") is not None else b.get("rematch"))
+                )
+                delta_val = (
+                    bva.get("p0_reward_delta")
+                    if bva.get("p0_reward_delta") is not None
+                    else (b.get("delta") if b.get("delta") is not None else b.get("reward_delta"))
+                )
+                status_val = (
+                    "IMPROVED"
+                    if bva.get("improved")
+                    else (out_a or b.get("status") or b.get("outcome") or "completed")
+                )
                 sp_bouts.append(
                     {
                         "env_id": b.get("env_id") or b.get("game") or b.get("name") or b.get("id") or "—",
-                        "before": b.get("before") if b.get("before") is not None else b.get("baseline"),
-                        "after": b.get("after") if b.get("after") is not None else b.get("rematch"),
-                        "delta": b.get("delta") if b.get("delta") is not None else b.get("reward_delta"),
-                        "status": b.get("status") or b.get("outcome") or "completed",
+                        "model": b.get("model") or "—",
+                        "opponent": b.get("opponent") or "—",
+                        "before": before_val,
+                        "after": after_val,
+                        "delta": delta_val,
+                        "status": status_val,
                         "engram": b.get("engram") or b.get("film_study_engram") or "",
                         "notes": b.get("notes") or "",
                     }
                 )
+        sp_summary = sparring_raw.get("summary") or {
+            "Rematch Sets": len(sp_bouts),
+            "Rematch W / D / L": f"{wins_after}W / {draws_after}D / {losses_after}L",
+            "RL Improved Sets": improved_cnt,
+        }
         sparring_results: Dict[str, Any] = {
             "available": True,
-            "status": sparring_raw.get("status") or f"{len(sp_bouts)} Rematch(es) Logged",
+            "status": sparring_raw.get("status") or f"{len(sp_bouts)} Rematch Set(s)",
             "timestamp": sparring_raw.get("timestamp") or sparring_raw.get("updated_at") or "—",
-            "model": sparring_raw.get("model") or "—",
-            "opponent": sparring_raw.get("opponent") or "—",
-            "summary": sparring_raw.get("summary") or {},
-            "bouts": sp_bouts,
+            "model": latest_model,
+            "opponent": latest_opp,
+            "summary": sp_summary,
+            "bouts": sp_bouts[:20],
         }
     else:
         sparring_results = {
             "available": False,
-            "status": "Ready for Bout 1B",
+            "status": "No Sparring Runs Yet",
             "timestamp": "—",
             "model": "—",
             "opponent": "—",
@@ -1539,7 +1590,7 @@ ARENA_HTML = """<!doctype html>
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Bilby Fight Camp & Arena Status (:8095)</title>
+<title>Bilby Arena &amp; Benchmark Status (:8095)</title>
 <style>
   :root { --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#58a6ff; }
   * { box-sizing:border-box; }
@@ -1574,7 +1625,7 @@ ARENA_HTML = """<!doctype html>
 <body>
   <div class="top">
     <div>
-      <div class="title">🥊 Bilby Fight Camp &amp; Arena Status Board</div>
+      <div class="title">Bilby Arena &amp; Benchmark Status Board</div>
       <div class="muted" id="sub">Loading live telemetry...</div>
     </div>
     <div class="top-actions">
@@ -1748,12 +1799,12 @@ async function refresh(){
         spHtml += `<div class="kv"><span>${esc(k)}</span><strong>${esc(fmtVal(v))}</strong></div>`;
       }
       if((sp.bouts||[]).length){
-        spHtml += `<div class="tbl-wrap"><table class="mini"><thead><tr><th>Arena</th><th>Before</th><th>After</th><th>Delta</th><th>Status</th></tr></thead><tbody>`;
+        spHtml += `<div class="tbl-wrap"><table class="mini"><thead><tr><th>Arena</th><th>Model</th><th>Opponent</th><th>Before</th><th>After</th><th>Delta</th><th>Status</th></tr></thead><tbody>`;
         for(const b of sp.bouts){
           const dNum = Number(b.delta);
           const dCls = !Number.isNaN(dNum) ? (dNum > 0 ? 'ok' : (dNum < 0 ? 'bad' : 'info')) : 'info';
           const dTxt = (!Number.isNaN(dNum) && dNum > 0 ? '+' : '') + fmtVal(b.delta);
-          spHtml += `<tr><td><strong>${esc(b.env_id)}</strong></td><td>${esc(fmtVal(b.before))}</td>` +
+          spHtml += `<tr><td><strong>${esc(b.env_id)}</strong></td><td class="muted">${esc(b.model||'—')}</td><td class="muted">${esc(b.opponent||'—')}</td><td>${esc(fmtVal(b.before))}</td>` +
                     `<td>${esc(fmtVal(b.after))}</td><td><span class="pill ${dCls}">${esc(dTxt)}</span></td>` +
                     `<td class="muted">${esc(b.status)}</td></tr>`;
         }
@@ -1794,6 +1845,12 @@ setInterval(refresh, 10000);
 
 class DashboardHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+
+    def handle(self) -> None:
+        try:
+            super().handle()
+        except (ConnectionResetError, BrokenPipeError, TimeoutError):
+            return
 
     def log_message(self, fmt: str, *args: Any) -> None:
         return  # Keep journald clean

@@ -352,11 +352,30 @@ _WS_CODING_ACTION_RE = re.compile(
     re.IGNORECASE,
 )
 _WS_CODING_TARGET_RE = re.compile(
-    r"(?:/workspace\b|"
-    r"(?<!#)\b[\w./-]+\.(?:py|js|ts|tsx|jsx|rs|go|c|cpp|h|hpp|java|sh|yaml|yml|json|toml|md|txt|sql|html|css|cu)\b|"
+    r"(?:/workspace\b|/app\b|TERMINAL-BENCH\s+CONTAINER\s+TASK|"
+    r"(?<!#)\b[\w./-]+\.(?:py|js|ts|tsx|jsx|rs|go|c|cpp|h|hpp|java|sh|r|yaml|yml|json|toml|md|txt|sql|html|css|cu)\b|"
     r"\b(?:workspace|repo|repository|codebase|source\s+file|script|file|files)\b)",
     re.IGNORECASE,
 )
+_SHELL_MUTATION_RE = re.compile(
+    r"(?:>>?\s*[^\s&;|]|"
+    r"\bsed\s+[^\n]*-i\b|"
+    r"\bperl\s+[^\n]*-[^\s]*i|"
+    r"\b(?:tee|patch|mv|cp|rm|mkdir|touch|chmod|chown|ln|install|dpkg|apt-get|apt|pip3?|make|cmake|ninja|gcc|g\+\+|clang|cargo|rustc|git\s+(?:clone|checkout|apply|reset|pull|init|add|commit))\b|"
+    r"\bopen\s*\([^)]*['\"][wa+])",
+    re.IGNORECASE,
+)
+_SHELL_EXIT_NONZERO_RE = re.compile(r"\[exit=([1-9]\d*)\]")
+
+
+def _is_mutating_shell_action(action: str) -> bool:
+    """Return True if an `execShell(...)` Actor action likely mutates container/workspace files or build state."""
+    s = str(action or "")
+    if "execShell(" not in s:
+        return False
+    # Ignore stderr redirection `2>&1` or `/dev/null` when checking `>` redirects
+    cleaned = re.sub(r"\b[12]?>&[12]\b|>\s*/dev/null", "", s)
+    return bool(_SHELL_MUTATION_RE.search(cleaned))
 _WS_READONLY_START_RE = re.compile(
     r"^\s*(?:explain|describe|summarize|what(?:'s|\s+is|\s+does|\s+are)\b|how\s+(?:does|do|to)\b|"
     r"why\s+(?:does|is|are)\b|list\b|show\b|check\b|inspect\b|read\b|review\b|audit\b|status\b|tell\s+me\b)",
@@ -481,13 +500,29 @@ def _strip_actor_comments_and_strings(source: str) -> str:
 
 
 def _transpile_xml_host_tool_call(text: str) -> Optional[str]:
-    """Transpile Qwen `<function=writeFile|execShell|readFile|editFile>` XML tool calls into 1993 Actor 4.1 `Actor[#Host]` expressions."""
+    """Transpile Qwen/Hermes `<function=...>` XML or `<tool_call>{JSON}</tool_call>` host tool calls into 1993 Actor 4.1 `Actor[#Host]` expressions."""
+    fn_name = ""
+    params: Dict[str, Any] = {}
     fn_m = _XML_FUNC_NAME_RE.search(text)
-    if not fn_m:
-        return None
-    fn_name = fn_m.group(1).strip().split(".")[-1].lower()
-    params = {k.lower(): v for k, v in _XML_KV_PARAM_RE.findall(text)}
-    if not params:
+    if fn_m:
+        fn_name = fn_m.group(1).strip().split(".")[-1].lower()
+        params = {k.lower(): v for k, v in _XML_KV_PARAM_RE.findall(text)}
+    else:
+        # Also support OpenAI/Hermes JSON `<tool_call>{"name": "execShell", "arguments": {...}}</tool_call>`
+        jm = re.search(r"<tool_call>\s*(\{[\s\S]*?\})\s*(?:</tool_call>|$)", text, flags=re.IGNORECASE)
+        if jm:
+            try:
+                jobj = json.loads(jm.group(1))
+                if isinstance(jobj, dict):
+                    fn_name = str(jobj.get("name") or "").strip().split(".")[-1].lower()
+                    raw_args = jobj.get("arguments") or jobj.get("parameters") or {}
+                    if isinstance(raw_args, str):
+                        raw_args = json.loads(raw_args)
+                    if isinstance(raw_args, dict):
+                        params = {str(k).lower(): str(v) if not isinstance(v, str) else v for k, v in raw_args.items()}
+            except Exception:
+                pass
+    if not fn_name or not params:
         return None
 
     if fn_name in ("writefile", "write_file", "create_file"):
@@ -508,8 +543,8 @@ def _transpile_xml_host_tool_call(text: str) -> Optional[str]:
             return f"readFile(Actor[#Host], {json.dumps(path)}, {s_ln}, {e_ln})!!"
     elif fn_name in ("editfile", "edit_file", "replace_in_file"):
         path = (params.get("path") or params.get("file_path") or "").strip()
-        old_t = params.get("oldtext") or params.get("old_text") or params.get("old_str") or ""
-        new_t = params.get("newtext") or params.get("new_text") or params.get("new_str") or ""
+        old_t = params.get("oldtext") or params.get("old_text") or params.get("old_str") or params.get("target") or ""
+        new_t = params.get("newtext") or params.get("new_text") or params.get("new_str") or params.get("replacement") or ""
         if path and old_t:
             return f"editFile(Actor[#Host], {json.dumps(path)}, {json.dumps(old_t)}, {json.dumps(new_t)})!!"
     return None
@@ -598,14 +633,30 @@ _CODE_START_LINE_RE = re.compile(
 def _strip_leading_prose_before_code(text: str) -> str:
     """If an LLM response contains conversational preamble or trailing prose around Actor 4.1 code, keep only the code."""
     s = (text or "").strip()
-    if "\n" not in s:
-        return s
     candidate_full = s if s.endswith("!!") else (s.rstrip("!") + "!!")
     try:
         if parse_actor(candidate_full):
             return s
     except Exception:
         pass
+
+    # Handle inline single-line prose glued directly before an Actor call (e.g. `I'll check it.execShell(Actor[#Host], ...)!!`)
+    inline_m = re.search(
+        r"(?:[.!?:—-]\s*|\s+)([A-Za-z_]\w*\s*\(\s*Actor\s*\[|Actor\s*\[#\w+\]\s*:=|(?:inherit|now)\s*\()",
+        s,
+    )
+    if inline_m:
+        sub = s[inline_m.start(1) :].strip()
+        if sub and _is_likely_actor_code(sub):
+            cand = sub if sub.endswith("!!") else (sub.rstrip("!") + "!!")
+            try:
+                if parse_actor(cand):
+                    return sub
+            except Exception:
+                pass
+
+    if "\n" not in s:
+        return s
 
     lines = s.splitlines()
     for i in range(1, len(lines)):
@@ -681,6 +732,14 @@ def _split_code_and_complete(raw_text: str) -> Tuple[str, Optional[str]]:
     if not text:
         return "", None
 
+    # Reject empty or bang-only outputs (`!!`, `!!!!`) so they NEVER silently finalize as `COMPLETE: Done`!
+    if not text.strip("!` \t\r\n"):
+        return "", None
+    if text.startswith("!!") and len(text) > 2:
+        text = text.lstrip("!").strip()
+        if not text.strip("!` \t\r\n"):
+            return "", None
+
     # Strip outer single inline backticks if the LLM wrapped the entire line/response in `...`
     if len(text) >= 2 and text.startswith("`") and not text.startswith("```"):
         if text.endswith("`") and "`" not in text[1:-1]:
@@ -744,6 +803,9 @@ def _split_code_and_complete(raw_text: str) -> Tuple[str, Optional[str]]:
     # Conversational prose detection: if the model replied in natural language without Actor code constructs,
     # treat it directly as a conversational completion unless it is mid-step planning prose ("Let me check...").
     if not _is_likely_actor_code(text):
+        cleaned_prose = _clean_complete_summary(text)
+        if not cleaned_prose:
+            return "", None
         if re.search(
             r"\b(?:let me|let's check|i'll check|i will check|let me read|let me search|let's inspect|next step|will run|now let's|now i will)\b",
             text,
@@ -753,7 +815,16 @@ def _split_code_and_complete(raw_text: str) -> Tuple[str, Optional[str]]:
                 '__INCOMPLETE_REASONING_STEP__("Output executable Actor 4.1 code ending in !! instead of reasoning prose")!!',
                 None,
             )
-        return "", text.strip()
+        return "", cleaned_prose
+
+    # Strip stray trailing quote/brace punctuation emitted right after `!!` (e.g. `execShell(..., 10)!!"`)
+    if re.search(r"!![\"'}\]]+\s*$", text):
+        cand_trim = re.sub(r"(!!)[\"'}\]]+\s*$", r"\1", text)
+        try:
+            if parse_actor(cand_trim):
+                text = cand_trim
+        except Exception:
+            pass
 
     if not text.endswith("!!"):
         text = text.rstrip("!") + "!!"
@@ -2109,6 +2180,8 @@ class VMSandboxBridge:
         in_docker = os.environ.get("ACTORII_IN_DOCKER") == "1" or Path("/.dockerenv").exists()
         is_lockdown = is_host_lockdown() and not in_docker
         consec_readonly = 0
+        consec_readonly_shell = 0
+        consec_def_only = 0
         consec_edge_probes = 0
         has_mutated = False
         ssh_self_kill_hint = False
@@ -2118,6 +2191,10 @@ class VMSandboxBridge:
                 st = s_entry.get("status", "ok")
                 raw_act = str(s_entry.get("action", ""))
                 res_obj = s_entry.get("result")
+                if st == "ok" and "Def " in raw_act and res_obj is None:
+                    consec_def_only += 1
+                else:
+                    consec_def_only = 0
                 if isinstance(res_obj, Dictionary) and not bool(res_obj.at("ok")):
                     ec = res_obj.at("exitCode")
                     if ec == 255 and "pkill -f" in raw_act:
@@ -2129,7 +2206,6 @@ class VMSandboxBridge:
                     for m in (
                         "editFile",
                         "writeFile",
-                        "execShell",
                         "storeScratch",
                         "Def ",
                         "inherit(",
@@ -2142,10 +2218,14 @@ class VMSandboxBridge:
                         "sendDocument",
                         "sendFile",
                     )
-                ):
+                ) or _is_mutating_shell_action(raw_act):
                     has_mutated = True
                     consec_readonly = 0
+                    consec_readonly_shell = 0
                     consec_edge_probes = 0
+                elif "execShell(" in raw_act:
+                    consec_readonly_shell += 1
+                    consec_readonly = 0
                 elif any(r in raw_act for r in ("searchFile", "readFile")):
                     consec_readonly += 1
                 elif "Actor[#Jetson]" in raw_act and ("exec(" in raw_act or "runCommand(" in raw_act):
@@ -2169,6 +2249,20 @@ class VMSandboxBridge:
                 f"\n[ACTION REQUIRED — {consec_readonly} CONSECUTIVE READ-ONLY STEPS WITHOUT EDITING]: "
                 "Stop searching/reading! Apply your fix NOW using `editFile(Actor[#Host], \"/workspace/...\", \"\"\"old\"\"\", \"\"\"new\"\"\")!!` "
                 "(or `writeFile` / `execShell`), then verify it with `execShell`."
+            )
+        if consec_readonly_shell >= 6 and not is_lockdown:
+            out.append(
+                f"\n[ACTION REQUIRED — {consec_readonly_shell} CONSECUTIVE EXPLORATORY SHELL PROBES WITHOUT WRITING CODE]: "
+                "Stop running repetitive read-only `execShell` probes (`python3 -c`, `curl`, `sed -n`, etc.)! "
+                "Write your implementation/solver script cleanly with `writeFile(Actor[#Host], \"...\", \"\"\"...\"\"\")!!` "
+                "(or switch to a concrete build/edit step), then run and verify it."
+            )
+        if consec_def_only >= 2:
+            out.append(
+                f"\n[ACTION REQUIRED — {consec_def_only} CONSECUTIVE METHOD REDEFINITIONS WITHOUT TESTING]: "
+                "Your class and methods are ALREADY compiled in the live VM (`Def ...!!` always returns `None` on success). "
+                "Do NOT redefine the whole class again! Execute concrete test expressions NOW to verify actual return values, "
+                "compare them against expected outputs, and patch only the specific method that fails."
             )
         if consec_edge_probes >= 3:
             out.append(
@@ -2237,17 +2331,22 @@ class VMSandboxBridge:
     def _midpoint_implementation_nudge(
         harness_obj: Any, step_entries: List[Any], step_num: int
     ) -> str:
-        """Nudge at ~50% of maxSteps on coding/deliverable goals if zero files have been written yet."""
+        """Nudge at ~35% and ~50% of maxSteps on coding/deliverable goals if zero files have been written yet."""
         if harness_obj is None or not hasattr(harness_obj, "_fields"):
             return ""
         raw_ms = harness_obj._fields.get("maxSteps")
         max_st = 0 if raw_ms is None else int(raw_ms)
-        if max_st < 12 or step_num != (max_st // 2):
+        if max_st < 12:
+            return ""
+        trigger_steps = {max_st // 2}
+        if max_st >= 18:
+            trigger_steps.add(max_st // 3)
+        if step_num not in trigger_steps:
             return ""
         goal = str(harness_obj._fields.get("goal", "") or "")
         if not _is_workspace_coding_goal(goal):
             return ""
-        write_tokens = ("writeFile(", "editFile(", "writeAndRun(", "cat >", "cat <<")
+        write_tokens = ("writeFile(", "editFile(", "writeAndRun(", "cat >", "cat <<", "sed -i", "perl -", "tee ")
         has_written = any(
             isinstance(e, dict)
             and e.get("status") == "ok"
@@ -2698,7 +2797,10 @@ class VMSandboxBridge:
                         break
                     continue
                 # Stop scanning past an intervening successful state mutation so edit -> re-run is allowed
-                if cand_st == "ok" and any(tok in cand_action for tok in _STATE_MUTATION_TOKENS):
+                if cand_st == "ok" and (
+                    any(tok in cand_action for tok in _STATE_MUTATION_TOKENS)
+                    or _is_mutating_shell_action(cand_action)
+                ):
                     break
 
             def _consecutive_dup_warnings() -> int:
@@ -2748,7 +2850,18 @@ class VMSandboxBridge:
                 elif isinstance(prev_res, dict) and isinstance(prev_res.get("exitCode"), int) and prev_res["exitCode"] != 0:
                     shell_exit_code = int(prev_res["exitCode"])
                     shell_stderr = str(prev_res.get("stderr") or "")[:280].strip()
+                elif isinstance(prev_res, str):
+                    em = _SHELL_EXIT_NONZERO_RE.search(prev_res)
+                    if em:
+                        shell_exit_code = int(em.group(1))
+                        shell_stderr = prev_res[em.end() :].strip()[:280]
 
+                strict_bench = os.environ.get("ACTORII_BENCH_STRICT") == "1"
+                alt_hint = (
+                    "write/edit your implementation script with `writeFile`/`editFile`, change strategy, "
+                    if strict_bench
+                    else "consult `recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` for a different approach, "
+                )
                 if dup_count >= 2:
                     if shell_exit_code is not None:
                         dup_msg = (
@@ -2764,8 +2877,7 @@ class VMSandboxBridge:
                             f"in Step {matched_prev.get('step')} and returned `nil` (`None`) — it is side-effect only "
                             "or an empty lookup, so re-running it will NOT produce new output! "
                             f"(scratchpad={scratch_str}). Pivot now: inspect the target variable/file/collection "
-                            "(e.g. `readScratch`, `readFile`, or `describe(Actor[#Twin])!!`), consult "
-                            "`recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` if unsure of the API, "
+                            f"(e.g. `readScratch`, `readFile`, or `describe(Actor[#Twin])!!`), {alt_hint}"
                             "or move to the next step / finalize with `COMPLETE: <summary>`."
                         )
                     else:
@@ -2773,7 +2885,7 @@ class VMSandboxBridge:
                             f"DuplicateStepWarning [ESCALATED #{dup_count}]: This exact expression already succeeded "
                             f"in Step {matched_prev.get('step')} — its value (`{prev_res!r}`) is ALREADY in `LAST RESULT` "
                             f"(scratchpad={scratch_str}). Do NOT re-run it! Either act on that value in your next step, "
-                            "consult `recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` for a different approach, "
+                            f"{alt_hint}"
                             "or finalize now with `COMPLETE: <summary>`."
                         )
                 else:
@@ -2789,9 +2901,12 @@ class VMSandboxBridge:
                             f"executed in Step {matched_prev.get('step')} (result={prev_res!r}, "
                             f"scratchpad={scratch_str}). "
                             "Do NOT repeat identical code! If the values in SCRATCHPAD or LAST RESULT already answer the goal, reply "
-                            "`COMPLETE: <summary>`. If you are unsure of the exact driver/command for a device or library, call "
-                            "`recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` or `learnProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` "
-                            "instead of repeating the same probe! If a method value is wrong, inspect `sourceOf(Actor[#VM], #ClassName, #selector)!!`."
+                            "`COMPLETE: <summary>`. Otherwise take a genuinely NEW action ("
+                            + (
+                                "write/edit your deliverable file with `writeFile`/`editFile`, test a different hypothesis, or inspect a different file)."
+                                if strict_bench
+                                else "call `recallProduct(Actor[#ProductLearner], \"<product>\", \"<topic>\")!!` or inspect `sourceOf(Actor[#VM], #ClassName, #selector)!!`)."
+                            )
                         )
                 harness_obj._fields["lastError"] = dup_msg
                 dup_entry = {
@@ -2946,7 +3061,6 @@ class VMSandboxBridge:
             )
             if (
                 prior_ws_guards < 1
-                and os.environ.get("ACTORII_BENCH_STRICT") != "1"
                 and (not is_lockdown or "/workspace" in current_goal)
                 and _is_workspace_coding_goal(current_goal)
             ):
@@ -2957,15 +3071,29 @@ class VMSandboxBridge:
                 ]
                 has_ws_edit = any(
                     re.search(r"\b(?:editFile|writeFile|writeAndRun)\s*\(", str(e.get("action", "")))
+                    or _is_mutating_shell_action(str(e.get("action", "")))
                     for e in ok_steps
                 )
                 has_verify_cmd = any(
                     re.search(r"\bexecShell\s*\(", str(e.get("action", "")))
                     for e in ok_steps
                 )
-                if not has_ws_edit and not has_verify_cmd:
+                claims_file_edit = bool(
+                    re.search(
+                        r"\b(?:fixed|patched|updated|edited|implemented|wrote|created|modified)\b[^.\n]{0,60}"
+                        r"(?:/[\w./-]+|\b[\w.-]+\.(?:py|cpp|cc|c|h|hpp|r|rs|go|js|ts|sh|txt|json|yaml|yml|md|cfg|conf)\b)",
+                        summary,
+                        flags=re.IGNORECASE,
+                    )
+                )
+                is_strict = os.environ.get("ACTORII_BENCH_STRICT") == "1"
+                if (not has_ws_edit and claims_file_edit) or (not is_strict and not has_ws_edit and not has_verify_cmd):
                     ws_msg = (
-                        "WorkspaceVerificationGuard: This goal asks to modify/create code or files, "
+                        "WorkspaceVerificationGuard: You claimed to have fixed/modified a file in `COMPLETE:`, "
+                        "but ZERO file edits/writes (`editFile`, `writeFile`, or mutating shell edit) executed in this turn! "
+                        "Apply your actual fix now, rebuild/re-run your verification command, and confirm it passes before finalizing with `COMPLETE:`."
+                        if (not has_ws_edit and claims_file_edit)
+                        else "WorkspaceVerificationGuard: This goal asks to modify/create code or files, "
                         "but you emitted `COMPLETE:` with zero workspace edits/writes (`editFile`/`writeFile`) "
                         "and zero test/verification commands (`execShell`) executed in this turn. "
                         "Apply and verify the change (and run tests, e.g. `execShell(Actor[#Host], \"python3 -m pytest -q\", 30)!!`) "

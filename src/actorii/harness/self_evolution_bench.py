@@ -415,17 +415,27 @@ def make_live_provider(
         base_messages = ([{"role": "system", "content": sys_txt}] if sys_txt else []) + [
             {"role": "user", "content": prompt}
         ]
-        payload = {
+        use_repair_thinking = (
+            DIAGNOSTICS_MARKER in prompt
+            or "DuplicateStepWarning" in prompt
+            or "[ACTION REQUIRED" in prompt
+            or "[PREVIOUS STEP FAILED" in prompt
+        )
+        payload: Dict[str, Any] = {
             "model": model,
             "messages": base_messages,
             "temperature": temperature,
             "seed": seed,
             "max_tokens": max_tokens,
             "stream": False,
-            "chat_template_kwargs": {"enable_thinking": False},
-            "force_no_think": True,
-            "reasoning_effort": "low",
+            "chat_template_kwargs": {"enable_thinking": bool(use_repair_thinking)},
         }
+        if use_repair_thinking:
+            payload["reasoning_budget_tokens"] = 512
+            payload["reasoning_effort"] = "medium"
+        else:
+            payload["force_no_think"] = True
+            payload["reasoning_effort"] = "low"
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),

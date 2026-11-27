@@ -32,6 +32,36 @@ _BUILTIN_TIER2_SELECTORS: FrozenSet[str] = frozenset(
 _POOL_MUTATING_SELECTORS: FrozenSet[str] = frozenset(
     ("atPut", "put", "add", "removeKey", "remove", "removeAt", "clear")
 )
+_COLLECTION_VALID_SELECTORS: Dict[str, FrozenSet[str]] = {
+    "OrderedCollection": frozenset((
+        "add", "addFirst", "addLast", "asArray", "asOrderedCollection", "asString",
+        "at", "atPut", "class", "clear", "clone", "collect", "copy", "do", "error",
+        "extract", "find", "first", "indexOf", "init", "insert", "isEmpty", "isKindOf",
+        "keysDo", "kindOf", "last", "pop", "print", "push", "put", "reject", "remove",
+        "removeAt", "removeFirst", "removeLast", "reverse", "select", "size",
+        "==", "!=", "<>", "=",
+    )),
+    "Array": frozenset((
+        "asArray", "asOrderedCollection", "asString", "at", "atPut", "class", "clone",
+        "collect", "copy", "copyFrom", "do", "error", "extract", "fill", "find", "first",
+        "indexOf", "init", "isEmpty", "isKindOf", "keysDo", "kindOf", "last", "print",
+        "put", "reject", "reverse", "select", "size",
+        "==", "!=", "<>", "=",
+    )),
+    "Dictionary": frozenset((
+        "add", "asArray", "asOrderedCollection", "asString", "assocsDo", "at", "atPut",
+        "class", "clear", "clone", "collect", "copy", "do", "error", "extract", "first",
+        "includesKey", "init", "isEmpty", "isKindOf", "keys", "keysDo", "kindOf", "last",
+        "print", "put", "reject", "remove", "removeAt", "removeKey", "select", "size",
+        "values",
+        "==", "!=", "<>", "=",
+    )),
+}
+_COLLECTION_SELECTOR_SUGGESTIONS: Dict[str, str] = {
+    "OrderedCollection": "Use `add(col, v)`, `at(col, i)`, `atPut(col, i, v)`, `size(col)`, `isEmpty(col)`, `find(col, v)` / `indexOf(col, v)` (returns -1 if absent), `remove(col, v)`, `removeAt(col, i)`, `first(col)`, `last(col)`.",
+    "Array": "Use `at(arr, i)`, `atPut(arr, i, v)`, `size(arr)`, `find(arr, v)` / `indexOf(arr, v)` (returns -1 if absent), `copyFrom(arr, s, e)`, `reverse(arr)`.",
+    "Dictionary": "Use `at(dict, key)`, `atPut(dict, key, val)`, `includesKey(dict, key)`, `keys(dict)`, `values(dict)`, `removeKey(dict, key)`, `size(dict)`, `isEmpty(dict)`.",
+}
 _CALL_OPCODES: FrozenSet[Any] = frozenset(
     (Opcode.CALL_METHOD, Opcode.CALL_EARLY, Opcode.CALL_GLOBAL)
 )
@@ -605,6 +635,40 @@ class ActorLinter:
                     if sel not in called_selectors_set:
                         called_selectors_set.add(sel)
                         called_selectors.append(sel)
+                    # Compile-time check for undefined selectors called on known built-in collection types
+                    # (unknown selectors silently return nil in Actor 4.1, causing subtle logic bugs like `contains(col, x)`!)
+                    if self.strict_ivars and target_cls != "<Chunk>":
+                        recv_cls: Optional[str] = None
+                        recv_lbl = ""
+                        if recv_tok[0] == "local" and isinstance(recv_tok[1], int):
+                            recv_cls = local_types.get(recv_tok[1])
+                            recv_lbl = f" '{_local_name_for_slot(recv_tok[1])}'"
+                        elif recv_tok[0] == "new_instance" and isinstance(recv_tok[1], str):
+                            recv_cls = recv_tok[1]
+                        if recv_cls in _COLLECTION_VALID_SELECTORS:
+                            valid_sels = _COLLECTION_VALID_SELECTORS[recv_cls]
+                            if sel not in valid_sels:
+                                # Also check live VM hierarchy in case a custom method was added dynamically
+                                hierarchy = getattr(self.vm, "hierarchy", None)
+                                has_in_vm = (
+                                    hierarchy is not None
+                                    and hasattr(hierarchy, "lookup")
+                                    and hierarchy.lookup(recv_cls, sel) is not None
+                                )
+                                if not has_in_vm:
+                                    issues.append(
+                                        LintIssue(
+                                            code="LINT_UNKNOWN_COLLECTION_SELECTOR",
+                                            severity="error",
+                                            message=(
+                                                f"Method '{target_cls}>>{selector}' calls undefined selector '{sel}' on "
+                                                f"{recv_cls}{recv_lbl} (unknown selectors silently return `nil` in Actor 4.1!). "
+                                                f"{_COLLECTION_SELECTOR_SUGGESTIONS[recv_cls]}"
+                                            ),
+                                            class_name=target_cls,
+                                            selector=selector,
+                                        )
+                                    )
                     if not has_tier2_call and self._is_tier2_bridge_selector(sel):
                         has_tier2_call = True
                     if (

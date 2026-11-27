@@ -233,6 +233,16 @@ def test_linter_catches_atput_reassign_trap_and_symbol_array_index() -> None:
             arr := new(Array, 3);
             ^arr[#score];
         }!!
+        Def badContains(self | col) {
+            col := new(OrderedCollection);
+            add(col, 1);
+            ^contains(col, 1);
+        }!!
+        Def goodFind(self | col) {
+            col := new(OrderedCollection);
+            add(col, 1);
+            ^(find(col, 1) >= 0);
+        }!!
         """
     )
     cls = vm.hierarchy.get("TrapTester")
@@ -245,6 +255,12 @@ def test_linter_catches_atput_reassign_trap_and_symbol_array_index() -> None:
 
     rep_sym_idx = linter.lint_method(cls.get_method("badArraySymIndex"), class_name="TrapTester")
     assert any(i.code == "LINT_SYMBOL_ARRAY_INDEX" for i in rep_sym_idx.errors)
+
+    rep_bad_contains = linter.lint_method(cls.get_method("badContains"), class_name="TrapTester")
+    assert any(i.code == "LINT_UNKNOWN_COLLECTION_SELECTOR" for i in rep_bad_contains.errors)
+
+    rep_good_find = linter.lint_method(cls.get_method("goodFind"), class_name="TrapTester")
+    assert rep_good_find.passed, rep_good_find.errors
 
 
 # =============================================================================

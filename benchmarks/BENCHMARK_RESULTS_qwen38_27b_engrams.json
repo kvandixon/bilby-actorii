@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-11-25T04:29:35-0500",
-  "model": "qwen3.8:latest",
+  "timestamp": "2026-11-27T15:01:50-0500",
+  "model": "inkling-2-mini-sq-15",
   "humaneval": {
     "n": 6,
     "single_shot_actor_pass1": "6/6 (100.0%)",
     "actor_harness_pass": "6/6 (100.0%)",
     "engram_cold_reboot_pass": "6/6 (100.0%)",
     "self_corrected_count": 0,
-    "python_reference_pass1": "0/6 (0.0%)",
+    "python_reference_pass1": "6/6 (100.0%)",
     "tasks": [
       {
         "task_id": "HumanEval/3",
@@ -19,9 +19,9 @@
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
         "actor_gas_used": 641,
-        "actor_elapsed_s": 12.57,
-        "python_pass1": false,
-        "python_elapsed_s": 4.3
+        "actor_elapsed_s": 9.46,
+        "python_pass1": true,
+        "python_elapsed_s": 2.57
       },
       {
         "task_id": "HumanEval/13",
@@ -32,10 +32,10 @@
         "actor_harness_steps": 1,
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
-        "actor_gas_used": 233,
-        "actor_elapsed_s": 8.9,
-        "python_pass1": false,
-        "python_elapsed_s": 6.49
+        "actor_gas_used": 225,
+        "actor_elapsed_s": 8.19,
+        "python_pass1": true,
+        "python_elapsed_s": 2.57
       },
       {
         "task_id": "HumanEval/23",
@@ -47,9 +47,9 @@
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
         "actor_gas_used": 39,
-        "actor_elapsed_s": 4.83,
-        "python_pass1": false,
-        "python_elapsed_s": 4.07
+        "actor_elapsed_s": 6.23,
+        "python_pass1": true,
+        "python_elapsed_s": 2.02
       },
       {
         "task_id": "HumanEval/24",
@@ -60,10 +60,10 @@
         "actor_harness_steps": 1,
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
-        "actor_gas_used": 1462,
-        "actor_elapsed_s": 8.61,
-        "python_pass1": false,
-        "python_elapsed_s": 5.97
+        "actor_gas_used": 1604,
+        "actor_elapsed_s": 12.25,
+        "python_pass1": true,
+        "python_elapsed_s": 3.74
       },
       {
         "task_id": "HumanEval/31",
@@ -74,10 +74,10 @@
         "actor_harness_steps": 1,
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
-        "actor_gas_used": 1706,
-        "actor_elapsed_s": 10.15,
-        "python_pass1": false,
-        "python_elapsed_s": 10.49
+        "actor_gas_used": 3042,
+        "actor_elapsed_s": 11.52,
+        "python_pass1": true,
+        "python_elapsed_s": 3.82
       },
       {
         "task_id": "HumanEval/35",
@@ -89,9 +89,9 @@
         "self_corrected": false,
         "engram_cold_reboot_passed": true,
         "actor_gas_used": 266,
-        "actor_elapsed_s": 8.67,
-        "python_pass1": false,
-        "python_elapsed_s": 5.89
+        "actor_elapsed_s": 12.14,
+        "python_pass1": true,
+        "python_elapsed_s": 2.19
       }
     ]
   },
@@ -107,31 +107,31 @@
         "single_shot_actor_passed": true,
         "actor_harness_passed": true,
         "self_corrected": false,
-        "steps": 1,
-        "gas_used": 42,
-        "elapsed_s": 10.17
+        "steps": 2,
+        "gas_used": 34,
+        "elapsed_s": 9.41
       },
       {
         "task_id": "GSM8K/1",
         "gold": 3,
-        "predicted": 3.0,
+        "predicted": 3,
         "single_shot_actor_passed": true,
         "actor_harness_passed": true,
         "self_corrected": false,
-        "steps": 1,
-        "gas_used": 34,
-        "elapsed_s": 4.06
+        "steps": 2,
+        "gas_used": 24,
+        "elapsed_s": 11.3
       },
       {
         "task_id": "GSM8K/2",
         "gold": 70000,
-        "predicted": 70000.0,
+        "predicted": 70000,
         "single_shot_actor_passed": true,
         "actor_harness_passed": true,
         "self_corrected": false,
-        "steps": 1,
-        "gas_used": 46,
-        "elapsed_s": 7.44
+        "steps": 2,
+        "gas_used": 38,
+        "elapsed_s": 13.56
       },
       {
         "task_id": "GSM8K/3",
@@ -140,9 +140,9 @@
         "single_shot_actor_passed": true,
         "actor_harness_passed": true,
         "self_corrected": false,
-        "steps": 1,
+        "steps": 2,
         "gas_used": 30,
-        "elapsed_s": 3.66
+        "elapsed_s": 9.61
       }
     ]
   }

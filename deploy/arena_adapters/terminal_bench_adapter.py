@@ -24,6 +24,7 @@ import datetime as _dt
 import json
 import os
 import sys
+import threading
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -225,7 +226,11 @@ def _default_harness_factory(
     )
 
 
-def _build_harbor_host_bridge(environment: Any, loop: asyncio.AbstractEventLoop) -> Any:
+def _build_harbor_host_bridge(
+    environment: Any,
+    loop: asyncio.AbstractEventLoop,
+    cancel_event: Optional[threading.Event] = None,
+) -> Any:
     """Wrap Harbor's async Docker `environment.exec(...)` as an ActorII `Actor[#Host]` bridge."""
     import base64
     import shlex
@@ -233,16 +238,25 @@ def _build_harbor_host_bridge(environment: Any, loop: asyncio.AbstractEventLoop)
 
     @actor_bridge
     class HarborContainerHostBridge:
-        def __init__(self, env: Any, ev_loop: asyncio.AbstractEventLoop) -> None:
+        def __init__(
+            self,
+            env: Any,
+            ev_loop: asyncio.AbstractEventLoop,
+            cancel_ev: Optional[threading.Event] = None,
+        ) -> None:
             self._env = env
             self._loop = ev_loop
+            self._cancel = cancel_ev or threading.Event()
 
         def _exec_raw(self, command: str, timeout_sec: int = 60) -> Tuple[int, str, str]:
+            if self._cancel.is_set():
+                raise RuntimeError("Harbor task cancelled/timed out — halting container exec")
+            capped = min(240, max(1, int(timeout_sec or 60)))
             fut = asyncio.run_coroutine_threadsafe(
-                self._env.exec(command, timeout_sec=max(1, int(timeout_sec))),
+                self._env.exec(command, timeout_sec=capped),
                 self._loop,
             )
-            res = fut.result(timeout=max(10, int(timeout_sec) + 15))
+            res = fut.result(timeout=capped + 15)
             rc = int(getattr(res, "return_code", 0) or 0)
             out = str(getattr(res, "stdout", "") or "")
             err = str(getattr(res, "stderr", "") or "")
@@ -279,18 +293,24 @@ def _build_harbor_host_bridge(environment: Any, loop: asyncio.AbstractEventLoop)
 
         @actor_command
         def editFile(self, path: str, target: str, replacement: str) -> str:
-            t_b64 = base64.b64encode(str(target).encode("utf-8")).decode("ascii")
-            r_b64 = base64.b64encode(str(replacement).encode("utf-8")).decode("ascii")
-            py = (
-                "import base64, sys; p=sys.argv[1]; "
-                "t=base64.b64decode(sys.argv[2]).decode(); r=base64.b64decode(sys.argv[3]).decode(); "
-                "s=open(p, encoding='utf-8').read(); "
-                "assert t in s, 'target not found'; "
-                "open(p, 'w', encoding='utf-8').write(s.replace(t, r, 1)); print('OK')"
-            )
-            cmd = f"python3 -c {shlex.quote(py)} {shlex.quote(str(path))} {shlex.quote(t_b64)} {shlex.quote(r_b64)}"
-            rc, out, err = self._exec_raw(cmd, timeout_sec=15)
-            return f"Edited {path}" if rc == 0 else f"ERROR (rc={rc}): {err or out}"
+            """Host-side exact substring replacement via base64 (zero dependency on python3 inside the container)."""
+            qpath = shlex.quote(str(path))
+            rc, out, err = self._exec_raw(f"base64 {qpath} | tr -d '\\r\\n'", timeout_sec=15)
+            if rc != 0:
+                return f"ERROR (rc={rc}): {err or out}"
+            try:
+                content = base64.b64decode(out.strip().encode("ascii")).decode("utf-8", errors="replace")
+            except Exception as exc:
+                return f"ERROR: failed to decode {path}: {exc}"
+            t_str = str(target)
+            r_str = str(replacement)
+            if t_str not in content:
+                return f"ERROR: target not found in {path} (read the file first to copy the exact lines)"
+            updated = content.replace(t_str, r_str, 1)
+            b64_new = base64.b64encode(updated.encode("utf-8")).decode("ascii")
+            w_cmd = f"printf %s {shlex.quote(b64_new)} | base64 -d > {qpath}"
+            rc2, out2, err2 = self._exec_raw(w_cmd, timeout_sec=15)
+            return f"Edited {path}" if rc2 == 0 else f"ERROR (rc={rc2}): {err2 or out2}"
 
         @actor_query
         def listFiles(self, path: str = ".") -> str:
@@ -305,7 +325,7 @@ def _build_harbor_host_bridge(environment: Any, loop: asyncio.AbstractEventLoop)
             )
             return out if out.strip() else f"(no matches, rc={rc})"
 
-    return HarborContainerHostBridge(environment, loop)
+    return HarborContainerHostBridge(environment, loop, cancel_event)
 
 
 def _extract_usage_tokens(harness: Any) -> Tuple[int, int]:
@@ -327,8 +347,8 @@ class BilbyTerminalBenchAgent(_HarborBaseAgent):
         model_name: Optional[str] = None,
         *,
         endpoint: Optional[str] = None,
-        max_steps: int = 45,
-        max_failures: int = 10,
+        max_steps: int = 60,
+        max_failures: int = 12,
         gas_limit: int = 100000,
         enable_memory_graph: bool = False,
         enable_engrams: bool = False,
@@ -354,6 +374,7 @@ class BilbyTerminalBenchAgent(_HarborBaseAgent):
         self._vm: Any = None
         self._harness: Any = None
         self._sandbox: Any = None
+        self._cancel_event: threading.Event = threading.Event()
 
     @staticmethod
     def name() -> str:
@@ -410,13 +431,38 @@ class BilbyTerminalBenchAgent(_HarborBaseAgent):
         try:
             vm, harness, _sandbox = self._ensure_bootstrapped()
             if environment is not None and event_loop is not None and hasattr(environment, "exec"):
-                vm.global_vars["Actor"]["Host"] = _build_harbor_host_bridge(environment, event_loop)
+                from actorii.core import Symbol
+                prev_lock = getattr(vm, "lock_system_singletons", True)
+                vm.lock_system_singletons = False
+                try:
+                    bridge = _build_harbor_host_bridge(
+                        environment, event_loop, cancel_event=self._cancel_event
+                    )
+                    # Register via vm.expose_object so Actor[#Host] is a real ActorBridgeObject
+                    # with `_bridge_specs` and survives `eval_transactional` rollbacks!
+                    vm.expose_object(bridge, global_key="#Host")
+                    actor_pool = vm.global_vars.get("Actor")
+                    if isinstance(actor_pool, dict):
+                        # Isolate container benchmark runs from host-only twins (both string & Symbol keys)
+                        for host_only_key in (
+                            "Valkyrie", "System", "Jetson", "Pantry", "Hue",
+                            "Telegram", "Proxy", "Ops", "Thermometer", "ThermoUI",
+                            "Network", "NetTopo", "ProductLearner", "Web",
+                        ):
+                            actor_pool.pop(host_only_key, None)
+                            actor_pool.pop(Symbol(host_only_key), None)
+                finally:
+                    vm.lock_system_singletons = prev_lock
                 goal_text = (
                     "TERMINAL-BENCH CONTAINER TASK (live Docker environment bound to `Actor[#Host]`):\n"
-                    "- Do NOT narrate your plan in plain text. On Step 1, immediately emit an Actor 4.1 command ending in `!!` "
-                    "(e.g. `execShell(Actor[#Host], \"ls -la\", 15)!!`) to inspect the container.\n"
-                    "- Use `execShell`, `readFile`, `writeFile`, `editFile` on `Actor[#Host]` to implement and test your solution.\n"
-                    "- Only reply `COMPLETE: <summary>` AFTER running verification commands inside the container.\n\n"
+                    "- On Step 1, immediately emit an Actor 4.1 command ending in `!!` "
+                    "(e.g. `execShell(Actor[#Host], \"ls -la /app\", 15)!!`) to inspect the container.\n"
+                    "- Prefer `writeFile(Actor[#Host], path, \"\"\"...\"\"\")!!` and `editFile(Actor[#Host], path, \"\"\"old\"\"\", \"\"\"new\"\"\")!!` "
+                    "over brittle nested shell quoting (`perl -0pi`, `sed -i`, multiline `python3 -c`). Both work even without `python3` in the container.\n"
+                    "- When compiling inside Docker, use modest parallelism (`make -j4`, never `-j28`) to avoid container OOM/swap hangs; "
+                    "when a build or test fails, inspect the FIRST error (`head -40`), not just `tail -20`.\n"
+                    "- Before replying `COMPLETE: <summary>`, verify EVERY requirement in the instruction — including edge cases, "
+                    "cancellation/error paths, exact output file formats, and exhaustive candidate checks.\n\n"
                     f"TASK INSTRUCTION:\n{instruction}"
                 )
             else:
@@ -430,6 +476,24 @@ class BilbyTerminalBenchAgent(_HarborBaseAgent):
             status = str(fields.get("status", "completed") or "completed")
             harness_steps = int(fields.get("stepCount", 0) or 0)
             prompt_tokens, completion_tokens = _extract_usage_tokens(harness)
+
+            # Record full per-step ATIF trajectory for post-run forensic review.
+            raw_step_log = fields.get("stepLog")
+            step_entries = list(raw_step_log) if raw_step_log is not None else []
+            for se in step_entries:
+                if not isinstance(se, dict):
+                    continue
+                act_s = str(se.get("action") or "")
+                res_s = str(se.get("error") if se.get("status") == "error" else se.get("result") or "")
+                logger.add_step(
+                    "agent",
+                    act_s[:2000],
+                    observation={"results": [{"content": res_s[:2000], "status": se.get("status")}]},
+                    metrics={
+                        "step": int(se.get("step") or 0),
+                        "gas_used": int(se.get("gas_used") or 0),
+                    },
+                )
 
             logger.add_step(
                 "agent",
@@ -509,15 +573,27 @@ class BilbyTerminalBenchAgent(_HarborBaseAgent):
     ) -> Dict[str, Any]:
         """Execute a Terminal-Bench task under Harbor."""
         self._environment = environment
+        self._cancel_event = threading.Event()
         loop = asyncio.get_running_loop()
-        return await asyncio.to_thread(
-            self._execute_task_sync,
-            instruction,
-            logging_dir=self.logs_dir,
-            context=context,
-            environment=environment,
-            event_loop=loop,
-        )
+        try:
+            return await asyncio.to_thread(
+                self._execute_task_sync,
+                instruction,
+                logging_dir=self.logs_dir,
+                context=context,
+                environment=environment,
+                event_loop=loop,
+            )
+        except BaseException:
+            # Immediately halt the sync runGoal worker thread so timed-out trials never leak zombie GPU/Docker work.
+            self._cancel_event.set()
+            if self._harness is not None and hasattr(self._harness, "_fields"):
+                try:
+                    from actorii.core import Symbol
+                    self._harness._fields["status"] = Symbol("halted")
+                except Exception:
+                    pass
+            raise
 
     # --- Classic Terminal-Bench BaseAgent sync contract ---
     def perform_task(

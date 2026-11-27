@@ -318,13 +318,15 @@ def format_match_transcript(
     rewards: Any,
     opponent_name: str = "",
     max_turns_shown: int = 40,
+    reason: str = "",
 ) -> str:
     """Format a compact match transcript + outcome for post-fight RL film study."""
     outcome = classify_p0_outcome(rewards)
     opp_label = opponent_name or "opponent"
+    reason_part = f" | Reason: {reason.strip()}" if str(reason or "").strip() else ""
     header = (
         f"Match Film-Study Transcript | Env: {env_id} | Opponent: {opp_label} | "
-        f"Turns: {len(transcript)} | P0 Outcome: {outcome} | Rewards: {json.dumps(rewards, default=str)}"
+        f"Turns: {len(transcript)} | P0 Outcome: {outcome} | Rewards: {json.dumps(rewards, default=str)}{reason_part}"
     )
     lines = [header, "-" * min(len(header), 88)]
     shown = transcript[-max_turns_shown:]
@@ -510,6 +512,7 @@ def run_film_study(
     opponent_name: str = "",
     namespace: str = DEFAULT_STRATEGY_NAMESPACE,
     record_neo4j: bool = True,
+    reason: str = "",
 ) -> Dict[str, Any]:
     """Run post-match RL film study, extract lessons, and optionally persist to Neo4j."""
     compact_transcript = format_match_transcript(
@@ -517,6 +520,7 @@ def run_film_study(
         transcript=transcript,
         rewards=rewards,
         opponent_name=opponent_name,
+        reason=reason,
     )
     outcome = classify_p0_outcome(rewards)
     prompt = build_film_study_prompt(compact_transcript, env_id)
@@ -859,6 +863,9 @@ def main() -> int:
     match_2_summary: Optional[Dict[str, Any]] = None
 
     if args.film_study or args.rematch:
+        g_info = match_1_summary.get("game_info") or {}
+        p0_info = g_info.get(0) or g_info.get("0") or {}
+        p0_reason = str(p0_info.get("reason") or "") if isinstance(p0_info, dict) else ""
         film_study_report = run_film_study(
             env_id=args.env,
             transcript=match_1_transcript,
@@ -867,6 +874,7 @@ def main() -> int:
             opponent_name=opponent_name,
             namespace=DEFAULT_STRATEGY_NAMESPACE,
             record_neo4j=True,
+            reason=p0_reason,
         )
         print("\n=== FILM-STUDY LESSONS ===")
         print(film_study_report["lessons"])

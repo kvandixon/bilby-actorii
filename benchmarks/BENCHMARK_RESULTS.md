@@ -7,7 +7,7 @@
 
 - **Host Hardware**: `valkyrie — NVIDIA RTX 5070 Ti (16 GB VRAM), Fedora Linux 44, DDR5-6000 / 32 GB RAM`
 - **Memory Architecture**: `Neo4j :ActorEpisode / :ActorEngram hybrid graph + bge-small-en-v1.5 (:8084, 0 MB GPU VRAM)`
-- **Last Updated**: `2026-11-25`
+- **Last Updated**: `2026-11-27`
 - **Interactive Dark-Theme Dashboard**: `http://127.0.0.1:8090/benchmarks` (or open [`scoreboard.html`](scoreboard.html))
 
 ---
@@ -47,7 +47,7 @@
 | **Industry 8-Track Suite** | `22` | **`86.36% (19 / 22)`** | `81.82%` (`2026-11-14`) | **`+4.54 pp` ▲** | **`86.36%`** (`qwen3.8:latest`) | `2026-11-21` | [`INDUSTRY_8TRACK_2026-11-21_v440.json`](archive/INDUSTRY_8TRACK_2026-11-21_v440.json) |
 | **Next-Gen Post-Cutoff Suite** | `9 (×3)` | **`62.96% avg@3 (17 / 27 trials)`** | `59.26%` (`2026-11-14`) | **`+3.70 pp` ▲** | **`77.78%`** (`qwen3.8-27b`) | `2026-11-21` | [`NEXTGEN_AVG3_2026-11-21_v440.json`](archive/NEXTGEN_AVG3_2026-11-21_v440.json) |
 | **HumanEval-12 + GSM8K-8 Local Model Matrix** | `20` | **`100.00% (20 / 20)`** | `100.00%` (`2026-11-14`) | `0.00 pp (held)` | **`100.00%`** (`qwen3.8:latest`) | `2026-11-21` | [`BENCHMARK_RESULTS_2026-11-21_v440.json`](archive/BENCHMARK_RESULTS_2026-11-21_v440.json) |
-| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `5` | **`80.00% (4 / 5)`** | `80.00%` (`2026-11-25`) | `0.00 pp (held)` | **`80.00%`** (`qwen3.8:latest`) | `2026-11-25` | — |
+| **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `5` | **`100.00% (5 / 5)`** | `80.00%` (`2026-11-26`) | **`+20.00 pp` ▲** | **`100.00%`** (`inkling-2-mini-sq-15`) | `2026-11-27` | — |
 
 ### Memory
 
@@ -80,7 +80,7 @@
 
 | Benchmark Suite | Tasks (`N`) | Latest Verified Score | Prior Run | Δ vs Prior | All-Time Best | Date | Raw Ledger |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Bilby Cognitive Integrity & Metacognition Battery** | `8` | **`100.00% (8 / 8)`** | `100.00%` (`2026-11-25`) | `0.00 pp (held)` | **`100.00%`** (`qwen3.8:latest`) | `2026-11-25` | — |
+| **Bilby Cognitive Integrity & Metacognition Battery** | `8` | **`87.50% (7 / 8)`** | `87.50%` (`2026-11-26`) | `0.00 pp (held)` | **`100.00%`** (`qwen3.8:latest`) | `2026-11-27` | — |
 
 ---
 
@@ -133,23 +133,27 @@
 - **Scope**: Stratified 17-task multi-session episodic recall verification (12 LongMemEval + 5 LoCoMo).
 - **Highlights**: v4.4.0 clean-room sweep (16/17 = 94.12%, avg 11.03s vs 8/17 Raw Compaction)
 
-### Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.2.0` · `qwen3.8:latest` · `2026-11-25`)
+### Bilby Deterministic Self-Evolution Loop (Tiers 1-3) (`v4.2.0` · `inkling-2-mini-sq-15` · `2026-11-27`)
 - **Scope**: Multi-generation TDD self-evolution with hidden holdout anti-cheating & fresh-VM reload persistence gates
-- **Highlights**: Bout 1A: Cracked frontier #dag_task_scheduler 13/13 (100%) + ring_buffer 15/15 + circuit_breaker 10/10 + budget_advisor 15/15
+- **Highlights**: Canaries=['sensor_window_median', 'harness_step_budget_advisor', 'circuit_breaker_policy', 'ring_buffer_telemetry', 'dag_task_scheduler']; Frontier=[]
 
-### Bilby Cognitive Integrity & Metacognition Battery (`v4.2.0` · `qwen3.8:latest` · `2026-11-25`)
+### Bilby Cognitive Integrity & Metacognition Battery (`v4.2.0` · `inkling-2-mini-sq-15` · `2026-11-27`)
 - **Scope**: 8 deterministic cognitive probes (AgentHallu honesty, trace self-monitoring, BFCL Go/No-Go inhibition, AA-Omniscience abstention, SYCON-Bench sycophancy resistance, CogToM false-belief & register).
-- **Highlights**: 8/8 post-caution-reduction baseline (COG5 3x faster at 50.7s, COG6 3x faster at 5.8s)
+- **Highlights**: Live Cognitive Battery (floor=7/8)
 
 ---
 
 ## 4. Historical Run & Model Progression Ledger
 
 <details>
-<summary><strong>Click to expand all 51 historical benchmark runs (`v4.0.0` → `v4.3.0`)</strong></summary>
+<summary><strong>Click to expand all 55 historical benchmark runs (`v4.0.0` → `v4.3.0`)</strong></summary>
 
 | Date | Benchmark | Version | Model | Mode / Configuration | Score | Raw Artifact |
 | :---: | :--- | :---: | :---: | :--- | :---: | :--- |
+| `2026-11-27` | **Bilby Cognitive Integrity & Metacognition Battery** | `v4.2.0` | `inkling-2-mini-sq-15` | AgentHarness v4.2 (Gate Verified) | **`87.50% (7 / 8)`** | — |
+| `2026-11-27` | **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `v4.2.0` | `inkling-2-mini-sq-15` | AgentHarness v4.2 (Gate Verified) | **`100.00% (5 / 5)`** | — |
+| `2026-11-26` | **Bilby Cognitive Integrity & Metacognition Battery** | `v4.2.0` | `inkling-2-mini-sq-15` | AgentHarness v4.2 (Gate Verified) | **`87.50% (7 / 8)`** | — |
+| `2026-11-26` | **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `v4.2.0` | `inkling-2-mini-sq-15` | AgentHarness v4.2 (Gate Verified) | **`80.00% (4 / 5)`** | — |
 | `2026-11-25` | **Bilby Deterministic Self-Evolution Loop (Tiers 1-3)** | `v4.2.0` | `qwen3.8:latest` | AgentHarness v4.4 (Phase 1 Baseline) | **`80.00% (4 / 5)`** | — |
 | `2026-11-25` | **Bilby Cognitive Integrity & Metacognition Battery** | `v4.2.0` | `qwen3.8:latest` | AgentHarness v4.4 (Phase 1 Verified) | **`100.00% (8 / 8)`** | — |
 | `2026-11-25` | **Bilby Cognitive Integrity & Metacognition Battery** | `v4.2.0` | `qwen3.8:latest` | AgentHarness v4.2 (Gate Verified) | **`100.00% (8 / 8)`** | — |

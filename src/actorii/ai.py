@@ -456,13 +456,17 @@ class ValkyrieLLMClient:
                     marker in last_user_lower
                     for marker in (
                         "[previous step failed",
+                        "rolled back]",
+                        "duplicatestepwarning",
                         "[action required",
+                        "[midpoint implementation checkpoint",
                         "[edge debugging loop detected",
                         "[ssh self-kill diagnostic",
                         "[ssh background fd hang diagnostic",
                         "[step budget checkpoint",
                     )
                 )
+                or bool(re.search(r"\[exit=[1-9]\d*\]", last_res_tail))
                 or any(
                     k in last_res_tail
                     for k in (
@@ -479,18 +483,19 @@ class ValkyrieLLMClient:
                 )
             )
             think_mode = get_thinking_mode()
+            is_dup_retry = "duplicatestepwarning" in last_user_lower and not is_raw_synthesis
             env_thinking = (
                 (think_mode == "high" and not is_raw_synthesis and not already_verified_pass)
                 or (
                     think_mode == "medium"
                     and not is_raw_synthesis
                     and not already_verified_pass
-                    and (step_num <= 4 or step_num % 3 == 0 or needs_deep_reasoning)
+                    and (step_num <= 4 or step_num % 3 == 0 or needs_deep_reasoning or is_dup_retry)
                 )
                 or (
                     think_mode == "auto"
-                    and step_num >= 2
-                    and needs_deep_reasoning
+                    and not is_raw_synthesis
+                    and (is_dup_retry or (step_num >= 2 and needs_deep_reasoning))
                     and not already_verified_pass
                 )
             )
@@ -501,7 +506,6 @@ class ValkyrieLLMClient:
             eff_max_tokens = (
                 max(int(max_tokens or 4096), think_budget + 2048) if is_thinking else max_tokens
             )
-            is_dup_retry = "duplicatestepwarning" in last_user_lower and not is_raw_synthesis
             eff_temp = 0.6 if is_thinking else (max(float(temperature), 0.55) if is_dup_retry else temperature)
             payload = {
                 "model": self.model,
@@ -554,19 +558,23 @@ class ValkyrieLLMClient:
             content = (msg.get("content") or "").strip()
             reasoning = (msg.get("reasoning_content") or "").strip()
             wants_json = "valid json" in sys_txt or "json object" in sys_txt
+            empty_or_bang_only = not content.strip("!` \t\r\n")
             if wants_json:
-                needs_continuation = (not content) or (finish_reason == "length" and not content.rstrip().endswith("}"))
+                needs_continuation = empty_or_bang_only or (finish_reason == "length" and not content.rstrip().endswith("}"))
                 cont_instruction = "Now emit ONLY the valid JSON object (no markdown fences, no prose):"
             else:
-                needs_continuation = (not content) or (
+                needs_continuation = empty_or_bang_only or (
                     finish_reason == "length"
                     and (content.upper().startswith("COMPLETE:") or not content.endswith("!!"))
                 )
                 cont_instruction = (
                     "Based on your draft analysis above, emit ONLY the single executable 1993 Actor 4.1 expression ending in `!!` "
                     "(or `COMPLETE: ` followed by your concrete final response if the goal is already fully verified — no chain-of-thought):"
+                    if reasoning
+                    else "Your previous reply was empty (or only `!!`). Emit ONLY a single valid 1993 Actor 4.1 expression ending in `!!` "
+                    "OR `COMPLETE: <clear, honest answer>`:"
                 )
-            if needs_continuation and "/api/chat" not in url and (reasoning or (content and finish_reason == "length")):
+            if needs_continuation and "/api/chat" not in url and (empty_or_bang_only or reasoning or (content and finish_reason == "length")):
                 is_partial_complete = bool(content) and finish_reason == "length" and content.upper().startswith("COMPLETE:")
                 followup_msgs = [dict(m) for m in messages]
                 if is_partial_complete:
